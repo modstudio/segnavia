@@ -57,6 +57,7 @@ type ControlProps<E extends HTMLElement> = ElementProps<E> & {
 }
 
 export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
+  edition?: string
   labels?: Partial<PlayerLabels>
   css?: string
   cspExtra?: string
@@ -84,6 +85,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
 }
 
 export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'> {
+  edition?: string
   controller?: DeckController | null
   css?: string
   cspExtra?: string
@@ -117,6 +119,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
 }
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
+  edition?: string
   deck?: DocumentInput | null
   page?: DocumentInput | null
   print?: PrintInput | null

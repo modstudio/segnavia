@@ -1,5 +1,5 @@
 import { type BrandSource, Deck, deckFromDocument, resolveBrand } from '@segnavia/format'
-import { parseDocument } from '@segnavia/html'
+import { parseDocument, resolveEdition } from '@segnavia/html'
 
 const registryKey = Symbol.for('@segnavia/frame/deck-load-origin-registry')
 export const internalDeckLoad = Symbol.for('@segnavia/frame/internal-deck-load-method')
@@ -38,8 +38,8 @@ function recordDeckLoad(deck: Deck, load: Promise<void> | undefined, internal: b
   return deck
 }
 
-export function parseDeckLoad(input: unknown, load?: Promise<void>, internal = false): Deck {
-  const deck = internal ? Deck.parse(input) : deckFromDocument(parseDocument(input))
+export function parseDeckLoad(input: unknown, load?: Promise<void>, internal = false, edition?: string): Deck {
+  const deck = internal ? Deck.parse(input) : deckFromDocument(resolveEdition(parseDocument(input), edition))
   return recordDeckLoad(deck, load, internal)
 }
 
@@ -49,9 +49,10 @@ export async function resolveDeckLoad(
   signal: AbortSignal,
   load?: Promise<void>,
   internal = false,
+  edition?: string,
 ): Promise<Deck> {
-  if (internal) return parseDeckLoad(input, load, true)
-  const document = parseDocument(input)
+  if (internal) return parseDeckLoad(input, load, true, edition)
+  const document = resolveEdition(parseDocument(input), edition)
   return recordDeckLoad(deckFromDocument(document, await resolveBrand(document, source, signal)), load, false)
 }
 

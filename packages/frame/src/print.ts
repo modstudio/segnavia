@@ -28,6 +28,7 @@ import {
   parseAsOfInputs,
   parseDocument,
   resolveDayContextsFor,
+  resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -170,7 +171,7 @@ export async function preparedDeckPrint(
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   return preparedDeckValuePrint(deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal)), options, signal)
 }
 
@@ -282,7 +283,7 @@ function refusePagesSheets(options: PrintFrameOptions): void {
 
 export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {
   const signal = new AbortController().signal
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   const authoredDeck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
   options = parseAsOfInputs({ ...options, limits: parseLimits(options.limits, 'host') })
   const contexts = await resolveDayContextsFor([authoredDeck], options, options.slots, signal)
@@ -303,6 +304,7 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
 }
 
 export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions, AsOfInputs {
+  edition?: string
   slots?: SlotPrintOptions
   motifs?: MotifsOptions
   fonts?: FontsOptions
@@ -316,7 +318,7 @@ export async function printPages(pagesInput: PageOrPrintedInput[], impositionInp
   const signal = new AbortController().signal
   const pageValues = await Promise.all(
     pagesInput.map(async (input) => {
-      const document = parseDocument(input)
+      const document = resolveEdition(parseDocument(input), options.edition)
       return pageOrPrintedFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
     }),
   )

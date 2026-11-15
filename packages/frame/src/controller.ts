@@ -1,4 +1,5 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
+import { ControllerEdition } from './controller-edition.ts'
 import { emitControllerComplete, emitControllerState } from './controller-events.ts'
 import { stateForDeckLoad } from './controller-load.ts'
 import { controllerUrl, loadControllerUrl } from './controller-load-url.ts'
@@ -36,12 +37,14 @@ export class DeckController extends EventTarget {
   private bodyOverflow = ''
   private listening = false
   private completeEmitted = false
+  private editions: ControllerEdition
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
   constructor(options: ControllerOptions = {}) {
     super()
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
     this.options = { hash: null, keys: 'stage', seek: 'free', completeAt: 1, ...options }
+    this.editions = new ControllerEdition(this.options, (load) => void this.loadDeck(load.input, load.base, false).catch(() => {}))
     this.playback = new ControllerPlayback({
       state: () => this.current,
       setState: (state) => {
@@ -57,7 +60,6 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, ...this.settings }
     this.connectWindow()
   }
-
   get state(): DeckState {
     return this.current
   }
@@ -67,7 +69,6 @@ export class DeckController extends EventTarget {
   get captionsPolicy(): 'on' | 'off' | 'viewer' {
     return captionsPolicy(this.current.deck, this.options)
   }
-
   setPlayerOptions(options: PlayerOptions) {
     Object.assign(this.options, options)
     const deck = this.current.deck
@@ -77,6 +78,12 @@ export class DeckController extends EventTarget {
   }
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
+  }
+  get edition(): string | undefined {
+    return this.editions.value
+  }
+  set edition(value: string | undefined) {
+    this.editions.value = value
   }
   set brands(value: ControllerOptions['brands']) {
     this.options.brands = value
@@ -122,6 +129,7 @@ export class DeckController extends EventTarget {
     await this.loadDeck(input, undefined, true)
   }
   private async loadDeck(input: unknown, base: string | undefined, internal: boolean): Promise<void> {
+    this.editions.record(input, base, internal)
     const lifetime = replacePlacementLifetime(this.placementLifetime)
     this.placementLifetime = lifetime
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
@@ -129,7 +137,7 @@ export class DeckController extends EventTarget {
     if (base) this.options.base = base
     let deck: Deck
     try {
-      deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal)
+      deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal, this.options.edition)
     } catch (error) {
       if (lifetime.signal.aborted) return
       const refusal = new DeckRefusedError(error, base)
@@ -236,7 +244,6 @@ export class DeckController extends EventTarget {
   async previous(): Promise<void> {
     if (this.current.index > 0) await this.navigate(this.current.index - 1)
   }
-
   async play(): Promise<void> {
     const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
@@ -248,7 +255,6 @@ export class DeckController extends EventTarget {
     } else this.playback.startClock(this.current.slideElapsedMs)
     this.emit()
   }
-
   pause() {
     this.playback.cancelTick()
     this.playback.clock?.pause()
@@ -256,7 +262,6 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, playing: false }
     this.emit()
   }
-
   async seek(deckMs: number): Promise<void> {
     const deck = this.current.deck
     if (!deck) return
@@ -304,7 +309,6 @@ export class DeckController extends EventTarget {
     writeViewerSettings(this.options.persist !== false, this.settings)
     this.emit()
   }
-
   setCaptionsVisible(visible: boolean) {
     if (this.captionsPolicy !== 'viewer') return
     this.settings.captionsVisible = visible
@@ -315,7 +319,6 @@ export class DeckController extends EventTarget {
   toggle(): Promise<void> | void {
     return this.current.playing ? this.pause() : this.play()
   }
-
   // Returns what the key did, so a caller knows whether to prevent its default.
   key(key: string): DeckAction | null {
     if (this.options.keys === 'page' && key === ' ') return null
@@ -331,7 +334,6 @@ export class DeckController extends EventTarget {
     }
     return action
   }
-
   private async show(index = this.current.index, commitNavigation = false): Promise<boolean> {
     const deck = this.current.deck as Deck
     const slide = deck.slides[index] as Slide

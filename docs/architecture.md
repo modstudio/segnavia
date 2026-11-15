@@ -342,6 +342,12 @@ authors put an adjoining space inside a conditional inline range when that space
 should disappear with it. Kept text retains its own `dir` and `lang`; removing a
 whole element leaves no directional isolate behind.
 
+Browser deck, page and thumbnail elements accept `edition` as a property and
+attribute and resolve it before lowering the Document. Changing it reloads the
+retained Document through the element's existing error path. Browser print
+accepts the same name through `PrintOptions.edition`; omitting it selects the
+Document's `defaultEdition` on every path.
+
 A section, division or part whose children the edition removes entirely, and
 which carries no HTML of its own, is removed with them, so a lowering never
 receives an empty container. An edition that removes every top-level child is

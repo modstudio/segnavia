@@ -4,7 +4,14 @@ import { parseDocument } from '@segnavia/html'
 
 test('page readback keeps the parsed document with markdown lowered and ids minted', async () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
-  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class HTMLElement extends EventTarget {} })
+  Object.defineProperty(globalThis, 'HTMLElement', {
+    configurable: true,
+    value: class HTMLElement extends EventTarget {
+      getAttribute() {
+        return null
+      }
+    },
+  })
   try {
     const { SegnaviaThumbnail } = await import('./thumbnail.ts')
     const thumbnail = Object.create(SegnaviaThumbnail.prototype) as InstanceType<typeof SegnaviaThumbnail>

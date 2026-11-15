@@ -10,12 +10,13 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type EstablishedPageDay, type HtmlPage, parseDocument } from '@segnavia/html'
+import { type EstablishedPageDay, type HtmlPage, parseDocument, resolveEdition } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadBrandedPage } from './page-brand.ts'
@@ -37,7 +38,11 @@ import type { PreparedSlots } from './slot-render.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
-  static observedAttributes = ['src', 'bounded', 'label']
+  static {
+    defineEditionPropertyAccessor(SegnaviaPage.prototype)
+  }
+  static observedAttributes = ['src', 'edition', 'bounded', 'label']
+  declare edition: string | undefined
   private pageInput: DocumentInput | unknown
   private pageValue: Page | null = null
   private documentValue: Document | null = null
@@ -94,22 +99,18 @@ export class SegnaviaPage extends PageParseOptionsElement {
   protected asOfInputsChanged(): void {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   get pageWidths(): PageWidths | undefined {
     return this.widthOptions
   }
-
   set pageWidths(value: PageWidths | undefined) {
     const parsed = parsePageWidths(value)
     if (samePageWidths(this.widthOptions, parsed)) return
     this.widthOptions = parsed
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   get fonts(): FontsOptions | undefined {
     return this.fontOptions
   }
-
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
@@ -162,6 +163,16 @@ export class SegnaviaPage extends PageParseOptionsElement {
   }
 
   async attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name === 'edition') {
+      if (this.pageInput !== undefined) {
+        try {
+          this.load(this.pageInput)
+        } catch (error) {
+          dispatchPageFailure(this, error, true)
+        }
+      }
+      return
+    }
     if (name === 'bounded') {
       this.fit()
       return
@@ -176,7 +187,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   }
 
   load(input: DocumentInput | unknown) {
-    const document = parseDocument(input, { alertLabels: this.alertLabels, newId: this.newId })
+    const document = resolveEdition(parseDocument(input, { alertLabels: this.alertLabels, newId: this.newId }), this.edition)
     this.brandResolution?.abort()
     const controller = new AbortController()
     this.brandResolution = controller

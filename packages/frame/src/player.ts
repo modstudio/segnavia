@@ -13,6 +13,7 @@ import { DeckController, type DeckState } from './controller.ts'
 import { playerAttributeOptions } from './controller-options.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { DeckSourcesElement } from './deck-sources.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
@@ -62,9 +63,23 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
 export class SegnaviaPlayer extends DeckSourcesElement {
   static {
     definePlayerForwardedPropertyAccessors(SegnaviaPlayer.prototype)
+    defineEditionPropertyAccessor(SegnaviaPlayer.prototype)
   }
-  static observedAttributes = ['src', 'notes', 'rail', 'fit', 'controls', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
+  static observedAttributes = [
+    'src',
+    'edition',
+    'notes',
+    'rail',
+    'fit',
+    'controls',
+    'transition',
+    'transition-duration',
+    'presentation',
+    'playback',
+    'captions',
+  ]
   declare anchors: PlayerForwardedProperties['anchors']
+  declare edition: string | undefined
   declare asOf: PlayerForwardedProperties['asOf']
   declare moment: PlayerForwardedProperties['moment']
   declare css: PlayerForwardedProperties['css']
@@ -87,6 +102,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.controller = new DeckController({
       hash: hash === 'off' ? null : (hash ?? 'slide-'),
       prefetch: this.hasAttribute('prefetch'),
+      edition: this.edition,
     })
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
@@ -207,6 +223,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name === 'edition') this.controller.edition = value ?? undefined
     if (name === 'src' && value) {
       this.passPlayerOptions()
       void this.controller.loadUrl(value).catch(() => {})

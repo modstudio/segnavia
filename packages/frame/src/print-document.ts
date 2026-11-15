@@ -36,6 +36,7 @@ import {
   pageOrPrintedFromInput,
   parseDocument,
   placementPlaceholderSource,
+  resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
@@ -113,6 +114,7 @@ export async function resolveDeckMedia<R extends { kind: string }>(
 }
 
 export interface PrintOptions {
+  edition?: string
   newId?: () => string
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
@@ -208,7 +210,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   refuseNamedDocumentBrand(document, 'printableDeckValue')
   return printableDeckValue(deckFromDocument(document), options)
 }
@@ -265,7 +267,7 @@ export interface PrintableDeckDocument {
 }
 
 export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   refuseNamedDocumentBrand(document, 'printableDeckValueDocument')
   return printableDeckValueDocument(deckFromDocument(document), options)
 }

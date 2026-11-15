@@ -16,6 +16,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, MESSAGE, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
+import { defineEditionPropertyAccessor, editionAttribute } from './edition-property.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
@@ -38,11 +39,13 @@ import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 export class SegnaviaStage extends AsOfElement {
-  static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
+  static observedAttributes = ['src', 'edition', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
     defineStagePropertyAccessors(SegnaviaStage.prototype)
+    defineEditionPropertyAccessor(SegnaviaStage.prototype)
   }
   declare css: string
+  declare edition: string | undefined
   declare cspExtra: string
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
@@ -76,7 +79,6 @@ export class SegnaviaStage extends AsOfElement {
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
-
   get profile(): PreflightProfileInput {
     return surfacePreflightFor(this).profile
   }
@@ -164,6 +166,7 @@ export class SegnaviaStage extends AsOfElement {
     this.attached?.removeEventListener('change', this.onChange)
     this.attached?.removeEventListener('error', this.onControllerError)
     this.attached = controller
+    if (controller) controller.edition = editionAttribute(this)
     if (this.isConnected) controller?.connectWindow()
     else controller?.disconnectWindow()
     controller?.addEventListener('change', this.onChange)
@@ -212,6 +215,10 @@ export class SegnaviaStage extends AsOfElement {
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name === 'edition') {
+      if (this.attached) this.attached.edition = value ?? undefined
+      return
+    }
     if (name !== 'src') {
       if (this.attached?.state.deck) this.update(this.attached.state)
       this.measure()
@@ -236,7 +243,12 @@ export class SegnaviaStage extends AsOfElement {
     if (!src || !this.isConnected) return
     if (!this.owned) {
       const hash = this.getAttribute('hash')
-      this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch'), brands: this.brands })
+      this.owned = new DeckController({
+        hash: hash === 'off' ? null : (hash ?? 'slide-'),
+        prefetch: this.hasAttribute('prefetch'),
+        brands: this.brands,
+        edition: editionAttribute(this),
+      })
       this.controller = this.owned
     }
     this.owned.brands = this.brands

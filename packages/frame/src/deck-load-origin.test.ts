@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import type { Brand, BrandSource } from '@segnavia/format'
-import { parseDocument } from '@segnavia/html'
+import { type Brand, type BrandSource, deckFromDocument } from '@segnavia/format'
+import { parseDocument, resolveEdition } from '@segnavia/html'
 import { comparableContent } from './content-value.ts'
 import { DeckController } from './controller.ts'
 import { deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad, resolveDeckLoad } from './deck-load-origin.ts'
@@ -47,6 +47,57 @@ test('resolved document loads use the shared provenance record', async () => {
 
   expect(deckPreservesNotes(deck, 'a')).toBe(true)
   expect(isInternalDeck(deck)).toBe(false)
+})
+
+const editionDocument = () => ({
+  ...documentInput(),
+  conditions: [{ type: 'condition' as const, name: 'teacher' }],
+  editions: [
+    { type: 'edition' as const, name: 'student', conditions: [] },
+    { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+  ],
+  defaultEdition: 'student',
+  children: [
+    {
+      type: 'slide' as const,
+      id: 'a',
+      content: {
+        kind: 'html' as const,
+        html: '<p data-segnavia-id="question">Question<span data-segnavia-id="answer" data-segnavia-condition="teacher"> Answer</span></p>',
+      },
+    },
+  ],
+})
+
+test('frame deck loading resolves the same document edition as the render edge', async () => {
+  const input = editionDocument()
+  const expected = deckFromDocument(resolveEdition(parseDocument(input), 'teacher'))
+  const actual = await resolveDeckLoad(input, undefined, new AbortController().signal, undefined, false, 'teacher')
+
+  expect(actual).toEqual(expected)
+  expect(JSON.stringify(actual)).toContain('Answer')
+})
+
+test('changing a controller edition re-resolves its retained document and reports an unknown edition', async () => {
+  const controller = new DeckController({ hash: null, edition: 'student' })
+  await controller.load(editionDocument())
+  expect(JSON.stringify(controller.state.deck)).not.toContain('Answer')
+
+  const changed = new Promise<void>((resolve) => {
+    const listen = () => {
+      if (!JSON.stringify(controller.state.deck).includes('Answer')) return
+      controller.removeEventListener('change', listen)
+      resolve()
+    }
+    controller.addEventListener('change', listen)
+  })
+  controller.edition = 'teacher'
+  await changed
+  expect(JSON.stringify(controller.state.deck)).toContain('Answer')
+
+  const refused = new Promise<ErrorEvent>((resolve) => controller.addEventListener('error', (event) => resolve(event as ErrorEvent), { once: true }))
+  controller.edition = 'missing'
+  expect((await refused).error.message).toContain('requested edition "missing" is unknown')
 })
 
 test('host deck inputs are never mutated for load provenance', async () => {

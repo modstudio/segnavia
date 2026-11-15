@@ -26,6 +26,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.stage,
     [
       'controller',
+      'edition',
       'css',
       'cspExtra',
       'origins',
@@ -46,6 +47,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.thumbnail,
     [
       'deck',
+      'edition',
       'page',
       'print',
       'index',
@@ -172,7 +174,7 @@ export const ELEMENT_PROPERTIES = {
   ),
   player: descriptor(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],
+    ['labels', 'edition', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],
     ['segnavia-labels'],
   ),
   refusal: descriptor(STYLED_ELEMENTS.refusal, ['refusal', 'labels'], []),
