@@ -17,6 +17,7 @@ import {
   setRangeStart,
 } from './composer-paragraph-dom.ts'
 import { appendMeasuredTokens, appendTextTokens, graphemes, measuredTokens, measurementStyleKey, type ParagraphToken } from './composer-paragraph-measure.ts'
+import { hyphenWidth, paragraphFitsOneLine, structuredParagraphReuseKey } from './composer-paragraph-performance.ts'
 import {
   type ComposedParagraph,
   composesParagraph,
@@ -67,21 +68,6 @@ type ParagraphItem =
   | { type: 'box'; width: number }
   | { type: 'glue'; width: number; stretch: number; shrink: number }
   | { type: 'penalty'; width: number; penalty: number; flagged: boolean }
-function hyphenWidth(paragraph: Element, doc: Document, styleFor: typeof getComputedStyle, widths: Map<string, number>): number {
-  const style = styleFor(paragraph)
-  const key = `${style.writingMode}|${measurementStyleKey(paragraph, styleFor)}`
-  const cached = widths.get(key)
-  if (cached !== undefined) return cached
-  const marker = doc.createElement('span')
-  marker.textContent = '-'
-  marker.style.cssText = 'position:absolute;visibility:hidden;white-space:pre'
-  paragraph.append(marker)
-  const rect = marker.getBoundingClientRect()
-  marker.remove()
-  const width = logicalExtent(rect, style.writingMode, 'inline')
-  widths.set(key, width)
-  return width
-}
 function wordRanges(tokens: readonly ParagraphToken[]): { start: number; end: number; text: string }[] {
   const words: { start: number; end: number; text: string }[] = []
   let start = 0
@@ -116,13 +102,16 @@ function tokenForOffset(tokens: readonly ParagraphToken[], start: number, point:
 export function planParagraphLines(tokens: readonly ParagraphToken[], settings: CompositionSettings, markerWidth = 0): ParagraphLine[] {
   return planParagraphLinesWith(tokens, settings, markerWidth, breakLines, hyphenationPoints)
 }
-function planParagraphLinesWith(
+export function planParagraphLinesWith(
   tokens: readonly ParagraphToken[],
   settings: CompositionSettings,
   markerWidth: number,
   breakForLines: typeof breakLines,
   pointsForWord: typeof hyphenationPoints,
 ): ParagraphLine[] {
+  if (paragraphFitsOneLine(tokens, settings)) {
+    return [{ start: 0, end: tokens.length, wordSpacing: 0, hyphen: false, forced: false }]
+  }
   const { items, metadata, tokenItems } = paragraphItems(tokens, settings)
   addHyphenationItems(items, metadata, tokenItems, tokens, settings, markerWidth, pointsForWord)
   return plannedLines(tokens, settings, items, metadata, breakForLines)
@@ -258,21 +247,29 @@ function paragraphRewriteForFact(
   const original = Array.from(paragraph.childNodes)
   const language = paragraphLanguage(paragraph, doc)
   const direction = paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction)
-  const reuseKey =
-    paragraph.childElementCount === 0
-      ? JSON.stringify([
-          paragraph.textContent ?? '',
-          inlineSize,
-          language,
-          direction,
-          measurementStyleKey(paragraph, styleFor),
-          style.textIndent,
-          style.writingMode,
-          composition.hyphenate ?? compositionDefaults().hyphenate,
-          composition.wordSpacing ?? compositionDefaults().wordSpacing,
-        ])
-      : ''
-  const source = reuseKey ? reusable.get(reuseKey) : undefined
+  const hyphenate = composition.hyphenate ?? compositionDefaults().hyphenate
+  const wordSpacing = composition.wordSpacing ?? compositionDefaults().wordSpacing
+  const reuseFacts = [
+    inlineSize,
+    language,
+    direction,
+    measurementStyleKey(paragraph, styleFor),
+    style.textIndent,
+    style.writingMode,
+    hyphenate,
+    wordSpacing,
+  ]
+  let reuseKey =
+    paragraph.childElementCount === 0 ? JSON.stringify([paragraph.textContent ?? '', ...reuseFacts]) : ''
+  let source = reuseKey ? reusable.get(reuseKey) : undefined
+  let tokens: ParagraphToken[] = []
+  if (!source) {
+    tokens = measuredTokens(paragraph, cache, doc, styleFor)
+    if (paragraph.childElementCount > 0) {
+      reuseKey = structuredParagraphReuseKey(paragraph, reuseFacts, tokens)
+      source = reusable.get(reuseKey)
+    }
+  }
   if (source) {
     const action = paragraphCompositionAction(previous?.inlineSize, style.textAlign, composer, source.lines.length)
     if (action === 'leave' || action === 'restore') return undefined
@@ -286,15 +283,14 @@ function paragraphRewriteForFact(
       source,
     }
   }
-  const tokens = measuredTokens(paragraph, cache, doc, styleFor)
   const lines = planLines(
     tokens,
     {
       measure: inlineSize,
       language,
-      hyphenate: composition.hyphenate ?? compositionDefaults().hyphenate,
+      hyphenate,
       indent: resolvedTextIndent(style.textIndent, inlineSize),
-      spacing: composition.wordSpacing ?? compositionDefaults().wordSpacing,
+      spacing: wordSpacing,
     },
     hyphenWidth(paragraph, doc, styleFor, hyphenWidths),
     breakForLines,
@@ -365,6 +361,8 @@ ${embedFunction('measuredTokens', measuredTokens)}
 ${embedFunction('hyphenWidth', hyphenWidth)}
 ${embedFunction('wordRanges', wordRanges)}
 ${embedFunction('tokenForOffset', tokenForOffset)}
+${embedFunction('paragraphFitsOneLine', paragraphFitsOneLine)}
+${embedFunction('structuredParagraphReuseKey', structuredParagraphReuseKey)}
 ${embedFunction('paragraphItems', paragraphItems)}
 ${embedFunction('shiftMetadata', shiftMetadata)}
 ${embedFunction('addHyphenationItems', addHyphenationItems)}
