@@ -35,7 +35,8 @@ export interface ResolvedNoteSeries {
   numbering: NoteNumbering
   marker: NoteMarkerValue
   title: string
-  contents: boolean
+  /** Whether to list the series section; present only on a book-placed series. */
+  contents?: boolean
   contentsLabel?: string
   idStem: string
   idScope: 'chapter' | 'numbering'
@@ -73,10 +74,6 @@ function withoutResolvedPresentation(value: unknown): unknown {
   if (typeof value !== 'object' || value === null || !RESOLVED_PRESENTATION_KEYS.every((key) => key in value)) return value
   const authored: Record<string, unknown> = { ...value }
   for (const key of RESOLVED_PRESENTATION_KEYS) delete authored[key]
-  if (authored.placement !== 'book') {
-    delete authored.contents
-    delete authored.contentsLabel
-  }
   return authored
 }
 
@@ -303,8 +300,12 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
       numbering: series.numbering,
       marker,
       title: series.title,
-      contents: series.contents ?? true,
-      ...(series.contentsLabel === undefined ? {} : { contentsLabel: series.contentsLabel }),
+      ...(series.placement === 'book'
+        ? {
+            contents: series.contents ?? true,
+            ...(series.contentsLabel === undefined ? {} : { contentsLabel: series.contentsLabel }),
+          }
+        : {}),
       idStem: series.idStem,
       idScope: series.idScope,
       blockClass: series.blockClass,
