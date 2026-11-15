@@ -5,6 +5,8 @@ import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
   COMPOSITION_IDENTITY_ATTRIBUTE,
   COMPOSITION_VARIABLE_VALUE_ATTRIBUTE,
+  correctedWordSpacing,
+  fitLineToMeasure,
   lineFragment,
   markCompositionContinuations,
   markCompositionIdentities,
@@ -268,13 +270,15 @@ export function composeParagraphs(
     if (composer !== 'paragraph') continue
     const original = Array.from(paragraph.childNodes)
     const tokens = measuredTokens(paragraph, cache, doc, styleFor)
+    const indent = Number.parseFloat(style.textIndent) || 0
+    const measures = paragraphMeasures(inlineSize, indent)
     const lines = planLines(
       tokens,
       {
         measure: inlineSize,
         language: paragraphLanguage(paragraph, doc),
         hyphenate: composition.hyphenate ?? true,
-        indent: Number.parseFloat(style.textIndent) || 0,
+        indent,
         spacing: composition.wordSpacing ?? { minimum: 80, desired: 100, maximum: 133 },
       },
       hyphenWidth(paragraph, doc, styleFor),
@@ -294,6 +298,8 @@ export function composeParagraphs(
       identityAttribute,
       continuationAttribute,
       variableValueAttribute,
+      measures,
+      style.writingMode,
     )
   }
 }
@@ -324,6 +330,8 @@ ${embedFunction('lineFragment', lineFragment)}
 ${embedFunction('markCompositionIdentities', markCompositionIdentities)}
 ${embedFunction('markCompositionContinuations', markCompositionContinuations)}
 ${embedFunction('removeContinuationIds', removeContinuationIds)}
+${embedFunction('correctedWordSpacing', correctedWordSpacing)}
+${embedFunction('fitLineToMeasure', fitLineToMeasure)}
 ${embedFunction('rewriteParagraph', rewriteParagraph)}
 ${embedFunction('contentInlineSize', contentInlineSize)}
 ${embedFunction('paragraphLanguage', paragraphLanguage)}

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { Box, Glue, Penalty } from './line-break.ts'
-import { breakLines } from './line-break.ts'
+import { breakLines, breakLinesScript } from './line-break.ts'
 import { breakLinesReference } from './line-break-legacy.test-helper.ts'
 
 const box = (width: number): Box => ({ type: 'box', width })
@@ -166,13 +166,14 @@ test('active-node deactivation preserves ratio-limited breaks over generated par
     const widths = caseIndex % 3 === 0 ? [firstMeasure, firstMeasure + 3, firstMeasure - 2] : [firstMeasure]
     return { items, widths }
   })
-  const chunked: Array<Box | Glue | Penalty> = Array.from({ length: 1_010 }, (_, index) => [box(1 + (index % 3)), glue(1, 8, 1)]).flat()
+  const chunked: Array<Box | Glue | Penalty> = Array.from({ length: 30 }, (_, index) => [box(1 + (index % 3)), glue(1, 8, 1)]).flat()
   chunked.push(box(2), penalty(Number.NEGATIVE_INFINITY))
-  generated.push({ items: chunked, widths: [42] })
 
   for (const sample of generated) {
     const reference = breakLinesReference(sample.items, sample.widths)
     expect(reference.violations).not.toContain(true)
     expect(breakLines(sample.items, sample.widths)).toEqual(reference)
   }
+  const chunkedBreakLines = new Function(`${breakLinesScript().replace('var CHUNK_ITEMS=2000', 'var CHUNK_ITEMS=20')};return breakLines`)() as typeof breakLines
+  expect(chunkedBreakLines(chunked, [18, 20])).toEqual(breakLinesReference(chunked, [18, 20], {}, 20))
 })

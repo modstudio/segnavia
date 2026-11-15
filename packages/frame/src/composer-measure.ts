@@ -224,6 +224,13 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
+  const composedLines = element.querySelectorAll(':scope > span[data-segnavia-line]')
+  if (composedLines.length > 0) {
+    return Array.from(composedLines, (line) => {
+      const box = line.getBoundingClientRect()
+      return { top: box.top - origin, bottom: box.bottom - origin }
+    })
+  }
   const display = getComputedStyle(element).display
   if (display === 'table' || display === 'inline-table') {
     return tableRenderedInFlow(element) ? measureTableLines(element, origin) : []

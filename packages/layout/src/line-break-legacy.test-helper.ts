@@ -324,8 +324,9 @@ export function breakLinesReference(
   items: readonly Item[],
   widths: readonly number[],
   options: Options = {},
+  chunkItems = CHUNK_ITEMS,
 ): { breaks: number[]; ratios: number[]; violations: boolean[] } {
-  return breakLinesWith(items, widths, options, CHUNK_ITEMS, INFINITE_BADNESS)
+  return breakLinesWith(items, widths, options, chunkItems, INFINITE_BADNESS)
 }
 
 function penaltyBoundary(item: Item | undefined): Penalty {

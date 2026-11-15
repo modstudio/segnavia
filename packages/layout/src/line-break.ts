@@ -165,7 +165,7 @@ function overfullPastShrink(
   const end = current.index
   const natural = (sums.width[end] ?? 0) - (sums.width[start] ?? 0)
   const shrink = (sums.shrink[end] ?? 0) - (sums.shrink[start] ?? 0)
-  return natural - shrink >= target
+  return natural - shrink > target
 }
 
 function candidateNode(
