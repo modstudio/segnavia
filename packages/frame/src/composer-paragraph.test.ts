@@ -7,6 +7,7 @@ import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
   COMPOSITION_IDENTITY_ATTRIBUTE,
+  lineFragment,
   markCompositionContinuations,
   removeContinuationIds,
 } from './composer-paragraph-dom.ts'
@@ -96,9 +97,32 @@ test('keeps every break space in the planned line ranges', () => {
   expect(planned.flatMap((line) => held.slice(line.start, line.end))).toEqual(held)
 })
 
+test('builds a plain-text line without cloning a DOM range', () => {
+  const appended: unknown[] = []
+  const text = { nodeType: 3, data: 'one two' } as Text
+  const doc = {
+    createDocumentFragment: () => ({ append: (node: unknown) => appended.push(node) }),
+    createTextNode: (data: string) => ({ data }),
+    createRange: () => {
+      throw new Error('plain text should not create a range')
+    },
+  } as unknown as Document
+  lineFragment(
+    [
+      { kind: 'text', text: 'n', width: 1, node: text, start: 1, end: 2 },
+      { kind: 'text', text: 'e', width: 1, node: text, start: 2, end: 3 },
+      { kind: 'space', text: ' ', width: 1, node: text, start: 3, end: 4 },
+    ],
+    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false },
+    doc,
+  )
+  expect(appended).toEqual([{ data: 'ne ' }])
+})
+
 test('decides restore and recompose without retaining a stale size', () => {
   expect(paragraphCompositionAction(undefined, 100, 'justify', 'paragraph', 2)).toBe('compose')
   expect(paragraphCompositionAction(100, 100, 'justify', 'paragraph', 2)).toBe('skip')
+  expect(paragraphCompositionAction(100, 100, 'justify', 'paragraph', 2, true)).toBe('restore-and-compose')
   expect(paragraphCompositionAction(100, 80, 'justify', 'paragraph', 1)).toBe('restore')
   expect(paragraphCompositionAction(undefined, 100, 'justify', 'paragraph', 2)).toBe('compose')
   expect(paragraphCompositionAction(100, 80, 'start', 'paragraph', 2)).toBe('restore')

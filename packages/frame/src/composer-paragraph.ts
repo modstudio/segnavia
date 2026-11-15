@@ -46,6 +46,17 @@ interface BreakMeta {
   hyphen: boolean
   forced: boolean
 }
+interface ParagraphRewrite {
+  paragraph: Element
+  original: Node[]
+  contentSignature: string
+  inlineSize: number
+  tokens: ParagraphToken[]
+  lines: ParagraphLine[]
+  direction: string
+  marker: Comment
+  source?: ParagraphRewrite
+}
 type ParagraphItem =
   | { type: 'box'; width: number }
   | { type: 'glue'; width: number; stretch: number; shrink: number }
@@ -219,8 +230,15 @@ export function paragraphMeasures(measure: number, indent: number): number[] {
   return [measure - indent, measure]
 }
 
-export function paragraphCompositionAction(previousInlineSize: number | undefined, inlineSize: number, textAlign: string, composer: string, lineCount: number) {
-  if (previousInlineSize !== undefined && Math.abs(previousInlineSize - inlineSize) <= 0.5) return 'skip'
+export function paragraphCompositionAction(
+  previousInlineSize: number | undefined,
+  inlineSize: number,
+  textAlign: string,
+  composer: string,
+  lineCount: number,
+  contentChanged = false,
+) {
+  if (previousInlineSize !== undefined && !contentChanged && Math.abs(previousInlineSize - inlineSize) <= 0.5) return 'skip'
   const shouldCompose = textAlign === 'justify' && composer === 'paragraph' && lineCount > 1
   if (previousInlineSize !== undefined) return shouldCompose ? 'restore-and-compose' : 'restore'
   return shouldCompose ? 'compose' : 'leave'
@@ -245,10 +263,14 @@ function paragraphLanguage(paragraph: Element, doc: Document): string {
   return paragraph.closest('[lang]')?.getAttribute('lang') ?? doc.documentElement.lang
 }
 
+function originalContentSignature(children: readonly Node[]): string {
+  return children.map((node) => (node.nodeType === 1 ? (node as Element).outerHTML : node.textContent ?? '')).join('\u0000')
+}
+
 function restoreParagraph(
   paragraph: Element,
-  previous: { children: Node[]; inlineSize: number } | undefined,
-  composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
+  previous: { children: Node[]; inlineSize: number; contentSignature: string } | undefined,
+  composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number; contentSignature: string }>,
   variableValueAttribute: string,
 ): void {
   if (!previous) return
@@ -261,7 +283,7 @@ export function composeParagraphs(
   root: ParentNode,
   doc: Document,
   styleFor: typeof getComputedStyle,
-  composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
+  composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number; contentSignature: string }>,
   readStyle: typeof readCompositionStyle,
   planLines: typeof planParagraphLinesWith,
   breakForLines: typeof breakLines,
@@ -278,18 +300,72 @@ export function composeParagraphs(
   profile.paragraphs += paragraphs.length
   profile.passes.push(pass)
   const now = () => (doc.defaultView?.performance ?? performance).now()
+  const facts: Array<{
+    paragraph: Element
+    previous: { children: Node[]; inlineSize: number; contentSignature: string } | undefined
+    inlineSize: number
+    style: CSSStyleDeclaration
+    composition: ReturnType<typeof readCompositionStyle>
+    composer: string
+    contentChanged: boolean
+  }> = []
   for (const paragraph of paragraphs) {
     const rect = paragraph.getBoundingClientRect()
     const style = styleFor(paragraph)
     const inlineSize = measureContent(rect, style)
     const previous = composedParagraphs.get(paragraph)
-    if (previous && Math.abs(previous.inlineSize - inlineSize) <= 0.5) continue
-    restoreParagraph(paragraph, previous, composedParagraphs, variableValueAttribute)
-    if (style.textAlign !== 'justify') continue
-    const composition = readStyle(style)
+    const composition = style.textAlign === 'justify' ? readStyle(style) : {}
     const composer = composition.composer ?? 'paragraph'
-    if (composer !== 'paragraph') continue
+    const contentChanged = previous !== undefined && originalContentSignature(previous.children) !== previous.contentSignature
+    if (previous && !contentChanged && Math.abs(previous.inlineSize - inlineSize) <= 0.5) continue
+    facts.push({ paragraph, previous, inlineSize, style, composition, composer, contentChanged })
+  }
+  for (const fact of facts) restoreParagraph(fact.paragraph, fact.previous, composedParagraphs, variableValueAttribute)
+  const rewrites: ParagraphRewrite[] = []
+  const reusable = new Map<string, ParagraphRewrite>()
+  for (const { paragraph, previous, inlineSize, style, composition, composer, contentChanged } of facts) {
+    if (style.textAlign !== 'justify' || composer !== 'paragraph') continue
     const original = Array.from(paragraph.childNodes)
+    const contentSignature = originalContentSignature(original)
+    const language = paragraphLanguage(paragraph, doc)
+    const direction = paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction)
+    const reuseKey =
+      paragraph.childElementCount === 0
+        ? JSON.stringify([
+            contentSignature,
+            inlineSize,
+            language,
+            direction,
+            style.font,
+            style.fontKerning,
+            style.fontFeatureSettings,
+            style.fontVariationSettings,
+            style.letterSpacing,
+            style.textTransform,
+            style.textIndent,
+            style.writingMode,
+            composition.hyphenate ?? true,
+            composition.wordSpacing ?? { minimum: 80, desired: 100, maximum: 133 },
+          ])
+        : ''
+    const source = reuseKey ? reusable.get(reuseKey) : undefined
+    if (source) {
+      const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, source.lines.length, contentChanged)
+      if (action !== 'leave' && action !== 'restore') {
+        rewrites.push({
+          paragraph,
+          original,
+          contentSignature,
+          inlineSize,
+          tokens: [],
+          lines: source.lines,
+          direction,
+          marker: doc.createComment(''),
+          source,
+        })
+      }
+      continue
+    }
     const tokensStarted = now()
     const tokens = measuredTokens(paragraph, cache, doc, styleFor, profile)
     profile.tokenMeasurementMs += now() - tokensStarted
@@ -300,7 +376,7 @@ export function composeParagraphs(
       tokens,
       {
         measure: inlineSize,
-        language: paragraphLanguage(paragraph, doc),
+        language,
         hyphenate: composition.hyphenate ?? true,
         indent,
         spacing: composition.wordSpacing ?? { minimum: 80, desired: 100, maximum: 133 },
@@ -311,23 +387,44 @@ export function composeParagraphs(
       profile,
       now,
     )
-    const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length)
+    const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length, contentChanged)
     if (action === 'leave' || action === 'restore') continue
-    composedParagraphs.set(paragraph, { children: original, inlineSize })
-    pass.recomposed += 1
-    if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(variableValueAttribute, paragraph.textContent ?? '')
-    const rewriteStarted = now()
-    rewriteParagraph(
+    const rewrite: ParagraphRewrite = {
       paragraph,
+      original,
+      contentSignature,
+      inlineSize,
       tokens,
       lines,
-      doc,
-      paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction),
-      identityAttribute,
-      continuationAttribute,
-      variableValueAttribute,
-    )
+      direction,
+      marker: doc.createComment(''),
+    }
+    rewrites.push(rewrite)
+    if (reuseKey) reusable.set(reuseKey, rewrite)
+  }
+  for (const rewrite of rewrites) rewrite.paragraph.replaceWith(rewrite.marker)
+  for (const { paragraph, tokens, lines, direction, source } of rewrites) {
+    const rewriteStarted = now()
+    if (source) paragraph.replaceChildren(...Array.from(source.paragraph.childNodes, (node) => node.cloneNode(true)))
+    else {
+      if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(variableValueAttribute, paragraph.textContent ?? '')
+      rewriteParagraph(
+        paragraph,
+        tokens,
+        lines,
+        doc,
+        direction,
+        identityAttribute,
+        continuationAttribute,
+        variableValueAttribute,
+      )
+    }
     profile.rewriteMs += now() - rewriteStarted
+  }
+  for (const { paragraph, original, contentSignature, inlineSize, marker } of rewrites) {
+    marker.replaceWith(paragraph)
+    composedParagraphs.set(paragraph, { children: original, inlineSize, contentSignature })
+    pass.recomposed += 1
   }
 }
 
@@ -360,6 +457,7 @@ ${embedFunction('removeContinuationIds', removeContinuationIds)}
 ${embedFunction('rewriteParagraph', rewriteParagraph)}
 ${embedFunction('contentInlineSize', contentInlineSize)}
 ${embedFunction('paragraphLanguage', paragraphLanguage)}
+${embedFunction('originalContentSignature', originalContentSignature)}
 ${embedFunction('restoreParagraph', restoreParagraph)}
 ${embedFunction('paragraphProfile', paragraphProfile)}
 ${embedFunction('composeParagraphs', composeParagraphs)}`
