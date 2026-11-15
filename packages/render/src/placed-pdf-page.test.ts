@@ -108,7 +108,7 @@ test('uses and removes Chromium marker annotations for fragmented page placement
   )
   const output = await drawPlacedPdfPages(
     await target.save(),
-    [{ id: 'marker', address: 'source', page: 1, paper: 0, draw: { x: 0, y: 0, width: 1, height: 1 }, clip: { x: 0, y: 0, width: 1, height: 1 } }],
+    [{ id: 'marker', address: 'source', page: 1, paper: 0, draw: { x: 0, y: 0, width: 192, height: 96 }, clip: { x: 0, y: 0, width: 192, height: 96 } }],
     {
       placements: {
         resolve: async () => undefined,

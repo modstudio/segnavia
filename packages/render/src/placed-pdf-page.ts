@@ -64,8 +64,7 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
       return visible
     }
     const papers = [...document.querySelectorAll<HTMLElement>('[data-segnavia-printed-page]')]
-    return [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].flatMap((element) => {
-      if (element.closest('[data-segnavia-galley-source]')) return []
+    const markerData = (element: HTMLElement) => {
       const address = element.getAttribute('data-segnavia-media')
       const page = Number(element.getAttribute('data-segnavia-placed-pdf'))
       const box = element.getAttribute('data-segnavia-box') as PageBoxName | null
@@ -73,7 +72,20 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
       const id = element.getAttribute('data-segnavia-placed-pdf-id')
       const offsetX = Number(element.getAttribute('data-segnavia-placed-pdf-offset-x'))
       const offsetY = Number(element.getAttribute('data-segnavia-placed-pdf-offset-y'))
-      if (!address || !Number.isSafeInteger(page) || page < 1) return []
+      if (!address || !Number.isSafeInteger(page) || page < 1) return undefined
+      return {
+        address,
+        ...(id ? { id } : {}),
+        ...(Number.isFinite(offsetX) && Number.isFinite(offsetY) ? { anchorOffset: { x: offsetX, y: offsetY } } : {}),
+        page,
+        ...(box ? { box } : {}),
+        ...(crop ? { crop } : {}),
+      }
+    }
+    const measure = (element: HTMLElement) => {
+      if (element.closest('[data-segnavia-galley-source]')) return undefined
+      const data = markerData(element)
+      if (!data) return undefined
       const paperElement = element.closest<HTMLElement>('[data-segnavia-printed-page]')
       const paper = paperElement ? papers.indexOf(paperElement) : 0
       const paperBox = paperElement?.getBoundingClientRect() ?? document.documentElement.getBoundingClientRect()
@@ -85,20 +97,14 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
         width: box.width,
         height: box.height,
       })
-      return [
-        {
-          address,
-          ...(id ? { id } : {}),
-          ...(Number.isFinite(offsetX) && Number.isFinite(offsetY) ? { anchorOffset: { x: offsetX, y: offsetY } } : {}),
-          page,
-          ...(box ? { box } : {}),
-          ...(crop ? { crop } : {}),
-          paper: Math.max(0, paper),
-          draw: relative(draw),
-          clip: relative(visible),
-        },
-      ]
-    })
+      return {
+        ...data,
+        paper: Math.max(0, paper),
+        draw: relative(draw),
+        clip: relative(visible),
+      }
+    }
+    return [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].map(measure).filter((placement) => placement !== undefined)
   })
   if (scale === 1) return measured
   const scaled = (box: PlacedPdfMeasurement['draw']) => ({
@@ -145,6 +151,26 @@ function markerMeasurements(document: Awaited<ReturnType<typeof loadPdf>>): Map<
     if (annotations.size() === 0) page.node.delete(PDFName.of('Annots'))
   }
   return found
+}
+
+function positionedMeasurement(
+  placement: PlacedPdfMeasurement,
+  measured: Pick<PlacedPdfMeasurement, 'paper' | 'draw' | 'clip'> | undefined,
+): PlacedPdfMeasurement {
+  if (!measured) return placement
+  const x = measured.draw.x + (placement.anchorOffset?.x ?? 0)
+  const y = measured.draw.y + (placement.anchorOffset?.y ?? 0)
+  return {
+    ...placement,
+    paper: measured.paper,
+    draw: { x, y, width: placement.draw.width, height: placement.draw.height },
+    clip: {
+      x: x + placement.clip.x - placement.draw.x,
+      y: y + placement.clip.y - placement.draw.y,
+      width: placement.clip.width,
+      height: placement.clip.height,
+    },
+  }
 }
 
 const pixelPoints = (value: number) => (value * 72) / 96
@@ -226,25 +252,7 @@ export async function drawPlacedPdfPages(
   const embedded = new Map<string, Awaited<ReturnType<typeof output.embedPage>>>()
   const limits = resolveLimits(undefined, options.limits)
   for (const placement of measurements) {
-    const measured = placement.id ? markers.get(placement.id) : undefined
-    const positioned = measured
-      ? {
-          ...placement,
-          paper: measured.paper,
-          draw: {
-            x: measured.draw.x + (placement.anchorOffset?.x ?? 0),
-            y: measured.draw.y + (placement.anchorOffset?.y ?? 0),
-            width: placement.draw.width,
-            height: placement.draw.height,
-          },
-          clip: {
-            x: measured.draw.x + (placement.anchorOffset?.x ?? 0) + placement.clip.x - placement.draw.x,
-            y: measured.draw.y + (placement.anchorOffset?.y ?? 0) + placement.clip.y - placement.draw.y,
-            width: placement.clip.width,
-            height: placement.clip.height,
-          },
-        }
-      : placement
+    const positioned = positionedMeasurement(placement, placement.id ? markers.get(placement.id) : undefined)
     const source = registered.get(placement.address)
     const target = output.getPage(positioned.paper)
     if (!source || !target) continue

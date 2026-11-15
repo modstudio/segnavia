@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { DocumentInput, Media } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
-import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, PDFString, StandardFonts } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, PDFString, StandardFonts } from 'pdf-lib'
 import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -25,24 +25,17 @@ async function sourcePdf(): Promise<{ bytes: Uint8Array; media: Media }> {
   }
 }
 
-function pageContent(document: PDFDocument, index: number): string {
-  const contents = document.getPage(index).node.Contents()
-  const streams = contents instanceof PDFArray ? contents.asArray() : contents ? [contents] : []
-  return streams
-    .map((value) => document.context.lookup(value))
-    .filter((value): value is PDFRawStream => value instanceof PDFRawStream)
-    .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
-    .join('\n')
-}
-
 function placedFormName(document: PDFDocument, page: number): string | undefined {
   const xobjects = document.getPage(page).node.Resources()?.lookupMaybe(PDFName.of('XObject'), PDFDict)
   if (!xobjects) return undefined
-  return xobjects.entries().find(([, value]) => {
-    const form = document.context.lookupMaybe(value, PDFRawStream)
-    const box = form?.dict.lookupMaybe(PDFName.of('BBox'), PDFArray)?.asRectangle()
-    return box?.width === 200 && box.height === 100
-  })?.[0].asString()
+  return xobjects
+    .entries()
+    .find(([, value]) => {
+      const form = document.context.lookup(value)
+      const box = form instanceof PDFRawStream ? form.dict.lookupMaybe(PDFName.of('BBox'), PDFArray)?.asRectangle() : undefined
+      return box?.width === 200 && box.height === 100
+    })?.[0]
+    .asString()
 }
 
 function placedPages(document: PDFDocument): number[] {

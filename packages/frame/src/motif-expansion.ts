@@ -23,8 +23,8 @@ import {
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
-  parseDocument,
   PLACED_PDF_SOURCES,
+  parseDocument,
   resolveEdition,
   resolvePlacements,
 } from '@segnavia/html'
