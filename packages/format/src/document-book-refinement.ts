@@ -107,13 +107,13 @@ function refineBookLeaf(node: DocumentNode, division: Division, nodePath: (strin
       message: `node ${node.type} cannot lower to a book entry; put it inside a supported section to clear this refusal`,
     })
   }
-  if (node.type === 'contents' && (node.depth !== undefined || node.pageNumbers !== undefined)) {
+  if (node.type === 'contents' && (node.contentsDepth !== undefined || node.pageNumbers !== undefined)) {
     contentsOptions.count += 1
     if (contentsOptions.count > 1) {
       ctx.addIssue({
         code: 'custom',
-        path: node.depth !== undefined ? [...nodePath, 'depth'] : [...nodePath, 'pageNumbers'],
-        message: 'only one contents node may set depth or pageNumbers; keep those options on one contents node to clear this refusal',
+        path: node.contentsDepth !== undefined ? [...nodePath, 'contentsDepth'] : [...nodePath, 'pageNumbers'],
+        message: 'only one contents node may set contentsDepth or pageNumbers; keep those options on one contents node to clear this refusal',
       })
     }
   }

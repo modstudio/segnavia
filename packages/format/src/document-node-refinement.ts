@@ -28,6 +28,7 @@ export const PROFILED_SECTION_FIELDS = [
   'contentsLabel',
   'subtitle',
   'contents',
+  'contentsDepth',
   'opens',
   'numbering',
   'parentRules',

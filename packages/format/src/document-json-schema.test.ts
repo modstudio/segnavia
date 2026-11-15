@@ -81,7 +81,10 @@ describe('document JSON Schema', () => {
     expect(printed).toHaveProperty('dir')
     expect(printed).toHaveProperty('lang')
     expect(printed).not.toHaveProperty('contentsLabel')
-    expect(properties(node(branch('book'), 'section'))).toHaveProperty('contentsLabel')
+    expect(printed).not.toHaveProperty('contentsDepth')
+    const book = properties(node(branch('book'), 'section'))
+    expect(book).toHaveProperty('contentsLabel')
+    expect(book).toHaveProperty('contentsDepth')
     expect(properties(node(branch('printed'), 'page'))).not.toHaveProperty('template')
   })
 

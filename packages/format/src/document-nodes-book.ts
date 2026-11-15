@@ -20,6 +20,7 @@ export const SectionFields = {
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
   contents: z.boolean().optional(),
+  contentsDepth: z.number().int().min(1).max(6).optional(),
   opens: BookOpens.optional(),
   numbering: SectionNumbering.optional(),
   parentRules: parentRules.optional(),
@@ -29,16 +30,20 @@ export const SectionFields = {
   dir: Direction.optional(),
 }
 
-export const ContentsNode = NodeId.extend({
-  type: z.literal('contents'),
-  title: z.string().optional(),
-  depth: z.number().int().min(1).max(6).optional(),
-  pageNumbers: z.boolean().optional(),
-  opens: BookOpens.optional(),
-  parentRules: parentRules.optional(),
-  parents: z.unknown().optional(),
-  numbering: SectionNumbering.optional(),
-})
+export const ContentsNode = closedObject(
+  {
+    ...NodeId.shape,
+    type: z.literal('contents'),
+    title: z.string().optional(),
+    contentsDepth: z.number().int().min(1).max(6).optional(),
+    pageNumbers: z.boolean().optional(),
+    opens: BookOpens.optional(),
+    parentRules: parentRules.optional(),
+    parents: z.unknown().optional(),
+    numbering: SectionNumbering.optional(),
+  },
+  { depth: 'use contentsDepth instead' },
+)
 
 export const ParentPageNode = closedObject(
   {

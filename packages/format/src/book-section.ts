@@ -48,6 +48,7 @@ const sectionFields = {
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
+  contentsDepth: z.number().int().min(1).max(6).optional(),
   opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),

@@ -79,7 +79,7 @@ function contentsOptions(document: DocumentShapeValue) {
     }
   }
   find(document.children)
-  return contents ? defined({ pageNumbers: contents.pageNumbers, depth: contents.depth }) : undefined
+  return contents ? defined({ pageNumbers: contents.pageNumbers, depth: contents.contentsDepth }) : undefined
 }
 
 export function bookLoweringFromDocument(document: DocumentShapeValue, brand?: Brand) {

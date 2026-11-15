@@ -15,7 +15,7 @@ export const DOCUMENT_PROFILES = {
     childForms: null,
     topology: 'book',
     pageFields: ['body', 'template', 'regions'],
-    sectionFields: ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parentRules', 'pageGeometry', 'template'],
+    sectionFields: ['title', 'contentsLabel', 'subtitle', 'contents', 'contentsDepth', 'opens', 'numbering', 'parentRules', 'pageGeometry', 'template'],
     sectionFieldRemedies: {
       orientation: 'section field orientation is not allowed in a book; name a pageGeometry declared in style.pageGeometries to clear this refusal',
     },
@@ -67,6 +67,8 @@ export const DOCUMENT_PROFILES = {
     pageFields: ['body'],
     sectionFields: ['title', 'opens', 'numbering', 'parentRules', 'pageGeometry'],
     sectionFieldRemedies: {
+      contentsDepth:
+        'section field contentsDepth is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       contents: 'section field contents is not allowed in a printed document; remove it to clear this refusal',
       contentsLabel:
         'section field contentsLabel is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
