@@ -38,7 +38,7 @@ test('joins a generated continuing part heading without forcing a page break', (
   const result = bookDocument(book)
   expect(result.html.match(/data-segnavia-flow=/g)).toHaveLength(1)
   expect(result.html).toMatch(
-    /<h1 class="segnavia-part-heading" dir="rtl"[^>]*><span class="segnavia-part-number" dir="rtl"[^>]*><bdi[^>]*>א<\/bdi><\/span> <span class="segnavia-part-title" dir="rtl"[^>]*><bdi[^>]*>שער<\/bdi><\/span><\/h1>/,
+    /<h1 class="segnavia-part-heading" dir="rtl"[^>]*><span class="segnavia-part-heading-number" dir="rtl"[^>]*><bdi[^>]*>א<\/bdi><\/span> <span class="segnavia-part-heading-title" dir="rtl"[^>]*><bdi[^>]*>שער<\/bdi><\/span><\/h1>/,
   )
   expect(result.html).toContain('data-segnavia-parts="{&quot;gate&quot;:&quot;שער&quot;,&quot;#gate&quot;:&quot;א&quot;}"')
   expect(bookDocument(book, { build: 'print' }).html).toContain('.segnavia-part:not([data-opens="continue"]),.segnavia-chapter')

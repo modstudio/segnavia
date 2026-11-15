@@ -13,11 +13,11 @@ function generatedPartHeading(number: string | undefined, title: string, book: P
   const numbered =
     number === undefined
       ? []
-      : [element('span', { class: 'segnavia-part-number', dir: resolveDirection(book.dir, book.lang, number) }, [element('bdi', {}, [text(number)])])]
+      : [element('span', { class: 'segnavia-part-heading-number', dir: resolveDirection(book.dir, book.lang, number) }, [element('bdi', {}, [text(number)])])]
   const titled =
     title === ''
       ? []
-      : [element('span', { class: 'segnavia-part-title', dir: resolveDirection(book.dir, book.lang, title) }, [element('bdi', {}, [text(title)])])]
+      : [element('span', { class: 'segnavia-part-heading-title', dir: resolveDirection(book.dir, book.lang, title) }, [element('bdi', {}, [text(title)])])]
   return element('h1', { class: 'segnavia-part-heading', dir: resolveDirection(book.dir, book.lang, `${number ?? ''} ${title}`) }, [
     ...numbered,
     ...(numbered.length > 0 && titled.length > 0 ? [text(' ')] : []),
