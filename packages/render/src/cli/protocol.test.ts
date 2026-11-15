@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Refusal } from '@segnavia/format'
+import { LimitExceededError, Refusal } from '@segnavia/format'
 import { outcomeFromError, parseRenderRequest } from './protocol.ts'
 
 const bytes = (value: string): Uint8Array => new TextEncoder().encode(value)
@@ -42,4 +42,10 @@ test('maps refusals and failures to distinct one-line JSON outcomes', () => {
     },
   })
   expect(JSON.parse(outcomeFromError(new Error('broken')).stderr)).toEqual({ failure: { name: 'Error', message: 'broken' } })
+})
+
+test('maps a limit exceeded to a refusal named by its measure', () => {
+  const outcome = outcomeFromError(new LimitExceededError('fontSource.each', 5, 4))
+  expect(outcome.exitCode).toBe(2)
+  expect(JSON.parse(outcome.stderr).refusal).toMatchObject({ subject: 'fontSource.each', code: 'limit' })
 })

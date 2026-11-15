@@ -1,6 +1,7 @@
 import { open, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { catalogFontSource, type FontCatalog, type FontSource, type FontSourceLimits, LimitExceededError } from '@segnavia/format'
+import { RenderRefusedError } from './errors.ts'
 
 export interface DirectoryFontSourceOptions {
   root: string
@@ -12,8 +13,11 @@ function outside(root: string, file: string): boolean {
   return path === '..' || path.startsWith(`..${sep}`) || isAbsolute(path)
 }
 
-function srcRefusal(src: string, detail: string, remedy: string): Error {
-  return new Error(`The directory font src ${JSON.stringify(src)} ${detail}; ${remedy} to clear this refusal.`)
+function srcRefusal(src: string, detail: string, remedy: string): RenderRefusedError {
+  return new RenderRefusedError(`The directory font src ${JSON.stringify(src)} ${detail}; ${remedy} to clear this refusal.`, {
+    code: 'font-source',
+    subject: src,
+  })
 }
 
 async function readFontFile(file: string, src: string, signal: AbortSignal, limit: number): Promise<Uint8Array> {
@@ -52,8 +56,9 @@ export function directoryFontSource(catalog: FontCatalog, options: DirectoryFont
       return await pending
     } catch {
       if (root === pending) root = undefined
-      throw new Error(
+      throw new RenderRefusedError(
         `The directory font source root ${JSON.stringify(options.root)} could not be established; provide an existing directory as root to clear this refusal.`,
+        { code: 'font-source', subject: options.root },
       )
     }
   }

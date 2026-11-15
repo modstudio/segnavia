@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { tmpdir } from 'node:os'
 import { Refusal } from '@segnavia/format'
 import { RendererUnavailableError } from '../errors.ts'
 import type { Renderer } from '../renderer.ts'
@@ -11,7 +12,7 @@ function request(render: string, options: Record<string, unknown> = {}, document
   return encoder.encode(JSON.stringify({ render, document: render === 'pages' ? [document] : document, options }))
 }
 
-function rendererFor(call: (method: string, document: unknown, options: unknown) => Promise<Uint8Array>, close: () => void): Renderer {
+function rendererFor(call: (method: string, document: unknown, options: unknown) => Promise<Uint8Array>, close: () => void | Promise<void>): Renderer {
   const invoke = (method: string) => (document: unknown, options: unknown) => call(method, document, options)
   return {
     pagePdf: invoke('pagePdf'),
@@ -33,7 +34,9 @@ function opened(calls: unknown[][] = [], failure?: Error): { open: OpenRenderer;
           calls.push(args)
           return new Uint8Array([37, 80, 68, 70])
         },
-        () => closes++,
+        () => {
+          closes++
+        },
       )
     },
     closed: () => closes,
@@ -55,6 +58,25 @@ test.each([
   expect(host.closed()).toBe(1)
 })
 
+test.each([
+  ['watermark.position.inline', { watermark: { text: 'DRAFT', position: { inline: 'center' } } }],
+  ['metadata.extra.report', { metadata: { title: 'Title', extra: { report: 'kept' } } }],
+])('%s is not refused as a function option', async (_path, options) => {
+  const outcome = await runRenderRequest(request('page', options), environment, opened().open)
+  expect(outcome.exitCode).toBe(0)
+})
+
+test.each([
+  ['slots.resolveAsset', { slots: { resolveAsset: {} } }],
+  ['placements.resolve', { placements: { resolve: {} } }],
+  ['fontLoad.report', { fontLoad: { report: {} } }],
+  ['assets', { assets: {} }],
+])('%s is refused as a function option with its exact path', async (path, options) => {
+  const outcome = await runRenderRequest(request('page', options), environment, opened().open)
+  expect(outcome.exitCode).toBe(2)
+  expect(JSON.parse(outcome.stderr).refusal.subject).toBe(`options.${path}`)
+})
+
 test('passes Chromium environment settings and a directory font source', async () => {
   const calls: unknown[][] = []
   const host = opened(calls)
@@ -70,6 +92,31 @@ test('passes Chromium environment settings and a directory font source', async (
   expect((await runRenderRequest(input, env, host.open)).exitCode).toBe(0)
   expect(calls[0]?.[1]).toMatchObject({ executablePath: '/chromium', args: expect.any(Array) })
   expect(calls[1]?.[2]).toMatchObject({ fontSource: expect.any(Object) })
+})
+
+test('a missing catalog face exits 2 and names its src', async () => {
+  const src = `missing-${crypto.randomUUID()}.woff2`
+  const input = encoder.encode(
+    JSON.stringify({
+      render: 'page',
+      document: {},
+      options: {},
+      fonts: { body: { family: 'Body', faces: [{ src, format: 'woff2' }] } },
+    }),
+  )
+  const open: OpenRenderer = async () =>
+    rendererFor(
+      async (_method, _document, options) => {
+        await (options as { fontSource: { font(name: string, options: { signal: AbortSignal }): Promise<unknown> } }).fontSource.font('body', {
+          signal: AbortSignal.any([]),
+        })
+        return new Uint8Array()
+      },
+      () => {},
+    )
+  const outcome = await runRenderRequest(input, { ...environment, SEGNAVIA_FONTS: tmpdir() }, open)
+  expect(outcome.exitCode).toBe(2)
+  expect(JSON.parse(outcome.stderr).refusal.subject).toBe(src)
 })
 
 test.each([
@@ -107,4 +154,25 @@ test('an unknown option and library refusal close while unavailable errors exit 
   const failed = opened([], new RendererUnavailableError('gone'))
   expect((await runRenderRequest(request('page'), environment, failed.open)).exitCode).toBe(1)
   expect(failed.closed()).toBe(1)
+})
+
+test('a close failure does not replace a finished render or an earlier failure', async () => {
+  const closeFailure = new Error('close failed')
+  const success = await runRenderRequest(request('page'), environment, async () =>
+    rendererFor(
+      async () => new Uint8Array([37, 80, 68, 70]),
+      async () => Promise.reject(closeFailure),
+    ),
+  )
+  expect(success).toEqual({ exitCode: 0, stdout: new Uint8Array([37, 80, 68, 70]), stderr: '' })
+
+  const renderFailure = new RendererUnavailableError('render failed')
+  const failed = await runRenderRequest(request('page'), environment, async () =>
+    rendererFor(
+      async () => Promise.reject(renderFailure),
+      async () => Promise.reject(closeFailure),
+    ),
+  )
+  expect(failed.exitCode).toBe(1)
+  expect(JSON.parse(failed.stderr).failure.message).toBe('render failed')
 })

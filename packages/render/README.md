@@ -9,10 +9,10 @@ The host implements `assets` to answer approved document requests; `limits.asset
 The package installs `segnavia-render` for a host that needs one offline PDF render per process. It reads one JSON request from standard input and writes only PDF bytes to standard output:
 
 ```sh
-env -i SEGNAVIA_CHROMIUM=/path/to/chromium segnavia-render < request.json > output.pdf
+env -i PATH="$PATH" SEGNAVIA_CHROMIUM=/path/to/chromium /path/to/node_modules/.bin/segnavia-render < request.json > output.pdf
 ```
 
-The request is `{ "render": "page" | "pages" | "book" | "deck", "document": ..., "options": ..., "fonts"?: ... }`; `pages` takes an array document. `options` are the corresponding renderer method's JSON-safe options. A `fonts` catalog also requires `SEGNAVIA_FONTS` to name the directory beneath which its face paths resolve. Set `SEGNAVIA_CHROMIUM_CONTAINER=1` to add the package's Chromium container arguments.
+The request is `{ "render": "page" | "pages" | "book" | "deck", "document": ..., "options": ..., "fonts"?: ... }`; `pages` takes an array document. The host itself writes this trusted request: its `options`, including `limits`, carry host authority and must not be accepted directly from an untrusted caller. `options` are the corresponding renderer method's JSON-safe options. A `fonts` catalog also requires `SEGNAVIA_FONTS` to name the directory beneath which its face paths resolve. `SEGNAVIA_CHROMIUM_CONTAINER=1` adds `--no-sandbox`, `--disable-setuid-sandbox`, `--disable-dev-shm-usage` and `--disable-gpu`; use it only when rendering inside a container.
 
 Success exits 0 with an empty standard error. A refusal exits 2 with one JSON line on standard error under `refusal`; another failure exits 1 with one line under `failure`. The command accepts at most 100 MiB on standard input. Function seams such as assets, brands, reports and hooks are unavailable, and rendering remains offline.
 

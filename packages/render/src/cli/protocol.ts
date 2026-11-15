@@ -1,8 +1,6 @@
-import { FontCatalog, type Refusal, Refusal as RefusalError } from '@segnavia/format'
+import { DEFAULT_LIMITS, FontCatalog, isLimitExceeded, type Refusal, Refusal as RefusalError } from '@segnavia/format'
 
-// The command accepts the same maximum received input as the library's public
-// DEFAULT_LIMITS.input.bytes, which is not exported from @segnavia/format.
-export const RENDER_REQUEST_BYTES = 100 * 1024 * 1024
+export const RENDER_REQUEST_BYTES = DEFAULT_LIMITS.input.bytes
 
 export type RenderKind = 'page' | 'pages' | 'book' | 'deck'
 
@@ -25,6 +23,10 @@ export class RenderRequestRefusal extends RefusalError {
   constructor(message: string, subject?: string) {
     super('render-request', message, { subject })
   }
+}
+
+export function stdinBoundRefusal(limit: number): RenderRequestRefusal {
+  return new RenderRequestRefusal(`The stdin request exceeds the ${limit}-byte bound; send a smaller request to clear this refusal.`, 'stdin')
 }
 
 function requestObject(value: unknown): Record<string, unknown> {
@@ -52,8 +54,7 @@ function parseFonts(value: unknown): FontCatalog | undefined {
 }
 
 export function parseRenderRequest(input: Uint8Array, limit = RENDER_REQUEST_BYTES): RenderRequest {
-  if (input.byteLength > limit)
-    throw new RenderRequestRefusal(`The stdin request exceeds the ${limit}-byte bound; send a smaller request to clear this refusal.`, 'stdin')
+  if (input.byteLength > limit) throw stdinBoundRefusal(limit)
   let value: unknown
   try {
     value = JSON.parse(new TextDecoder().decode(input))
@@ -94,6 +95,21 @@ export function outcomeFromError(error: unknown): RenderOutcome {
           subject: refusal.subject ?? null,
           message: error.message,
           refusals: refusal.refusals.map((cause) => ({ code: cause.code, subject: cause.subject ?? null, message: cause.message })),
+        },
+      })}\n`,
+    }
+  }
+  if (isLimitExceeded(error)) {
+    return {
+      exitCode: 2,
+      stdout: new Uint8Array(),
+      stderr: `${JSON.stringify({
+        refusal: {
+          name: error.name,
+          code: 'limit',
+          subject: error.exceeded[0]?.measure ?? null,
+          message: error.message,
+          refusals: error.exceeded.map((cause) => ({ code: 'limit', subject: cause.measure, message: cause.message })),
         },
       })}\n`,
     }

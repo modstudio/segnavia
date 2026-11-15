@@ -3,7 +3,7 @@ import { directoryFontSource } from '../directory-font-source.ts'
 import { parseDeckPdfOptions } from '../entry-options.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { parsePagePdfOptions } from '../page-render-options.ts'
-import { CONTAINER_ARGS, type Renderer } from '../renderer.ts'
+import { type BookPdfOptions, CONTAINER_ARGS, type DeckPdfInputOptions, type PagePdfOptions, type PagesPdfInputOptions, type Renderer } from '../renderer.ts'
 import { outcomeFromError, parseRenderRequest, type RenderOutcome, type RenderRequest } from './protocol.ts'
 
 export interface RenderEnvironment {
@@ -14,13 +14,60 @@ export interface RenderEnvironment {
 
 export type OpenRenderer = (options: { executablePath: string; args?: string[] }) => Promise<Renderer>
 
-const FUNCTION_OPTIONS = new Set(['assets', 'fontSource', 'brandSource', 'newId', 'inline', 'beforeOutput'])
+type AnyFunction = (...args: never[]) => unknown
+type AtomicFunctionOption =
+  | NonNullable<PagePdfOptions['fontSource']>
+  | NonNullable<PagePdfOptions['brandSource']>
+  | NonNullable<NonNullable<PagePdfOptions['motifs']>['source']>
+type FunctionPathForValue<Value, Key extends string> = Value extends unknown
+  ? NonNullable<Value> extends AnyFunction
+    ? Key
+    : NonNullable<Value> extends AtomicFunctionOption
+      ? Key
+      : NonNullable<Value> extends readonly unknown[] | ArrayBufferView
+        ? never
+        : NonNullable<Value> extends object
+          ? `${Key}.${NestedFunctionPath<NonNullable<Value>>}`
+          : never
+  : never
+type NestedFunctionPath<T> = T extends unknown
+  ? {
+      [Key in keyof T & string]-?: FunctionPathForValue<T[Key], Key>
+    }[keyof T & string]
+  : never
+type CliFunctionOptionPath = NestedFunctionPath<PagePdfOptions | PagesPdfInputOptions | BookPdfOptions | DeckPdfInputOptions>
+
+const FUNCTION_OPTIONS = {
+  newId: true,
+  assets: true,
+  fontSource: true,
+  brandSource: true,
+  'fontLoad.report': true,
+  'progress.report': true,
+  beforeOutput: true,
+  'slots.resolve': true,
+  'slots.resolveAsset': true,
+  'slots.report': true,
+  'placements.resolve': true,
+  'placements.report': true,
+  'effects.report': true,
+  'overflow.report': true,
+  'marks.report': true,
+  'press.report': true,
+  'localFonts.report': true,
+  'preflight.report': true,
+  'motifs.source': true,
+  'motifs.placed': true,
+  'asOf.report': true,
+  inline: true,
+} satisfies Record<CliFunctionOptionPath, true>
 
 function functionOptionPath(value: unknown, path: string[] = []): string | undefined {
   if (!value || typeof value !== 'object') return undefined
   for (const [key, child] of Object.entries(value)) {
     const next = [...path, key]
-    if (FUNCTION_OPTIONS.has(key) || key === 'report' || (key === 'resolve' && path.at(-1) === 'placements')) return next.join('.')
+    const optionPath = next.join('.')
+    if (optionPath in FUNCTION_OPTIONS) return optionPath
     const nested = functionOptionPath(child, next)
     if (nested) return nested
   }
@@ -71,9 +118,16 @@ export async function runRenderRequest(input: Uint8Array, environment: RenderEnv
       ...(environment.SEGNAVIA_CHROMIUM_CONTAINER === '1' ? { args: CONTAINER_ARGS } : {}),
     })
     try {
-      return { exitCode: 0, stdout: await renderRequest(renderer, request, options), stderr: '' }
-    } finally {
-      await renderer.close()
+      const stdout = await renderRequest(renderer, request, options)
+      try {
+        await renderer.close()
+      } catch {}
+      return { exitCode: 0, stdout, stderr: '' }
+    } catch (error) {
+      try {
+        await renderer.close()
+      } catch {}
+      throw error
     }
   } catch (error) {
     return outcomeFromError(error)

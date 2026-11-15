@@ -2,8 +2,10 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type FontCatalog, urlFontSource } from '@segnavia/format'
+import { type FontCatalog, isLimitExceeded, urlFontSource } from '@segnavia/format'
+import { outcomeFromError } from './cli/protocol.ts'
 import { directoryFontSource } from './directory-font-source.ts'
+import { RenderRefusedError } from './errors.ts'
 
 const roots: string[] = []
 const signal = AbortSignal.any([])
@@ -52,7 +54,16 @@ describe('directoryFontSource', () => {
     ['a missing file', () => 'missing.woff2', /missing/],
   ])('refuses %s', async (_label, src, message) => {
     const path = await root()
-    await expect(directoryFontSource(catalog(src(path)), { root: path }).font('body', { signal })).rejects.toThrow(message)
+    const source = src(path)
+    const error = await directoryFontSource(catalog(source), { root: path })
+      .font('body', { signal })
+      .then(
+        () => undefined,
+        (caught: unknown) => caught,
+      )
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    expect(error).toMatchObject({ code: 'font-source', subject: source })
+    expect((error as Error).message).toMatch(message)
   })
 
   test('refuses a directory as src', async () => {
@@ -65,14 +76,23 @@ describe('directoryFontSource', () => {
     const path = join(tmpdir(), `segnavia-missing-font-root-${crypto.randomUUID()}`)
     const source = directoryFontSource(catalog('body.woff2'), { root: path })
     await Promise.resolve()
-    await expect(source.font('body', { signal })).rejects.toThrow(new RegExp(`${path}.*existing directory`))
+    await expect(source.font('body', { signal })).rejects.toBeInstanceOf(RenderRefusedError)
   })
 
   test('refuses a file above the per-face limit before reading it', async () => {
     const path = await root()
     await writeFile(join(path, 'body.woff2'), Buffer.from('wOF2x'))
     const source = directoryFontSource(catalog('body.woff2'), { root: path, limits: { each: 4 } })
-    await expect(source.font('body', { signal })).rejects.toMatchObject({
+    const error = await source.font('body', { signal }).then(
+      () => undefined,
+      (caught: unknown) => caught,
+    )
+    expect(error).toBeInstanceOf(Error)
+    expect(isLimitExceeded(error)).toBe(true)
+    const outcome = outcomeFromError(error)
+    expect(outcome.exitCode).toBe(2)
+    expect(JSON.parse(outcome.stderr).refusal.subject).toBe('fontSource.each')
+    expect(error).toMatchObject({
       exceeded: [{ measure: 'fontSource.each', actual: 5, limit: 4, message: expect.any(String), where: expect.any(String) }],
     })
   })
