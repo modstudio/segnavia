@@ -37,7 +37,8 @@
     "@segnavia/frame": "workspace:*",
     "@segnavia/html": "workspace:*",
     "@segnavia/layout": "workspace:*",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "6.4.299"
   },
   "peerDependencies": {
     "@segnavia/diagrams": ">=0.47.0 <1.0.0",
