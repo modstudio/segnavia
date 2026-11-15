@@ -183,6 +183,9 @@ export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDo
   if (!receivedText.startsWith('%PDF-') || !receivedText.slice(-1024).includes('%%EOF')) {
     throw new RenderRefusedError('The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
   }
+  if (/\/Encrypt\s+\d+\s+\d+\s+R\b/.test(receivedText)) {
+    throw new RenderRefusedError('The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
+  }
   assertReceivedStreamsBounded(pdf, streamLimit)
   try {
     return await PDFDocument.load(pdf, { updateMetadata: false })

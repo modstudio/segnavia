@@ -38,6 +38,14 @@ test('received truncated input has its source-specific unreadable refusal', asyn
   await expect(loadPdf(new TextEncoder().encode('%PDF-1.7\ntruncated'), { source: 'received' })).rejects.toThrow('The received PDF could not be read')
 })
 
+test('received encrypted input has its source-specific encrypted refusal', async () => {
+  const document = await PDFDocument.create()
+  document.addPage()
+  const plain = await document.save({ useObjectStreams: false })
+  const encryptedTrailer = new TextEncoder().encode(new TextDecoder().decode(plain).replace('/Info 3 0 R', '/Encrypt 3 0 R'))
+  await expect(loadPdf(encryptedTrailer, { source: 'received' })).rejects.toThrow('The received PDF is encrypted and cannot be read')
+})
+
 test('created and loaded documents do not gain automatic metadata', async () => {
   const created = await createPdf()
   created.addPage()

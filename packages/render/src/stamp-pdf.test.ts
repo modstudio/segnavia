@@ -1,9 +1,31 @@
-import { expect, test } from 'bun:test'
+import { expect, mock, test } from 'bun:test'
 import { degrees, PDFDocument, PDFName, PDFString } from 'pdf-lib'
 import type { TabRunner } from './browser-tab.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { stampReceivedPdf } from './stamp-pdf.ts'
+
+const tab = {
+  setContent: async () => {},
+  evaluate: async () => true,
+  pdf: () => layerFixture(),
+  on: () => tab,
+}
+const context = {
+  route: async () => {},
+  routeWebSocket: async () => {},
+  newPage: async () => tab,
+  close: async () => {},
+}
+const browser = {
+  newContext: async () => context,
+  isConnected: () => true,
+  on: () => browser,
+  off: () => browser,
+  close: async () => {},
+}
+mock.module('playwright-core', () => ({ chromium: { launch: async () => browser } }))
+
 import { parseStampPdfOptions } from './stamp-pdf-options.ts'
 
 async function receivedFixture(): Promise<Uint8Array> {
@@ -57,4 +79,27 @@ test('stampPdf options require work and use existing watermark and protection pa
     watermark: { text: 'Draft' },
     limits: { input: { bytes: 10 } },
   })
+})
+
+test('renderer stampPdf drives the received watermark path end to end', async () => {
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  try {
+    const output = await renderer.stampPdf(await receivedFixture(), { watermark: { text: 'Draft' } })
+    expect(await pageContent(output, 0)).toContain('/Artifact')
+    expect(await pageContent(output, 1)).toContain('/Artifact')
+  } finally {
+    await renderer.close()
+  }
+})
+
+test('renderer stampPdf protects received bytes after validation', async () => {
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  try {
+    const output = await renderer.stampPdf(await receivedFixture(), { protection: { ownerPassword: 'owner-stamp' } })
+    expect(new TextDecoder('latin1').decode(output)).toMatch(/\/Encrypt\s+\d+\s+\d+\s+R/)
+  } finally {
+    await renderer.close()
+  }
 })
