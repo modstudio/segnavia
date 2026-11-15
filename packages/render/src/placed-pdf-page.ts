@@ -22,16 +22,17 @@ const MARKER_LINK_PREFIX = 'https://placed-pdf.invalid/'
 /** Gives Chromium a link rectangle it can place in the fragmented PDF output. */
 export async function preparePlacedPdfPages(tab: Tab): Promise<void> {
   await tab.evaluate((prefix) => {
-    for (const [index, element] of [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].entries()) {
+    const markers = [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].filter(
+      (element) => !element.closest('[data-segnavia-galley-source]'),
+    )
+    for (const [index, element] of markers.entries()) {
       if (element.hasAttribute('data-segnavia-placed-pdf-id')) continue
       const id = String(index)
       element.setAttribute('data-segnavia-placed-pdf-id', id)
-      const rectangle = element.getBoundingClientRect()
       const link = document.createElement('a')
       link.href = `${prefix}${id}`
-      link.textContent = '.'
-      link.style.cssText = `position:absolute;left:${rectangle.left + scrollX}px;top:${rectangle.top + scrollY}px;width:${rectangle.width}px;height:${rectangle.height}px;display:block;color:transparent;text-decoration:none;font-size:1px;line-height:1px`
-      document.body.append(link)
+      element.replaceWith(link)
+      link.append(element)
     }
   }, MARKER_LINK_PREFIX)
 }
@@ -59,6 +60,7 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
     }
     const papers = [...document.querySelectorAll<HTMLElement>('[data-segnavia-printed-page]')]
     return [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].flatMap((element) => {
+      if (element.closest('[data-segnavia-galley-source]')) return []
       const address = element.getAttribute('data-segnavia-media')
       const page = Number(element.getAttribute('data-segnavia-placed-pdf'))
       const box = element.getAttribute('data-segnavia-box') as PageBoxName | null
@@ -245,7 +247,7 @@ export async function drawPlacedPdfPages(
       embedded.set(key, form)
       transparencyGroup(target, form.ref)
     }
-    target.pushOperators(PDFOperator.of('BDC' as never, [PDFName.of('Artifact')]))
+    target.pushOperators(PDFOperator.of('BMC' as never, [PDFName.of('Artifact')]))
     const draw = rectanglePoints(uncroppedDraw(positioned.draw, selected.bounds, crop))
     drawClippedPage(
       target,

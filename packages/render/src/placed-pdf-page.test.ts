@@ -46,7 +46,7 @@ test('draws a bounded source page once as an artifact Form XObject', async () =>
       },
     },
   )
-  expect(await pageContent(output)).toMatch(/\/Artifact BDC[\s\S]*75 147 135 66 re[\s\S]*\/EmbeddedPdfPage/)
+  expect(await pageContent(output)).toMatch(/\/Artifact BMC[\s\S]*75 147 135 66 re[\s\S]*\/EmbeddedPdfPage/)
   const text = new TextDecoder().decode(output)
   expect(text).toContain('/Subtype /Form')
   expect(text).not.toContain('/Subtype /Image')
