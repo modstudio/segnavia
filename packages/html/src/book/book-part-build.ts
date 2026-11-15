@@ -14,7 +14,19 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
   const id = sectionEntry.id ?? ''
   if (entry.html !== undefined) {
     const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering })
-    build.sections.push(partSection({ ...entry, parentRules: entry.parentRules ?? bookRules }, id, sectionEntry.division, build.build, parts))
+    const partNumbers = Object.fromEntries(
+      [...sectionEntry.ancestry, { name: entry.name, id }].flatMap((part) => {
+        const number = build.structureNumbers.get(part.id)?.text
+        return number === undefined ? [] : [[part.name, number]]
+      }),
+    )
+    const section = partSection({ ...entry, parentRules: entry.parentRules ?? bookRules }, id, sectionEntry.division, build.build, parts, partNumbers)
+    const number = build.structureNumbers.get(id)?.text
+    if (number !== undefined) {
+      section.info.number = number
+      section.node.attribs['data-segnavia-section-number'] = number
+    }
+    build.sections.push(section)
     attachPendingPartHeadings(build, sectionEntry, id)
   }
   if (entry.contents && entry.title !== undefined) {

@@ -7,12 +7,20 @@ export const TextVariableBase = {
   kind: z.literal('text'),
   pick: z.enum(['start', 'first', 'last']).default('first'),
 }
-export const TextVariableFrom = z.enum(['content', 'section-title', 'part-title'])
+export const TextVariableFrom = z.enum(['content', 'section-title', 'chapter-number', 'part-title', 'part-number'])
 
 export const ContentTextVariable = closedObject({ ...TextVariableBase, from: z.literal('content'), part: z.never().optional() })
 export const SectionTitleTextVariable = closedObject({ ...TextVariableBase, from: z.literal('section-title'), part: z.never().optional() })
 export const PartTitleTextVariable = closedObject({ ...TextVariableBase, from: z.literal('part-title'), part: z.string().min(1) })
-export const TextVariable = z.discriminatedUnion('from', [ContentTextVariable, SectionTitleTextVariable, PartTitleTextVariable])
+export const ChapterNumberTextVariable = closedObject({ ...TextVariableBase, from: z.literal('chapter-number'), part: z.never().optional() })
+export const PartNumberTextVariable = closedObject({ ...TextVariableBase, from: z.literal('part-number'), part: z.string().min(1) })
+export const TextVariable = z.discriminatedUnion('from', [
+  ContentTextVariable,
+  SectionTitleTextVariable,
+  ChapterNumberTextVariable,
+  PartTitleTextVariable,
+  PartNumberTextVariable,
+])
 export const NumberVariable = closedObject({
   name: z.string().min(1),
   kind: z.enum(['folio', 'pages']),

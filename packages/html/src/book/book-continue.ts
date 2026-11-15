@@ -10,6 +10,7 @@ function boundary(section: BuiltSection): ReturnType<typeof element> {
     {
       class: SECTION_BOUNDARY_CLASS,
       'data-segnavia-section-title': title,
+      ...(section.info.number === undefined ? {} : { 'data-segnavia-section-number': section.info.number }),
       'data-segnavia-chapter': section.node.attribs['data-segnavia-chapter'] ?? '0',
       id: section.info.id,
     },

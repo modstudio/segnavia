@@ -102,15 +102,17 @@ export function partSection(
   division: 'front' | 'body' | 'end',
   build: BookBuild,
   parts: Record<string, string>,
+  partNumbers: Record<string, string> = {},
 ): BuiltSection {
   const children = entry.html === undefined ? [] : parse(entry.html).children
   const extra = flowAttribs(entry.opens, entry.parentRules, {
     'data-segnavia-kind': 'part',
-    'data-segnavia-parts': JSON.stringify(parts),
+    'data-segnavia-parts': JSON.stringify({ ...parts, ...Object.fromEntries(Object.entries(partNumbers).map(([name, value]) => [`#${name}`, value])) }),
+    ...(Object.keys(partNumbers).length === 0 ? {} : { 'data-segnavia-part-numbers': JSON.stringify(partNumbers) }),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   return {
-    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens, parts, parentRules: entry.parentRules },
+    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens, parts, partNumbers, parentRules: entry.parentRules },
     node: sectionNode('part', id, children, build, entry.title, extra),
   }
 }

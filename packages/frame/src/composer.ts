@@ -81,11 +81,28 @@ export function partTitleValues(variables: readonly Variable[], parts: Record<st
   var value: string | undefined
   for (index = 0; index < variables.length; index += 1) {
     variable = variables[index]
-    if (variable === undefined || variable.kind !== 'text' || variable.from !== 'part-title') continue
-    value = Object.hasOwn(parts, variable.part) ? parts[variable.part] : undefined
+    if (variable === undefined || variable.kind !== 'text') continue
+    if (variable.from === 'part-title') value = Object.hasOwn(parts, variable.part) ? parts[variable.part] : undefined
+    else if (variable.from === 'part-number') value = Object.hasOwn(parts, `#${variable.part}`) ? parts[`#${variable.part}`] : undefined
+    else if (variable.from === 'chapter-number') value = parts['#chapter']
+    else continue
     values.push({ name: variable.name, value: value === undefined ? '' : value, line: 0, scope: 'flow' })
   }
   return values
+}
+
+export function structureTextValues(
+  variables: readonly Variable[],
+  from: 'chapter-number' | 'part-number',
+  values: Record<string, string>,
+): PaginateVariable[] {
+  const result: PaginateVariable[] = []
+  for (const variable of variables) {
+    if (variable.kind !== 'text' || variable.from !== from) continue
+    const value = from === 'chapter-number' ? values.chapter : Object.hasOwn(values, variable.part) ? values[variable.part] : undefined
+    result.push({ name: variable.name, value: value ?? '', line: 0, scope: 'flow' })
+  }
+  return result
 }
 
 export interface FlowMeasurementFacts {
@@ -216,6 +233,7 @@ ${embedFunction('advanceVisibleTime', advanceVisibleTime)}
 ${embedFunction('decideVisibleMeasurement', decideVisibleMeasurement)}
 ${embedFunction('appendMeasuredBlock', appendMeasuredBlock)}
 ${embedFunction('partTitleValues', partTitleValues)}
+${embedFunction('structureTextValues', structureTextValues)}
 ${embeddedComposerMeasureFunctions(lineNotes)}
 ${embeddedComposerMarginFunctions()}
 ${embedFunction('noteFragmentExtent', noteFragmentExtent)}
@@ -294,7 +312,7 @@ var flowKind=function(element){if(element.getAttribute('data-segnavia-kind')==='
 var parentsOf=function(element){if(!element)return null;var rules=element.getAttribute('data-segnavia-parent-rules');return rules?JSON.parse(rules):null;};
 var withFlowMeta=function(flow,element){var opens=element.getAttribute('data-opens');if(opens)flow.opens=opens;var rules=parentsOf(element);if(rules)flow.parentRules=rules;var sequence=element.getAttribute('data-sequence');if(sequence)flow.sequence=sequence;var numbering=flowSectionNumbering(element);if(numbering)flow.numbering=numbering;var recordIndex=element.getAttribute('data-record-index');var recordCount=element.getAttribute('data-record-count');if(recordIndex&&recordCount)flow.record={index:Number(recordIndex),count:Number(recordCount)};var pageGeometry=element.getAttribute('data-page-geometry');if(pageGeometry)flow.pageGeometry=pageGeometry;var columns=geometryFor(pageGeometry).columnCount||1;for(var i=0;i<(flow.blocks||[]).length;i++)if(flow.blocks[i].columns===undefined&&columns>1)flow.blocks[i].columns=columns;return flow;};
 var measureVariables=function(block,lines,origin){var nodes=[];if(block.hasAttribute('data-variable'))nodes.push(block);var inner=block.querySelectorAll('[data-variable]');for(var i=0;i<inner.length;i++)nodes.push(inner[i]);var values=[];for(var n=0;n<nodes.length;n++){var name=nodes[n].getAttribute('data-variable');if(!name)continue;var declaration=(config.variables||[]).find(function(variable){return variable.kind==='text'&&variable.from==='content'&&variable.name===name;});if(!declaration)continue;var top=nodes[n].getBoundingClientRect().top-origin;values.push({name:name,value:(nodes[n].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(top,lines)});}var titleNodes=[];if(block.hasAttribute('data-segnavia-section-title'))titleNodes.push(block);var titles=block.querySelectorAll('[data-segnavia-section-title]');for(var t=0;t<titles.length;t++)titleNodes.push(titles[t]);return values.concat(sectionTitleValues(titleNodes,lines,origin));};
-var sectionTitleValues=function(titleNodes,lines,origin){var values=[];for(var d=0;d<(config.variables||[]).length;d++){var titleVariable=config.variables[d];if(titleVariable.kind!=='text'||titleVariable.from!=='section-title')continue;for(var s=0;s<titleNodes.length;s++){var titleTop=titleNodes[s].getBoundingClientRect().top-origin;values.push({name:titleVariable.name,value:titleNodes[s].getAttribute('data-segnavia-section-title')||'',line:lineIndex(titleTop,lines),scope:'flow'});}}return values;};
+var sectionTitleValues=function(titleNodes,lines,origin){var values=[];for(var d=0;d<(config.variables||[]).length;d++){var titleVariable=config.variables[d];if(titleVariable.kind!=='text'||(titleVariable.from!=='section-title'&&titleVariable.from!=='chapter-number'))continue;for(var s=0;s<titleNodes.length;s++){var titleTop=titleNodes[s].getBoundingClientRect().top-origin;var attribute=titleVariable.from==='chapter-number'?'data-segnavia-section-number':'data-segnavia-section-title';values.push({name:titleVariable.name,value:titleNodes[s].getAttribute(attribute)||'',line:lineIndex(titleTop,lines),scope:'flow'});}}return values;};
 var measureRefs=function(block,lines,origin){var nodes=block.querySelectorAll('.segnavia-note-ref > a,[data-segnavia-line-note]');var refs=[];for(var i=0;i<nodes.length;i++){if(insideSideNote(nodes[i]))continue;if(nodes[i].parentElement&&nodes[i].parentElement.hasAttribute('data-segnavia-note-repeat'))continue;var href=nodes[i].getAttribute('href')||'';if(href.charAt(0)!=='#')continue;var note=elementWithAttr(document,'data-segnavia-note',href.slice(1));if(!note||!note.closest('[data-segnavia-notes-galley]'))continue;var top=nodes[i].getBoundingClientRect().top-origin;refs.push({note:href.slice(1),line:lineIndex(top,lines)});}return refs;};
 var keepSignalValues=function(style,keepWith){return {breakInside:style.breakInside,pageBreakInside:style.pageBreakInside,breakAfter:style.breakAfter,pageBreakAfter:style.pageBreakAfter,breakBefore:style.breakBefore,pageBreakBefore:style.pageBreakBefore,keepWith:keepWith};};
 var descendantKeepCandidates=function(element,origin,elementStyle){var candidates=[];var styles=new WeakMap();styles.set(element,elementStyle);var styleOf=function(descendant){var held=styles.get(descendant);if(held)return held;var measured=getComputedStyle(descendant);styles.set(descendant,measured);return measured;};var descendants=element.querySelectorAll('*');for(var i=0;i<descendants.length;i++){if(insideSideNote(descendants[i]))continue;var style=styleOf(descendants[i]);if(skippableDescendantBoxDisplay(style.display))continue;var keepWith=(style.getPropertyValue('--segnavia-keep-with')||'').trim();var parent=descendants[i].parentElement;var parentKeepWith=parent?(styleOf(parent).getPropertyValue('--segnavia-keep-with')||'').trim():'';var signals=descendantKeepSignals(keepSignalValues(style,keepWith),parentKeepWith);if(!signals.avoidInside&&!signals.keepWithNext&&!signals.keepWithPrevious)continue;var box=descendants[i].getBoundingClientRect();candidates.push({top:box.top-origin,bottom:box.bottom-origin,avoidInside:signals.avoidInside,keepWithNext:signals.keepWithNext,keepWithPrevious:signals.keepWithPrevious});}return candidates;};

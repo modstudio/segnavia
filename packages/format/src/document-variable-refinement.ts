@@ -123,11 +123,15 @@ export function refineDocumentVariables(
     })
   document.variables.forEach((variable, index) => {
     const textVariable = variable.kind === 'text' ? (variable as Extract<Variable, { kind: 'text' }>) : undefined
-    if (textVariable?.from === 'part-title' && (document.children !== undefined || document.partNames !== undefined) && !parts.has(textVariable.part)) {
+    if (
+      (textVariable?.from === 'part-title' || textVariable?.from === 'part-number') &&
+      (document.children !== undefined || document.partNames !== undefined) &&
+      !parts.has(textVariable.part)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['variables', index, 'part'],
-        message: `part-title variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(textVariable.part)}; name an existing part or remove the variable to clear this refusal`,
+        message: `${textVariable.from} variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(textVariable.part)}; name an existing part or remove the variable to clear this refusal`,
       })
     }
     if (variable.kind === 'meta' && document.kind && DOCUMENT_PROFILES[document.kind].metadata.length === 0) {

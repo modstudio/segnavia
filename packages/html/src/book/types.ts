@@ -16,10 +16,12 @@ export interface BookSectionInfo {
   kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes' | 'designed' | 'templated'
   division: 'front' | 'body' | 'end'
   title?: string
+  number?: string
   opens?: BookOpens
   values?: Record<string, string>
   record?: { index: number; count: number }
   parts?: Record<string, string>
+  partNumbers?: Record<string, string>
   numbering?: SectionNumbering
   parentRules?: ParentRules
 }

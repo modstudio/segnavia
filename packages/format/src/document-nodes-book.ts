@@ -10,7 +10,16 @@ import { NoteSeries } from './note-series.ts'
 import { RemovedParentPageFields } from './parent-page-fields.ts'
 import { ParentRegions } from './parent-regions.ts'
 import { parentRules } from './parent-rules.ts'
-import { ContentTextVariable, MetaVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
+import {
+  ChapterNumberTextVariable,
+  ContentTextVariable,
+  MetaVariable,
+  NumberVariable,
+  PartNumberTextVariable,
+  PartTitleTextVariable,
+  RecordVariable,
+  SectionTitleTextVariable,
+} from './variable.ts'
 
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
@@ -66,7 +75,9 @@ const VariableNodeFields = { type: z.literal('variable'), id: z.string().optiona
 const TextVariableNode = z.discriminatedUnion('from', [
   ContentTextVariable.extend(VariableNodeFields),
   SectionTitleTextVariable.extend(VariableNodeFields),
+  ChapterNumberTextVariable.extend(VariableNodeFields),
   PartTitleTextVariable.extend(VariableNodeFields),
+  PartNumberTextVariable.extend(VariableNodeFields),
 ])
 
 export const VariableNode = z.discriminatedUnion('kind', [
