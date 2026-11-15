@@ -8,18 +8,21 @@ interface ChapterHeadingEntry {
   contentsLabel?: string
   subtitle?: string
   contents?: boolean
+  contentsDepth?: number
 }
 
-export function withSectionDepth(headings: BookHeading[], depth: number): BookHeading[] {
-  return depth > 0 ? headings.map((heading) => ({ ...heading, depth })) : headings
+export function withSectionDepth(headings: BookHeading[], depth: number, contentsDepth?: number): BookHeading[] {
+  return depth > 0 || contentsDepth !== undefined
+    ? headings.map((heading) => ({ ...heading, ...(depth > 0 ? { depth } : {}), ...(contentsDepth === undefined ? {} : { contentsDepth }) }))
+    : headings
 }
 
-export function appendHeldHeadings(entry: { contents?: boolean }, headings: BookHeading[], depth: number, listed: BookHeading[]): void {
-  if (entry.contents) listed.push(...withSectionDepth(headings, depth))
+export function appendHeldHeadings(entry: { contents?: boolean; contentsDepth?: number }, headings: BookHeading[], depth: number, listed: BookHeading[]): void {
+  if (entry.contents) listed.push(...withSectionDepth(headings, depth, entry.contentsDepth))
 }
 
 export function appendChapterHeadings(entry: ChapterHeadingEntry, section: BuiltSection, depth: number, maxHeadingLevel: number, listed: BookHeading[]): void {
   if (entry.contents === false) return
   const title = entry.title === undefined ? [] : [sectionHeading({ ...entry, title: entry.title }, section.info.id)]
-  listed.push(...withSectionDepth([...title, ...collectHeadings(section.node.children, section.info.id, maxHeadingLevel, 2)], depth))
+  listed.push(...withSectionDepth([...title, ...collectHeadings(section.node.children, section.info.id, maxHeadingLevel, 2)], depth, entry.contentsDepth))
 }

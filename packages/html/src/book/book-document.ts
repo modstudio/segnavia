@@ -213,7 +213,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
-      build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth))
+      build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth, entry.contentsDepth))
     }
     transformNotes(section.node, book, noteContext(sectionEntry, section.info.id, 0, entry.title, build), build.notes, build.build === 'galley')
   }

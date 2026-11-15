@@ -39,6 +39,7 @@ export interface BookHeading {
   subtitle?: string
   sectionId: string
   depth?: number
+  contentsDepth?: number
   listed: HeadingListing
 }
 
