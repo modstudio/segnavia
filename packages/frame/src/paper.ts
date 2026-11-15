@@ -10,17 +10,17 @@ import {
   type OriginApproval,
   type Page,
   type PageWidths,
-  pageOrPrintedFromDocument,
   resolveBrand,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type HtmlPage, parseDocument } from '@segnavia/html'
 import { type AsOfElementProperties, captureAsOfLoad, defineAsOfPropertyAccessors, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { dispatchFontFailures, messageFrom } from './bridge.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
@@ -28,18 +28,21 @@ import { framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { preparePaperDays } from './paper-day.ts'
+import { resolvePaperDocuments, resolvePaperPageValues } from './paper-document-load.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
-import { printablePaper, refuseSectionedImpositionPage } from './print-document.ts'
+import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 export class SegnaviaPaper extends HTMLElement {
-  static observedAttributes = ['paper', 'side']
+  static observedAttributes = ['paper', 'side', 'edition']
   static {
     defineStylesheetPropertyAccessors(SegnaviaPaper.prototype)
     defineAsOfPropertyAccessors(SegnaviaPaper.prototype)
+    defineEditionPropertyAccessor(SegnaviaPaper.prototype)
   }
+  declare edition: string | undefined
   declare css: string
   declare cspExtra: string
   declare origins: Iterable<OriginApproval>
@@ -48,6 +51,7 @@ export class SegnaviaPaper extends HTMLElement {
   declare moment: AsOfElementProperties['moment']
   private pages: HtmlPage[] = []
   private brandDocuments: Document[] = []
+  private editionDocuments: Document[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
   private paperIndex = 0
@@ -177,7 +181,14 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
-    if (name === 'paper') this.showPaper(Number(value ?? 0))
+    if (name === 'edition') {
+      if (!this.imposition || this.editionDocuments.length === 0) return
+      try {
+        this.loadDocuments(this.editionDocuments, this.imposition)
+      } catch (error) {
+        dispatchElementError(this, error)
+      }
+    } else if (name === 'paper') this.showPaper(Number(value ?? 0))
     else this.showSide(value === 'back' ? 'back' : 'front')
   }
 
@@ -185,13 +196,14 @@ export class SegnaviaPaper extends HTMLElement {
     // Parse both inputs before changing state, so a refusal leaves the shown
     // paper untouched.
     const documents = pageInputs.map((page) => parseDocument(page))
-    const pages = documents.map((document) => {
-      const page = pageOrPrintedFromDocument(document)
-      refuseSectionedImpositionPage(page)
-      return resolvePageHtml(page)
-    })
     const imposition = Imposition.parse(impositionInput)
-    this.loadValues(pages, imposition, documents)
+    this.loadDocuments(documents, imposition)
+    this.editionDocuments = documents
+  }
+
+  private loadDocuments(documents: Document[], imposition: Imposition): void {
+    const { documents: resolvedDocuments, pages } = resolvePaperDocuments(documents, this.edition)
+    this.loadValues(pages, imposition, resolvedDocuments)
   }
 
   private loadValues(pages: HtmlPage[], imposition: Imposition, brandDocuments: Document[] = []): void {
@@ -215,13 +227,8 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   [internalPaperPagesLoad](pageValues: Page[], imposition: Imposition): void {
-    this.loadValues(
-      pageValues.map((page) => {
-        refuseSectionedImpositionPage(page)
-        return resolvePageHtml(page)
-      }),
-      imposition,
-    )
+    this.editionDocuments = []
+    this.loadValues(resolvePaperPageValues(pageValues), imposition)
   }
 
   private showPaper(value: number) {

@@ -33,8 +33,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
   private deckDocument: Document | null = null
   private pageValue: Page | null = null
   private pageDocument: Document | null = null
-  private sourceDeckDocument: Document | null = null
-  private sourcePageDocument: Document | null = null
+  private editionSource: { kind: 'deck' | 'page'; document: Document } | null = null
   private printValue: Print | null = null
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
@@ -70,11 +69,12 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
   }
   set deck(input: DocumentInput | null) {
     const parsed = input === null ? null : parseDocument(input)
-    this.sourceDeckDocument = parsed
-    this.applyDeckEdition()
+    this.editionSource = parsed && { kind: 'deck', document: parsed }
+    this.applyEditionSource()
   }
   [internalThumbnailDeckLoad](deck: Deck | null) {
     this.brandResolution?.abort()
+    this.editionSource = null
     this.deckDocument = null
     this.value = deck
     if (this.value) this.pageValue = null
@@ -88,11 +88,12 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
   }
   set page(input: DocumentInput | null | undefined) {
     const parsed = input == null ? null : parseDocument(input)
-    this.sourcePageDocument = parsed
-    this.applyPageEdition()
+    this.editionSource = parsed && { kind: 'page', document: parsed }
+    this.applyEditionSource()
   }
   [internalThumbnailPageLoad](page: Page | null) {
     this.brandResolution?.abort()
+    this.editionSource = null
     this.pageDocument = null
     this.pageValue = page
     if (this.pageValue) this.value = null
@@ -147,23 +148,25 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     else if (this.pageDocument) this.resolvePageDocument(this.pageDocument)
   }
 
-  attributeChangedCallback() {
+  attributeChangedCallback(name: string) {
+    if (name !== 'edition') return
     try {
-      if (this.sourceDeckDocument) this.applyDeckEdition()
-      else if (this.sourcePageDocument) this.applyPageEdition()
+      this.applyEditionSource()
     } catch (error) {
       this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
     }
   }
 
-  private applyDeckEdition() {
-    this.deckDocument = this.sourceDeckDocument && resolveEdition(this.sourceDeckDocument, this.edition)
-    this.resolveDeckDocument(this.deckDocument)
-  }
-
-  private applyPageEdition() {
-    this.pageDocument = this.sourcePageDocument && resolveEdition(this.sourcePageDocument, this.edition)
-    this.resolvePageDocument(this.pageDocument)
+  private applyEditionSource() {
+    const source = this.editionSource
+    const document = source && resolveEdition(source.document, this.edition)
+    if (source?.kind === 'deck') {
+      this.deckDocument = document
+      this.resolveDeckDocument(document)
+    } else {
+      this.pageDocument = document
+      this.resolvePageDocument(document)
+    }
   }
 
   connectedCallback() {

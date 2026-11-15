@@ -9,7 +9,7 @@
 
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
-import { DeckController, type DeckState } from './controller.ts'
+import type { DeckController, DeckState } from './controller.ts'
 import { playerAttributeOptions } from './controller-options.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { DeckSourcesElement } from './deck-sources.ts'
@@ -37,6 +37,7 @@ import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaRefusal } from './refusal.ts'
 import type { SegnaviaStage } from './stage.ts'
+import { createSourceController } from './stage-source-controller.ts'
 import { CONTROLLER_STYLED_ELEMENTS, STYLED_ELEMENTS } from './styled-elements.ts'
 
 const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="player" part="player">
@@ -87,12 +88,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
 
   constructor() {
     super()
-    const hash = this.getAttribute('hash')
-    this.controller = new DeckController({
-      hash: hash === 'off' ? null : (hash ?? 'slide-'),
-      prefetch: this.hasAttribute('prefetch'),
-      edition: this.edition,
-    })
+    this.controller = createSourceController(this)
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
     connectPlayerRefusal(this.root, this.stage)

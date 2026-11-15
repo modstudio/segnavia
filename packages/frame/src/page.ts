@@ -127,6 +127,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   protected brandsChanged() {
     if (this.pageInput !== undefined) this.load(this.pageInput)
   }
+
   get page(): Document | null {
     return this.documentValue
   }

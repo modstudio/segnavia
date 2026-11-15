@@ -31,12 +31,13 @@ import { recordFrameRefusal, shownFrameRefusal } from './stage-frame-refusal.ts'
 import { measureStage } from './stage-measure.ts'
 import { handleStageMessage } from './stage-message.ts'
 import { setStagePreflightSurface } from './stage-preflight-surface.ts'
+import { defineStageProfileProperty } from './stage-profile-property.ts'
 import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { StageRefusalState } from './stage-refusal-state.ts'
 import type { StageReserve } from './stage-reserve.ts'
 import { cancelStageSelectionRequests, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
-import { createStageSourceController } from './stage-source-controller.ts'
+import { createSourceController } from './stage-source-controller.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
@@ -44,10 +45,12 @@ export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'edition', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
     defineStagePropertyAccessors(SegnaviaStage.prototype)
+    defineStageProfileProperty(SegnaviaStage.prototype, (stage) => (stage as SegnaviaStage).rebuildFrames())
   }
   declare css: string
   declare edition: string | undefined
   declare cspExtra: string
+  declare profile: PreflightProfileInput
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
@@ -80,13 +83,6 @@ export class SegnaviaStage extends AsOfElement {
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
-  get profile(): PreflightProfileInput {
-    return surfacePreflightFor(this).profile
-  }
-  set profile(value: PreflightProfileInput) {
-    surfacePreflightFor(this).profile = value
-    this.rebuildFrames()
-  }
   set slots(value: SlotsOptions | undefined) {
     this.cancelSelectionRequests()
     this.cancelSlotPreparation()
@@ -99,11 +95,13 @@ export class SegnaviaStage extends AsOfElement {
   protected asOfInputsChanged(): void {
     this.slots = this.slotOptions
   }
+
   setAuthoringScriptsRefused(refused: boolean) {
     if (refused === this.authoringRefusesScripts) return
     this.authoringRefusesScripts = refused
     if (this.attached?.state.deck) this.update(this.attached.state)
   }
+
   get transition(): HostTransition | undefined {
     return this.transitionProperty ?? transitionFromAttributes(this.getAttribute('transition'), this.getAttribute('transition-duration'))
   }
@@ -240,7 +238,7 @@ export class SegnaviaStage extends AsOfElement {
     const src = this.getAttribute('src')
     if (!src || !this.isConnected) return
     if (!this.owned) {
-      this.owned = createStageSourceController(this)
+      this.owned = createSourceController(this)
       this.controller = this.owned
     }
     this.owned.brands = this.brands
@@ -363,6 +361,7 @@ export class SegnaviaStage extends AsOfElement {
   private cancelSelectionRequests() {
     cancelStageSelectionRequests(this.selectionRequests)
   }
+
   private cancelSelectionRequestsExcept(slideId: string | undefined) {
     cancelStageSelectionRequests(this.selectionRequests, (request) => request.slideId === slideId)
   }

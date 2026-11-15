@@ -100,12 +100,43 @@ const measured = (html: string) => ({
   size: { width: 'standard' as const, height: 'auto' as const },
   children: [{ type: 'page' as const, body: { html } }],
 })
+const editionPage = {
+  type: 'document' as const,
+  kind: 'page' as const,
+  size: 'fluid' as const,
+  conditions: [{ type: 'condition' as const, name: 'teacher' }],
+  editions: [
+    { type: 'edition' as const, name: 'student', conditions: [] },
+    { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+  ],
+  defaultEdition: 'student',
+  children: [
+    {
+      type: 'page' as const,
+      body: { html: '<p>Question<span data-segnavia-condition="teacher"> Answer</span></p>' },
+    },
+  ],
+}
 
 test('a label names the mounted page frame', () => {
   const page = pageHarness()
   page.label = 'Notice'
   page.load(content)
   expect(page.querySelector<HTMLIFrameElement>('iframe')?.title).toBe('Notice')
+})
+
+test('changing a mounted page edition re-resolves its document and reports an unknown edition', () => {
+  const page = pageHarness()
+  const errors: ErrorEvent[] = []
+  page.addEventListener('error', (event) => errors.push(event as ErrorEvent))
+  page.load(editionPage)
+  expect(page.querySelector<HTMLIFrameElement>('iframe')?.srcdoc).not.toContain('Answer')
+
+  page.edition = 'teacher'
+  expect(page.querySelector<HTMLIFrameElement>('iframe')?.srcdoc).toContain('Answer')
+
+  page.edition = 'missing'
+  expect(errors.at(-1)?.error.message).toContain('requested edition "missing" is unknown')
 })
 
 test('reports the one as-of day used by a page load', () => {

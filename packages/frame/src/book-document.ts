@@ -1,5 +1,5 @@
 import { type Book, type BookView, bookFromDocument, type DocumentInput, Refusal } from '@segnavia/format'
-import { bookOutlineSource, bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
+import { bookOutlineSource, bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument, resolveEdition } from '@segnavia/html'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
 import { COMPOSER_SCRIPT } from './composer.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
@@ -41,9 +41,9 @@ export function bookDocument(
     | 'preflightSeed'
     | 'progress'
     | 'progressCallback'
-  >,
+  > & { edition?: string },
 ): string {
-  const document = parseDocument(input)
+  const document = resolveEdition(parseDocument(input), options.edition)
   refuseNamedDocumentBrand(document, 'bookValueDocument')
   return bookValueDocument(bookFromDocument(document), options)
 }

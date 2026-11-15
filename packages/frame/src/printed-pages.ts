@@ -1,9 +1,10 @@
 import { type Document, type DocumentInput, pageOrPrintedFromDocument, paperViewport, resolveBrand, resolvePreflightProfile } from '@segnavia/format'
-import { parseDocument, printedPageDirection } from '@segnavia/html'
+import { parseDocument, printedPageDirection, resolveEdition } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom } from './bridge.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { PageParseOption } from './page-parse-options-element.ts'
 import { PRINTED_SLOT_REFUSAL } from './page-printed.ts'
@@ -23,7 +24,13 @@ import { ReloadCoalescer } from './reload-coalescer.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
 export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
+  static {
+    defineEditionPropertyAccessor(SegnaviaPrintedPages.prototype)
+  }
+  static observedAttributes = ['edition']
+  declare edition: string | undefined
   private documentValue: Document | null = null
+  private editionDocument: Document | null = null
   private papers = new Map<number, PrintedPaperState>()
   private abort: AbortController | undefined
   private generation = 0
@@ -52,16 +59,29 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
   }
   set document(value: DocumentInput | null | undefined) {
     if (value == null) {
+      this.editionDocument = null
       this.documentValue = null
       this.clear()
       return
     }
     try {
-      this.documentValue = parseDocument(value, { alertLabels: this.alertLabels, newId: this.newId })
+      const document = parseDocument(value, { alertLabels: this.alertLabels, newId: this.newId })
+      this.documentValue = resolveEdition(document, this.edition)
+      this.editionDocument = document
       this.schedule()
     } catch (error) {
+      this.editionDocument = null
       this.documentValue = null
       this.discardLoad()
+      renderPrintedPagesFailure(this, error)
+    }
+  }
+  attributeChangedCallback(name: string): void {
+    if (name !== 'edition' || !this.editionDocument) return
+    try {
+      this.documentValue = resolveEdition(this.editionDocument, this.edition)
+      this.schedule()
+    } catch (error) {
       renderPrintedPagesFailure(this, error)
     }
   }

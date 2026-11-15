@@ -1,13 +1,19 @@
 import { type Board, boardFromDocument, type Document, type DocumentInput, documentFromBoard } from '@segnavia/format'
-import { parseDocument } from '@segnavia/html'
+import { parseDocument, resolveEdition } from '@segnavia/html'
 import { boardEvent } from './board-events.ts'
 import { BoardResolutions } from './board-resolutions.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import type { BrandsOptions } from './brands.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 
 export abstract class BoardDocumentElement extends BoardSelectionElement {
+  static {
+    defineEditionPropertyAccessor(BoardDocumentElement.prototype)
+  }
+  declare edition: string | undefined
   protected readonly resolutions = new BoardResolutions((error) => this.dispatchEvent(boardEvent('segnavia-board-error', { error })))
   private documentValue: Document | null = null
+  private editionDocument: Document | null = null
   private brandOptions: BrandsOptions | undefined
   protected get boardDocument(): Document | null {
     return this.documentValue
@@ -29,6 +35,21 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
 
   set board(input: DocumentInput | null) {
     const document = input === null ? null : parseDocument(input)
+    this.editionDocument = document
+    this.applyEditionDocument()
+  }
+
+  attributeChangedCallback(name: string): void {
+    if (name !== 'edition') return
+    try {
+      this.applyEditionDocument()
+    } catch (error) {
+      this.dispatchEvent(boardEvent('segnavia-board-error', { error }))
+    }
+  }
+
+  private applyEditionDocument(): void {
+    const document = this.editionDocument && resolveEdition(this.editionDocument, this.edition)
     this.documentValue = document
     this.acceptBoardInput(document === null ? null : boardFromDocument(document))
   }
@@ -40,6 +61,7 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
 
   protected holdBoardEdit(board: Board): Board {
     this.documentValue = this.documentWithBoard(board)
+    this.editionDocument = this.documentValue
     return board
   }
 

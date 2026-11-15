@@ -6,6 +6,7 @@ import {
   notesLayoutGeometry,
   printableDeckValue,
   printableDeckValueDocument,
+  printablePages,
   printablePageValues,
   printablePageValuesDocument,
   printablePaper,
@@ -26,6 +27,29 @@ const deck = Deck.parse({
   title: 'Print',
   size: { width: 1280, height: 720 },
   slides: [{ id: 'html', content: { kind: 'html', html: '<h1>Slide</h1>' }, notes: 'Notes' }],
+})
+
+test('printable pages lower the selected document edition', () => {
+  const input = {
+    type: 'document' as const,
+    kind: 'page' as const,
+    conditions: [{ type: 'condition' as const, name: 'teacher' }],
+    editions: [
+      { type: 'edition' as const, name: 'student', conditions: [] },
+      { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    size: { width: 10, height: 10 },
+    print: gridPrint,
+    children: [
+      {
+        type: 'page' as const,
+        body: { html: '<p>Question<span data-segnavia-condition="teacher"> Answer</span></p>' },
+      },
+    ],
+  }
+  expect(printablePages([input], grid)).not.toContain('Answer')
+  expect(printablePages([input], grid, { edition: 'teacher' })).toContain('Answer')
 })
 
 describe('printableDeckValue', () => {
