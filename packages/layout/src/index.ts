@@ -4,6 +4,7 @@ export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarni
 export { type FitProbe, type FitSearchResult, type FitSearchStrategy, fitSearch, reduceFitGroups } from './fit-search.ts'
 export { resolveHeadTemplate } from './head-template.ts'
 export { layoutScript } from './layout-script.ts'
+export { type Box, breakLines, type Glue, type Penalty } from './line-break.ts'
 export {
   type LineKeyedLabelDecision,
   lineKeyedLabels,
