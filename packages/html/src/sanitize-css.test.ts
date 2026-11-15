@@ -131,6 +131,12 @@ describe('CSS sanitizer', () => {
     })
   })
 
+  test('does not treat inherited object names as library custom properties', () => {
+    for (const source of ['p{constructor:1}', 'p{__proto__:x}']) {
+      expect(rules(source)).toEqual({ css: source, removed: [] })
+    }
+  })
+
   test('keeps only accepted composer values', () => {
     expect(rules('p{--segnavia-composer:paragraph}q{--segnavia-composer:single-line}')).toEqual({
       css: 'p{--segnavia-composer:paragraph}q{--segnavia-composer:single-line}',

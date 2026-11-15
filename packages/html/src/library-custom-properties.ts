@@ -31,3 +31,7 @@ export const LIBRARY_CUSTOM_PROPERTIES: Readonly<Record<string, LibraryCustomPro
     accepts: (value) => parseWordSpacing(value) !== undefined,
   },
 }
+
+export function libraryCustomProperty(name: string): LibraryCustomProperty | undefined {
+  return Object.hasOwn(LIBRARY_CUSTOM_PROPERTIES, name) ? LIBRARY_CUSTOM_PROPERTIES[name] : undefined
+}

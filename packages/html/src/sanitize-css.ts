@@ -1,6 +1,6 @@
 import { cssNetworkUrls, FETCH_AT_KEYWORD_SET, FETCH_AT_KEYWORDS, FETCH_FUNCTION_SET, FETCH_FUNCTIONS } from './css-preflight-network.ts'
 import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
-import { LIBRARY_CUSTOM_PROPERTIES } from './library-custom-properties.ts'
+import { libraryCustomProperty } from './library-custom-properties.ts'
 
 export interface CssSanitizeResult {
   css: string
@@ -322,7 +322,7 @@ function cleanDeclarationSegment(
   const finish = hasSemicolon ? delimiter.end : end < list.length ? (delimiter?.start ?? source.length) : source.length
   const unsafe = findings(source, list, start, segmentEnd, dataFonts, fontFace)
   const name = list[start]?.value
-  const property = name ? LIBRARY_CUSTOM_PROPERTIES[name] : undefined
+  const property = name ? libraryCustomProperty(name) : undefined
   if (property) {
     const colon = list[start + 1]
     const authored = source.slice(colon?.end ?? source.length, hasSemicolon ? delimiter.start : finish).trim()
