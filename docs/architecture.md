@@ -2101,7 +2101,9 @@ Latin and Hebrew samples. The compiler produces one sheet in cascade-layer order
 styles become classes.
 Paragraph text styles may set `composer` (`paragraph` by default or
 `single-line`), `wordSpacing` (minimum, desired and maximum percentages,
-defaulting to 80/100/133) and `hyphenate` (true by default). They compile to
+defaulting to 80/100/133; each value is from 0 to 1000 percent with at most two
+decimal places, and minimum is less than or equal to desired, which is less
+than or equal to maximum) and `hyphenate` (true by default). They compile to
 `--segnavia-composer`, `--segnavia-word-spacing` and
 `--segnavia-hyphenate`. Pages and slides carry these values in their compiled
 styles but do not apply them; paginated book and printed-page composition owns

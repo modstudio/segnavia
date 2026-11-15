@@ -130,4 +130,39 @@ describe('CSS sanitizer', () => {
       removed: [],
     })
   })
+
+  test('keeps only accepted composer values', () => {
+    expect(rules('p{--segnavia-composer:paragraph}q{--segnavia-composer:single-line}')).toEqual({
+      css: 'p{--segnavia-composer:paragraph}q{--segnavia-composer:single-line}',
+      removed: [],
+    })
+    expect(rules('p{--segnavia-composer:line}')).toEqual({
+      css: 'p{}',
+      removed: ['--segnavia-composer: line; the accepted values are paragraph and single-line'],
+    })
+  })
+
+  test('keeps only accepted hyphenation values', () => {
+    expect(rules('p{--segnavia-hyphenate:true}q{--segnavia-hyphenate: false}')).toEqual({
+      css: 'p{--segnavia-hyphenate:true}q{--segnavia-hyphenate: false}',
+      removed: [],
+    })
+    expect(rules('p{--segnavia-hyphenate:yes}')).toEqual({
+      css: 'p{}',
+      removed: ['--segnavia-hyphenate: yes; the accepted values are true and false'],
+    })
+  })
+
+  test('keeps only accepted word-spacing triples', () => {
+    expect(rules('p{--segnavia-word-spacing:0% 100% 1000%}')).toEqual({
+      css: 'p{--segnavia-word-spacing:0% 100% 1000%}',
+      removed: [],
+    })
+    expect(rules('p{--segnavia-word-spacing:100% 90% 110%}')).toEqual({
+      css: 'p{}',
+      removed: [
+        '--segnavia-word-spacing: 100% 90% 110%; the accepted values are three percentages in minimum desired maximum order, each from 0% to 1000% with at most two decimal places',
+      ],
+    })
+  })
 })

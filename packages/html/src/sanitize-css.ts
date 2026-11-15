@@ -1,6 +1,6 @@
 import { cssNetworkUrls, FETCH_AT_KEYWORD_SET, FETCH_AT_KEYWORDS, FETCH_FUNCTION_SET, FETCH_FUNCTIONS } from './css-preflight-network.ts'
 import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
-import { KEEP_WITH_VALUES } from './keep-with.ts'
+import { LIBRARY_CUSTOM_PROPERTIES } from './library-custom-properties.ts'
 
 export interface CssSanitizeResult {
   css: string
@@ -322,14 +322,13 @@ function cleanDeclarationSegment(
   const finish = hasSemicolon ? delimiter.end : end < list.length ? (delimiter?.start ?? source.length) : source.length
   const unsafe = findings(source, list, start, segmentEnd, dataFonts, fontFace)
   const name = list[start]?.value
-  if (name === '--segnavia-keep-with') {
+  const property = name ? LIBRARY_CUSTOM_PROPERTIES[name] : undefined
+  if (property) {
     const colon = list[start + 1]
     const authored = source.slice(colon?.end ?? source.length, hasSemicolon ? delimiter.start : finish).trim()
     const authoredValue = authored.replace(/\s*!important\s*$/i, '').trim()
     const value = decodedCssValue(authoredValue).trim()
-    if (!(KEEP_WITH_VALUES as readonly string[]).includes(value)) {
-      unsafe.push(`--segnavia-keep-with: ${authoredValue}; the accepted values are next and previous`)
-    }
+    if (!property.accepts(value)) unsafe.push(`${name}: ${authoredValue}; the accepted values are ${property.accepted}`)
   }
   if (unsafe.length === 0) return [source.slice(character, finish), finish]
   removed.push(...unsafe)
