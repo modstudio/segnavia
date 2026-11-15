@@ -8,9 +8,19 @@ interface ExportConditions {
   default: string
 }
 
-function entries(name: string): Record<string, string> {
+interface PackageManifest {
+  bin?: string | Record<string, string>
+  exports: Record<string, ExportConditions>
+}
+
+interface PackageBuild {
+  binOutputs: Set<string>
+  entries: Record<string, string>
+}
+
+function packageBuild(name: string): PackageBuild {
   const file = path.join(import.meta.dirname, 'packages', name, 'package.json')
-  const manifest = JSON.parse(readFileSync(file, 'utf8')) as { exports: Record<string, ExportConditions> }
+  const manifest = JSON.parse(readFileSync(file, 'utf8')) as PackageManifest
   const result: Record<string, string> = {}
   for (const conditions of Object.values(manifest.exports)) {
     const source = bunSource(conditions[SOURCE_CONDITION])
@@ -19,25 +29,34 @@ function entries(name: string): Record<string, string> {
     const output = conditions.default.replace(/^\.\/dist\//, '').replace(/\.js$/, '')
     result[output] = source.replace(/^\.\//, '')
   }
-  if (name === 'render') result.bin = 'src/cli/bin.ts'
-  return result
+  const targets = typeof manifest.bin === 'string' ? [manifest.bin] : Object.values(manifest.bin ?? {})
+  const binOutputs = new Set<string>()
+  for (const target of targets) {
+    const match = /^\.\/dist\/(.+)\.js$/.exec(target)
+    if (!match) throw new Error(`${file} has a bin target outside ./dist/*.js: ${target}`)
+    const output = match[1] as string
+    result[output] = `src/cli/${output}.ts`
+    binOutputs.add(`${output}.js`)
+  }
+  return { entries: result, binOutputs }
 }
 
 export default defineConfig(
-  Object.entries(PACKAGES).map(
-    ([name, rule]): UserConfig => ({
+  Object.entries(PACKAGES).map(([name, rule]): UserConfig => {
+    const build = packageBuild(name)
+    return {
       name,
       cwd: path.join(import.meta.dirname, 'packages', name),
-      entry: entries(name),
+      entry: build.entries,
       platform: platformForRuntime(rule.runtime),
       format: 'esm',
       fixedExtension: false,
       dts: true,
       unbundle: true,
       root: 'src',
-      banner: name === 'render' ? ({ fileName }) => (fileName === 'bin.js' ? '#!/usr/bin/env node' : undefined) : undefined,
+      banner: build.binOutputs.size > 0 ? ({ fileName }) => (build.binOutputs.has(fileName) ? '#!/usr/bin/env node' : undefined) : undefined,
       deps: { neverBundle: true, dts: { neverBundle: true } },
       exports: false,
-    }),
-  ),
+    }
+  }),
 )
