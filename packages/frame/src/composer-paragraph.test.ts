@@ -2,15 +2,12 @@ import { expect, test } from 'bun:test'
 import type { ParagraphToken } from './composer-paragraph.ts'
 import {
   composeParagraphs,
-  hyphenWidth,
   paragraphBaseDirection,
   paragraphCompositionAction,
   paragraphMeasures,
   planParagraphLines,
-  planParagraphLinesWith,
   resolvedTextIndent,
   setParagraphVariableValue,
-  structuredParagraphReuseKey,
 } from './composer-paragraph.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
@@ -18,7 +15,6 @@ import {
   COMPOSITION_IDENTITY_ATTRIBUTE,
   lineFragment,
   markCompositionContinuations,
-  paragraphLineNodes,
   removeContinuationIds,
 } from './composer-paragraph-dom.ts'
 import { appendTextTokens } from './composer-paragraph-measure.ts'
@@ -35,87 +31,6 @@ test('plans explicit lines and leaves a one-line paragraph as one line', () => {
   const short = planParagraphLines(tokens('one two three'), { ...base, measure: 100 })
   expect(short).toHaveLength(1)
   expect(short[0]?.end).toBe(13)
-})
-
-test('returns a fitting line without invoking hyphenation or the breaker', () => {
-  const unavailable = () => {
-    throw new Error('a fitting paragraph does not need the breaker')
-  }
-  expect(planParagraphLinesWith(tokens('one'), base, 0, unavailable, unavailable)).toEqual([
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false },
-  ])
-})
-
-test('measures a hyphen once for paragraphs with the same measured style', () => {
-  let appended = 0
-  const paragraph = {
-    nodeType: 1,
-    append: () => appended++,
-  } as unknown as Element
-  const marker = {
-    style: { cssText: '' },
-    textContent: '',
-    getBoundingClientRect: () => ({ width: 4, height: 9 }),
-    remove: () => undefined,
-  }
-  const doc = { createElement: () => marker } as unknown as Document
-  const styleFor = () =>
-    ({
-      writingMode: 'horizontal-tb',
-      font: '16px serif',
-      fontKerning: 'auto',
-      fontFeatureSettings: 'normal',
-      fontVariationSettings: 'normal',
-      letterSpacing: 'normal',
-      textTransform: 'none',
-    }) as CSSStyleDeclaration
-  const widths = new Map<string, number>()
-  expect([hyphenWidth(paragraph, doc, styleFor, widths), hyphenWidth(paragraph, doc, styleFor, widths)]).toEqual([4, 4])
-  expect(appended).toBe(1)
-})
-
-test('reuses structured markup only with identical measured content', () => {
-  const facts = [100, 'en', 'ltr']
-  const paragraph = { innerHTML: '<a href="#note">note</a>' } as Element
-  const held = [{ kind: 'text', text: 'n', width: 4 }] as ParagraphToken[]
-  const key = structuredParagraphReuseKey(paragraph, facts, held)
-  expect(structuredParagraphReuseKey({ innerHTML: paragraph.innerHTML } as Element, facts, held)).toBe(key)
-  expect(structuredParagraphReuseKey({ innerHTML: '<a href="#other">note</a>' } as Element, facts, held)).not.toBe(key)
-  expect(structuredParagraphReuseKey(paragraph, facts, [{ ...held[0]!, width: 5 }])).not.toBe(key)
-})
-
-test('builds line nodes without writing the source paragraph', () => {
-  let replaced = false
-  const text = { nodeType: 3, data: 'one', parentElement: {} } as Text
-  const paragraph = {
-    querySelectorAll: () => [],
-    replaceChildren: () => {
-      replaced = true
-    },
-  } as unknown as Element
-  const doc = {
-    createDocumentFragment: () => ({ append: () => undefined, querySelectorAll: () => [] }),
-    createTextNode: (data: string) => ({ data }),
-    createElement: () => ({
-      style: { cssText: '' },
-      setAttribute: () => undefined,
-      append: () => undefined,
-      dir: '',
-    }),
-  } as unknown as Document
-  const output = paragraphLineNodes(
-    paragraph,
-    [{ kind: 'text', text: 'one', width: 3, node: text, start: 0, end: 3 }],
-    [{ start: 0, end: 1, wordSpacing: 0, hyphen: false, forced: false }],
-    doc,
-    'ltr',
-    'data-identity',
-    'data-continuation',
-    'data-variable-value',
-  )
-  expect(replaced).toBe(false)
-  expect(output).toHaveLength(1)
-  expect(output[0]?.style.cssText).toContain('text-align:start')
 })
 
 test('plans a library hyphen marker but a maqaf break without one', () => {

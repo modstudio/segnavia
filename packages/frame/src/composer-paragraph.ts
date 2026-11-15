@@ -249,18 +249,8 @@ function paragraphRewriteForFact(
   const direction = paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction)
   const hyphenate = composition.hyphenate ?? compositionDefaults().hyphenate
   const wordSpacing = composition.wordSpacing ?? compositionDefaults().wordSpacing
-  const reuseFacts = [
-    inlineSize,
-    language,
-    direction,
-    measurementStyleKey(paragraph, styleFor),
-    style.textIndent,
-    style.writingMode,
-    hyphenate,
-    wordSpacing,
-  ]
-  let reuseKey =
-    paragraph.childElementCount === 0 ? JSON.stringify([paragraph.textContent ?? '', ...reuseFacts]) : ''
+  const reuseFacts = [inlineSize, language, direction, measurementStyleKey(paragraph, styleFor), style.textIndent, style.writingMode, hyphenate, wordSpacing]
+  let reuseKey = paragraph.childElementCount === 0 ? JSON.stringify([paragraph.textContent ?? '', ...reuseFacts]) : ''
   let source = reuseKey ? reusable.get(reuseKey) : undefined
   let tokens: ParagraphToken[] = []
   if (!source) {
