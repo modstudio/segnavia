@@ -27,6 +27,43 @@ describe('StyleSheet', () => {
     expect(message).toContain('remove spaceBefore or change kind to paragraph to clear this refusal')
   })
 
+  test('accepts paragraph composition settings and refuses malformed values with their style paths', () => {
+    expect(
+      StyleSheet.safeParse({
+        textStyles: {
+          body: {
+            kind: 'paragraph',
+            composer: 'single-line',
+            wordSpacing: { minimum: 85, desired: 100, maximum: 120 },
+            hyphenate: false,
+          },
+        },
+      }).success,
+    ).toBe(true)
+
+    for (const [property, value] of [
+      ['composer', 'unknown'],
+      ['wordSpacing', { minimum: 101, desired: 100, maximum: 120 }],
+      ['wordSpacing', { minimum: -1, desired: 100, maximum: 120 }],
+      ['wordSpacing', { minimum: 80, desired: Number.POSITIVE_INFINITY, maximum: 120 }],
+      ['hyphenate', 'true'],
+    ] as const) {
+      const message = refusal({ textStyles: { body: { kind: 'paragraph', [property]: value } } })
+      expect(message).toMatch(new RegExp(`"textStyles"[\\s\\S]*"body"[\\s\\S]*"${property}"`))
+    }
+
+    for (const property of ['composer', 'wordSpacing', 'hyphenate'] as const) {
+      const values = {
+        composer: 'paragraph',
+        wordSpacing: { minimum: 80, desired: 100, maximum: 133 },
+        hyphenate: true,
+      }
+      const message = refusal({ textStyles: { emphasis: { kind: 'character', [property]: values[property] } } })
+      expect(message).toMatch(new RegExp(`"emphasis"[\\s\\S]*"${property}"`))
+      expect(message).toContain(`remove ${property} or change kind to paragraph to clear this refusal`)
+    }
+  })
+
   test('accepts page geometry columns and refuses duplicate motif keys', () => {
     expect(
       StyleSheet.safeParse({

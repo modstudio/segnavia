@@ -72,6 +72,10 @@ function flattenedStyle(name: string, styles: MergedStyleSheet['textStyles']): T
 
 function styleValue(property: keyof typeof TEXT_STYLE_PROPERTIES, value: unknown): string | undefined {
   if (property === 'keepWithNext') return value === true ? 'next' : undefined
+  if (property === 'wordSpacing') {
+    const spacing = value as NonNullable<TextStyle['wordSpacing']>
+    return `${spacing.minimum}% ${spacing.desired}% ${spacing.maximum}%`
+  }
   if (typeof value === 'object' && value !== null && 'token' in value) {
     const fact = TEXT_STYLE_PROPERTIES[property]
     if (!('tokenGroup' in fact)) return undefined

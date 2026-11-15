@@ -156,12 +156,13 @@ function isCollectionProperty(name: string): boolean {
 
 function groupedProperties(names: string[], resolved: Record<string, string>): string[] {
   const output: string[] = []
-  if (names.some(isHyphenationProperty) && truthy(resolved.Hyphenation)) output.push('Hyphenation')
-  const changedJustification = [...JUSTIFICATION_SETTINGS].some((name) => {
+  if (names.some((name) => isHyphenationProperty(name) && !stylePropertyMapping(name)) && truthy(resolved.Hyphenation)) output.push('Hyphenation')
+  const unmappedJustification = [...JUSTIFICATION_SETTINGS].filter((name) => !stylePropertyMapping(name))
+  const changedJustification = unmappedJustification.some((name) => {
     const value = resolved[name]
     return value !== undefined && !equalsDefault(name, value)
   })
-  if (names.some((name) => JUSTIFICATION_SETTINGS.has(name)) && changedJustification) output.push('JustificationSettings')
+  if (names.some((name) => unmappedJustification.includes(name)) && changedJustification) output.push('JustificationSettings')
   return output
 }
 

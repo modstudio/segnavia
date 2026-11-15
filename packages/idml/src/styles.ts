@@ -1,5 +1,6 @@
 import type { TextDirection } from '@segnavia/format'
 import { type Element, isTag } from 'domhandler'
+import { compositionStyleDeclarations } from './composition-style.ts'
 import type { FontMapper } from './fonts.ts'
 import { paragraphBoxDeclarations } from './paragraph-box.ts'
 import type { ReportCollector } from './report.ts'
@@ -239,7 +240,9 @@ export class StyleMapper {
       this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
     if (changed.AppliedFont !== undefined || changed.FontStyle !== undefined) this.report.font(resolved.AppliedFont, resolved.FontStyle, location)
-    const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => stylePropertyMapping(name)?.kind === 'css'))
+    const cssProperties = Object.fromEntries(
+      Object.entries(changed).filter(([name]) => ['css', 'composition'].includes(stylePropertyMapping(name)?.kind ?? '')),
+    )
     Object.assign(cssProperties, resolvedFontProperties(changed, resolved))
     if (styleDirection && styleDirection !== directionValue) {
       for (const name of ['LeftIndent', 'RightIndent']) cssProperties[name] = base[name] ?? '0'
@@ -309,7 +312,7 @@ export class StyleMapper {
   private declarations(values: Record<string, string>, dir: TextDirection, location: string, unsupported: Map<string, number>, resetShading: boolean): string {
     const output: string[] = []
     output.push(...(this.fonts?.declarations(values.AppliedFont, values.FontStyle, location) ?? []))
-    const mapped = new Set(Object.keys(values).filter((name) => stylePropertyMapping(name)?.kind === 'css'))
+    const mapped = new Set(Object.keys(values).filter((name) => ['css', 'composition'].includes(stylePropertyMapping(name)?.kind ?? '')))
     const pt = (name: string, property: string) => {
       if (!mapped.has(name)) return
       const value = Number(values[name])
@@ -325,6 +328,7 @@ export class StyleMapper {
       ...paragraphBoxDeclarations({ values, mapped, resetShading, direction: dir, swatches: this.swatches, report: this.report, unsupported, location }),
     )
     textDeclarations(values, mapped, output)
+    output.push(...compositionStyleDeclarations(values, mapped))
     if (mapped.has('Justification')) this.justification(values.Justification, dir, output, location, unsupported)
     if (hasCssMapping(mapped, 'keeps')) this.keeps(values, output)
     if (mapped.has('StartParagraph') && values.StartParagraph && values.StartParagraph !== 'Anywhere') {

@@ -1,4 +1,4 @@
-export type StylePropertyMapping = { kind: 'css'; css: string } | { kind: 'direction' | 'language' | 'font' | 'columns' | 'non-formatting' }
+export type StylePropertyMapping = { kind: 'css'; css: string } | { kind: 'direction' | 'language' | 'font' | 'columns' | 'composition' | 'non-formatting' }
 
 const css = (name: string): StylePropertyMapping => ({ kind: 'css', css: name })
 const nonFormatting: StylePropertyMapping = { kind: 'non-formatting' }
@@ -23,6 +23,11 @@ export const STYLE_PROPERTY_MAPPINGS: Readonly<Record<string, StylePropertyMappi
   KeepAllLinesTogether: css('keeps'),
   KeepFirstLines: css('keeps'),
   KeepLastLines: css('keeps'),
+  Composer: { kind: 'composition' },
+  MinimumWordSpacing: { kind: 'composition' },
+  DesiredWordSpacing: { kind: 'composition' },
+  MaximumWordSpacing: { kind: 'composition' },
+  Hyphenation: { kind: 'composition' },
   StartParagraph: css('starts'),
   ParagraphShadingOn: css('paragraph-shading'),
   ParagraphShadingColor: css('paragraph-shading'),

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { StyleSheet } from '@segnavia/format'
+import { readCompositionStyle } from './composition-style.ts'
 import { baseLayerCss, compileStyleSheet } from './style-compile.ts'
 
 const sheet = (value: unknown) => StyleSheet.parse(value)
@@ -49,6 +50,37 @@ describe('compileStyleSheet', () => {
     expect(sheets[1]).toBe('@layer segnavia.document{.segnavia-style-body{font-weight:700}}')
     expect(sheets.join('')).not.toContain('color:#111111')
     expect(sheets.join('')).not.toContain('font-style:italic')
+  })
+
+  test('compiles and reads paragraph composition settings without changing unset styles', () => {
+    const sheets = compiled(
+      {},
+      {
+        textStyles: {
+          plain: { kind: 'paragraph', color: '#111111' },
+          body: {
+            kind: 'paragraph',
+            composer: 'single-line',
+            wordSpacing: { minimum: 85, desired: 100, maximum: 120 },
+            hyphenate: false,
+          },
+        },
+      },
+    )
+    expect(sheets[1]).toContain('.segnavia-style-plain{color:#111111}')
+    expect(sheets[1]).toContain('.segnavia-style-body{--segnavia-composer:single-line;--segnavia-word-spacing:85% 100% 120%;--segnavia-hyphenate:false}')
+
+    const declarations = new Map([
+      ['--segnavia-composer', 'single-line'],
+      ['--segnavia-word-spacing', '85% 100% 120%'],
+      ['--segnavia-hyphenate', 'false'],
+    ])
+    expect(readCompositionStyle({ getPropertyValue: (name) => declarations.get(name) ?? '' })).toEqual({
+      composer: 'single-line',
+      wordSpacing: { minimum: 85, desired: 100, maximum: 120 },
+      hyphenate: false,
+    })
+    expect(readCompositionStyle({ getPropertyValue: () => 'malformed' })).toEqual({})
   })
 
   test('sanitizes free css before keeping author layers nested and escapes style termination', () => {

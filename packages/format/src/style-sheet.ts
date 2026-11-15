@@ -24,6 +24,15 @@ export type TextStyleKind = 'paragraph' | 'character'
 export type TextStyleTokenGroup = 'colors' | 'dimensions' | 'fontFamilies'
 
 const DimensionValue = z.union([TokenReference, Dimension])
+export const WordSpacing = closedObject({
+  minimum: z.number().finite().nonnegative(),
+  desired: z.number().finite().nonnegative(),
+  maximum: z.number().finite().nonnegative(),
+}).refine((value) => value.minimum <= value.desired && value.desired <= value.maximum, {
+  message: 'wordSpacing must have minimum less than or equal to desired and desired less than or equal to maximum',
+})
+export type WordSpacing = z.infer<typeof WordSpacing>
+
 const TextStyleShape = {
   kind: z.enum(['paragraph', 'character']),
   basedOn: StyleName.optional(),
@@ -39,9 +48,15 @@ const TextStyleShape = {
   spaceAfter: DimensionValue.optional(),
   indent: DimensionValue.optional(),
   keepWithNext: z.boolean().optional(),
+  composer: z.enum(['paragraph', 'single-line']).optional(),
+  wordSpacing: WordSpacing.optional(),
+  hyphenate: z.boolean().optional(),
 } as const
 
 export const KEEP_WITH_CUSTOM_PROPERTY = '--segnavia-keep-with'
+export const COMPOSER_CUSTOM_PROPERTY = '--segnavia-composer'
+export const WORD_SPACING_CUSTOM_PROPERTY = '--segnavia-word-spacing'
+export const HYPHENATE_CUSTOM_PROPERTY = '--segnavia-hyphenate'
 
 type TextStyleProperty = Exclude<keyof typeof TextStyleShape, 'kind' | 'basedOn'>
 type TextStylePropertyFact = { kinds: readonly TextStyleKind[]; tokenGroup?: TextStyleTokenGroup; cssProperty: string }
@@ -59,6 +74,9 @@ export const TEXT_STYLE_PROPERTIES = {
   spaceAfter: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'margin-block-end' },
   indent: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'text-indent' },
   keepWithNext: { kinds: ['paragraph'], cssProperty: KEEP_WITH_CUSTOM_PROPERTY },
+  composer: { kinds: ['paragraph'], cssProperty: COMPOSER_CUSTOM_PROPERTY },
+  wordSpacing: { kinds: ['paragraph'], cssProperty: WORD_SPACING_CUSTOM_PROPERTY },
+  hyphenate: { kinds: ['paragraph'], cssProperty: HYPHENATE_CUSTOM_PROPERTY },
 } as const satisfies Record<TextStyleProperty, TextStylePropertyFact>
 
 export const TextStyle = closedObject(TextStyleShape).superRefine((style, ctx) => {
