@@ -35,13 +35,21 @@ interface Node {
   fitness: number
 }
 
-interface Settings {
-  minRatio: number
-  maxRatio: number
-  emergencyStretch: number
-  linePenalty: number
-  flaggedDemerits: number
-  fitnessDemerits: number
+interface Options {
+  minRatio?: number
+  maxRatio?: number
+  emergencyStretch?: number
+  linePenalty?: number
+  flaggedDemerits?: number
+  fitnessDemerits?: number
+}
+
+type Settings = Required<Options>
+
+interface Pass {
+  hyphens: boolean
+  settings: Settings
+  enforceLimits: boolean
 }
 
 const CHUNK_ITEMS = 2_000
@@ -104,11 +112,15 @@ function adjustment(
   if (difference > 0) {
     const stretch = (sums.stretch[end] ?? 0) - (sums.stretch[start] ?? 0) + emergencyStretch
     if (stretch > 0) return adjustmentForRatio(difference / stretch)
-    return { ratio: Number.POSITIVE_INFINITY, badness: INFINITE_BADNESS * (1 + difference / Math.max(1, Math.abs(target))) }
+    return { ratio: Number.POSITIVE_INFINITY, badness: overflowBadness(difference, target) }
   }
   const shrink = (sums.shrink[end] ?? 0) - (sums.shrink[start] ?? 0)
   if (shrink > 0) return adjustmentForRatio(difference / shrink)
-  return { ratio: Number.NEGATIVE_INFINITY, badness: INFINITE_BADNESS * (1 + Math.abs(difference) / Math.max(1, Math.abs(target))) }
+  return { ratio: Number.NEGATIVE_INFINITY, badness: overflowBadness(difference, target) }
+}
+
+function overflowBadness(difference: number, target: number): number {
+  return INFINITE_BADNESS * (1 + Math.abs(difference) / Math.max(1, Math.abs(target)))
 }
 
 function fitnessClass(ratio: number): number {
@@ -168,6 +180,7 @@ function candidatesAtPoint(
   widthOffset: number,
   settings: Settings,
   enforceLimits: boolean,
+  singleMeasure: boolean,
   nodes: readonly Node[],
   point: Breakpoint,
 ): Node[] {
@@ -175,7 +188,7 @@ function candidatesAtPoint(
   for (const previous of nodes) {
     const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point)
     if (!candidate) continue
-    const lineKey = widths.length === 1 ? '' : candidate.line
+    const lineKey = singleMeasure ? '' : candidate.line
     const key = `${lineKey}:${candidate.fitness}:${point.flagged ? 1 : 0}`
     const held = best.get(key)
     if (!held || candidate.demerits < held.demerits) best.set(key, candidate)
@@ -187,21 +200,20 @@ function solve(
   items: readonly Item[],
   widths: readonly number[],
   widthOffset: number,
-  settings: Settings,
-  allowFlagged: boolean,
-  enforceLimits: boolean,
+  pass: Pass,
   initial: { flagged: boolean; fitness: number },
 ): Node | undefined {
   const sums = prefixes(items)
   const points = breakpoints(items)
+  const singleMeasure = widths.length === 1
   const terminalIndex = points.at(-1)?.index
   const startPoint: Breakpoint = { index: -1, penalty: 0, flagged: initial.flagged, forced: true }
   const nodes: Node[] = [{ breakpoint: startPoint, line: 0, ratio: 0, demerits: 0, fitness: initial.fitness }]
   let endings: Node[] = []
 
   for (const point of points) {
-    if (point.flagged && !allowFlagged && !point.forced) continue
-    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, settings, enforceLimits, nodes, point)
+    if (point.flagged && !pass.hyphens && !point.forced) continue
+    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, nodes, point)
     nodes.push(...atPoint)
     if (point.index === terminalIndex) endings = atPoint
   }
@@ -209,7 +221,7 @@ function solve(
 }
 
 function chunkEnds(items: readonly Item[]): number[] {
-  if (items.length <= CHUNK_ITEMS) return [items.length]
+  if (items.length <= CHUNK_ITEMS) return [items.length - 1]
   const candidates = breakpoints(items).map((point) => point.index)
   const ends: number[] = []
   let start = 0
@@ -217,11 +229,11 @@ function chunkEnds(items: readonly Item[]): number[] {
     const limit = start + CHUNK_ITEMS
     const before = candidates.filter((index) => index > start && index <= limit).at(-1)
     const after = candidates.find((index) => index > limit)
-    const end = before ?? after ?? items.length
+    const end = Math.min(before ?? after ?? items.length - 1, items.length - 1)
     ends.push(end)
     start = end + 1
   }
-  ends.push(items.length)
+  if (start < items.length) ends.push(items.length - 1)
   return ends
 }
 
@@ -238,29 +250,29 @@ function chosenNodes(end: Node): Node[] {
 /**
  * Chooses total-fit line breaks. Paragraphs over 2,000 items are independently
  * optimized in chunks ending at the last available breakpoint within the cap.
+ * When no ratio-limited pass succeeds, a least-bad pass returns and flags the
+ * best set without ratio limits.
  */
 export function breakLines(
-  items: readonly (Box | Glue | Penalty)[],
+  items: readonly Item[],
   widths: readonly number[],
-  options: {
-    minRatio?: number
-    maxRatio?: number
-    emergencyStretch?: number
-    linePenalty?: number
-    flaggedDemerits?: number
-    fitnessDemerits?: number
-  } = {},
+  options: Options = {},
 ): { breaks: number[]; ratios: number[]; violations: boolean[] } {
   if (items.length === 0) return { breaks: [], ratios: [], violations: [] }
-  const base: Settings = {
+  const settings: Settings = {
     minRatio: options.minRatio ?? -1,
     maxRatio: options.maxRatio ?? 3,
-    emergencyStretch: 0,
+    emergencyStretch: options.emergencyStretch ?? 0,
     linePenalty: options.linePenalty ?? 10,
     flaggedDemerits: options.flaggedDemerits ?? 100,
     fitnessDemerits: options.fitnessDemerits ?? 3_000,
   }
-  const emergencyStretch = options.emergencyStretch ?? widths.reduce((largest, width) => Math.max(largest, width), 0)
+  const base: Settings = { ...settings, emergencyStretch: 0 }
+  const noHyphens: Pass = { hyphens: false, settings: base, enforceLimits: true }
+  const hyphens: Pass = { hyphens: true, settings: base, enforceLimits: true }
+  const emergency: Pass = { hyphens: true, settings, enforceLimits: true }
+  const leastBad: Pass = { hyphens: true, settings, enforceLimits: false }
+  const passes = [noHyphens, hyphens, emergency, leastBad]
   const breaks: number[] = []
   const ratios: number[] = []
   const violations: boolean[] = []
@@ -270,23 +282,20 @@ export function breakLines(
 
   for (const chunkEnd of chunkEnds(items)) {
     const chunk = items.slice(itemOffset, chunkEnd + 1)
-    if (chunkEnd < items.length) {
+    if (chunkEnd < items.length - 1) {
       const boundary = chunk.at(-1)
       chunk[chunk.length - 1] = penaltyBoundary(boundary)
     }
-    const passes: Array<[boolean, Settings, boolean]> = [
-      [false, base, true],
-      [true, base, true],
-      [true, { ...base, emergencyStretch }, true],
-      [true, { ...base, emergencyStretch }, false],
-    ]
-    const end = passes.map(([hyphens, settings, limits]) => solve(chunk, widths, widthOffset, settings, hyphens, limits, prior)).find(Boolean)
+    const end = passes.map((pass) => solve(chunk, widths, widthOffset, pass, prior)).find(Boolean)
     if (!end) break
     const lines = chosenNodes(end)
-    for (const line of lines) {
+    const sums = prefixes(chunk)
+    for (const [index, line] of lines.entries()) {
+      const target = widths[widthOffset + index] ?? widths.at(-1) ?? 0
+      const measured = adjustment(chunk, sums, line.previous?.breakpoint ?? { index: -1, penalty: 0, flagged: false, forced: true }, line.breakpoint, target, 0)
       breaks.push(itemOffset + line.breakpoint.index)
-      ratios.push(line.ratio)
-      violations.push(line.ratio < base.minRatio || line.ratio > base.maxRatio)
+      ratios.push(measured.ratio)
+      violations.push(measured.ratio < base.minRatio || measured.ratio > base.maxRatio)
     }
     widthOffset += lines.length
     const last = lines.at(-1)
