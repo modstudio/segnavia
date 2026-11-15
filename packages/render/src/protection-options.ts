@@ -40,7 +40,7 @@ export const PERMISSION_OPTION_KEYS = Object.fromEntries(Object.keys(PERMISSION_
 >
 type BooleanPermission = Exclude<keyof PdfPermissions, 'print'>
 type PermissionRule = { argument: string; defaultValue: PdfPermissions[keyof PdfPermissions]; enabledValue: string; disabledValue: string }
-type PdfRenderCall = Extract<RenderCall, 'bookPdf' | 'pagePdf' | 'pagesPdf' | 'deckPdf'>
+type PdfRenderCall = Extract<RenderCall, 'bookPdf' | 'pagePdf' | 'pagesPdf' | 'deckPdf' | 'stampPdf'>
 
 function entries<T extends object>(value: T): { [Key in keyof T]: [Key, T[Key]] }[keyof T][] {
   return Object.entries(value) as { [Key in keyof T]: [Key, T[Key]] }[keyof T][]

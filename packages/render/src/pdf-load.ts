@@ -1,7 +1,10 @@
 import { Buffer } from 'node:buffer'
 import { inflateSync } from 'node:zlib'
-import { PDFDocument } from 'pdf-lib'
+import type { Limits } from '@segnavia/format'
+import { DEFAULT_LIMITS } from '@segnavia/format'
+import { EncryptedPDFError, PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
+import { decodePdfStreamBounded } from './pdf-stream-bounds.ts'
 
 // The largest stream in the fidelity and demo renders is 36,325 bytes. 16 MiB
 // leaves a 462x margin for larger documents while placing a hard bound on zlib.
@@ -136,9 +139,59 @@ export function assertPdfStreamsBounded(pdf: Uint8Array, ceiling = MAX_PDF_STREA
   }
 }
 
-export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDocument.load>[1]): Promise<PDFDocument> {
-  assertPdfStreamsBounded(pdf)
-  return PDFDocument.load(pdf, { ...options, updateMetadata: false })
+export interface ReceivedPdfLoadOptions {
+  source: 'received'
+  limits?: Pick<Limits, 'input'>
+}
+
+function assertReceivedStreamsBounded(pdf: Uint8Array, ceiling: number): void {
+  const bytes = Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength)
+  for (const stream of streamObjects(pdf)) {
+    const length = Number(dictionaryValue(stream.dictionary, 'Length', bytes))
+    if (!Number.isSafeInteger(length) || length < 0 || stream.start + length > bytes.length) {
+      throw new RenderRefusedError(
+        `Received PDF stream object ${stream.number} has no usable direct length; use a valid PDF with bounded object and cross-reference streams to clear this refusal.`,
+      )
+    }
+    const encodings = filters(stream.dictionary)
+    if (!encodings) {
+      throw new RenderRefusedError(
+        `Received PDF stream object ${stream.number} has an unreadable decode filter; use a valid PDF stream filter to clear this refusal.`,
+      )
+    }
+    decodePdfStreamBounded(bytes.subarray(stream.start, stream.start + length), encodings, stream.number, ceiling)
+  }
+}
+
+function isReceived(options: Parameters<typeof PDFDocument.load>[1] | ReceivedPdfLoadOptions | undefined): options is ReceivedPdfLoadOptions {
+  return Boolean(options && 'source' in options && options.source === 'received')
+}
+
+export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDocument.load>[1] | ReceivedPdfLoadOptions): Promise<PDFDocument> {
+  if (!isReceived(options)) {
+    assertPdfStreamsBounded(pdf)
+    return PDFDocument.load(pdf, { ...options, updateMetadata: false })
+  }
+  const byteLimit = options.limits?.input?.bytes ?? DEFAULT_LIMITS.input.bytes
+  const streamLimit = options.limits?.input?.streamBytes ?? DEFAULT_LIMITS.input.streamBytes
+  if (pdf.byteLength > byteLimit) {
+    throw new RenderRefusedError(
+      `The received PDF is ${pdf.byteLength} bytes, above the limits.input.bytes limit of ${byteLimit}; raise the host's limits.input.bytes, or use a smaller PDF, to clear this refusal.`,
+    )
+  }
+  const receivedText = Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength).toString('latin1')
+  if (!receivedText.startsWith('%PDF-') || !receivedText.slice(-1024).includes('%%EOF')) {
+    throw new RenderRefusedError('The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
+  }
+  assertReceivedStreamsBounded(pdf, streamLimit)
+  try {
+    return await PDFDocument.load(pdf, { updateMetadata: false })
+  } catch (error) {
+    if (error instanceof EncryptedPDFError) {
+      throw new RenderRefusedError('The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
+    }
+    throw new RenderRefusedError('The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
+  }
 }
 
 export function createPdf(): Promise<PDFDocument> {
