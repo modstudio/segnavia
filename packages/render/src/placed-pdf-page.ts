@@ -1,10 +1,11 @@
 import { displayedPdfPage, type PageBoxName, placedPdfPage, resolveLimits } from '@segnavia/format'
 import { PLACED_PDF_SOURCES, type PlacedPdfSource, type PlacementsOptions } from '@segnavia/html'
-import { endMarkedContent, PDFArray, PDFDict, PDFHexString, PDFName, PDFNumber, PDFOperator, type PDFPage, PDFRawStream, PDFString } from 'pdf-lib'
+import { endMarkedContent, PDFName, PDFNumber, PDFOperator, type PDFPage, PDFRawStream } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import type { RenderOptions } from './options.ts'
 import { drawClippedPage } from './pdf-compose.ts'
 import { loadPdf } from './pdf-load.ts'
+import { markerMeasurements } from './placed-pdf-markers.ts'
 
 export interface PlacedPdfMeasurement {
   id?: string
@@ -121,38 +122,6 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
   }))
 }
 
-function markerUri(annotation: PDFDict): string | undefined {
-  const action = annotation.lookupMaybe(PDFName.of('A'), PDFDict)
-  const uri = action?.lookupMaybe(PDFName.of('URI'), PDFString, PDFHexString)
-  return uri?.decodeText()
-}
-
-function markerMeasurements(document: Awaited<ReturnType<typeof loadPdf>>): Map<string, Pick<PlacedPdfMeasurement, 'paper' | 'draw' | 'clip'>> {
-  const found = new Map<string, Pick<PlacedPdfMeasurement, 'paper' | 'draw' | 'clip'>>()
-  for (const [paper, page] of document.getPages().entries()) {
-    const annotations = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray)
-    if (!annotations) continue
-    for (let index = annotations.size() - 1; index >= 0; index -= 1) {
-      const annotation = annotations.lookupMaybe(index, PDFDict)
-      if (!annotation) continue
-      const uri = markerUri(annotation)
-      if (!uri?.startsWith(MARKER_LINK_PREFIX)) continue
-      const rectangle = annotation.lookupMaybe(PDFName.of('Rect'), PDFArray)?.asRectangle()
-      annotations.remove(index)
-      if (!rectangle) continue
-      const draw = {
-        x: (rectangle.x * 96) / 72,
-        y: (rectangle.y * 96) / 72,
-        width: (rectangle.width * 96) / 72,
-        height: (rectangle.height * 96) / 72,
-      }
-      found.set(uri.slice(MARKER_LINK_PREFIX.length), { paper, draw, clip: draw })
-    }
-    if (annotations.size() === 0) page.node.delete(PDFName.of('Annots'))
-  }
-  return found
-}
-
 function positionedMeasurement(
   placement: PlacedPdfMeasurement,
   measured: Pick<PlacedPdfMeasurement, 'paper' | 'draw' | 'clip'> | undefined,
@@ -247,7 +216,7 @@ export async function drawPlacedPdfPages(
   const registered = sources(options)
   if (!registered || measurements.length === 0) return pdf
   const output = await loadPdf(pdf)
-  const markers = markerMeasurements(output)
+  const markers = markerMeasurements(output, measurements)
   const loaded = new Map<string, Awaited<ReturnType<typeof loadPdf>>>()
   const embedded = new Map<string, Awaited<ReturnType<typeof output.embedPage>>>()
   const limits = resolveLimits(undefined, options.limits)

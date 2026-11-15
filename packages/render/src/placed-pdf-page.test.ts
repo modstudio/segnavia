@@ -1,8 +1,11 @@
 import { expect, test } from 'bun:test'
 import { PLACED_PDF_SOURCES } from '@segnavia/html'
-import { degrees, PDFDocument, PDFName, PDFNumber, PDFString, StandardFonts } from 'pdf-lib'
+import { degrees, PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, type PDFRef, PDFString, StandardFonts } from 'pdf-lib'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { markerMeasurements } from './placed-pdf-markers.ts'
 import { drawPlacedPdfPages, placedPdfCrop } from './placed-pdf-page.ts'
+
+const key = (value: string) => PDFName.of(value)
 
 test('converts physical crop insets independently of document direction', () => {
   const box = { x: 10, y: 20, width: 200, height: 100 }
@@ -129,4 +132,86 @@ test('uses and removes Chromium marker annotations for fragmented page placement
   expect(loaded.getPage(1).node.Annots()?.size() ?? 0).toBe(0)
   expect(await pageContent(output, 0)).not.toContain('/EmbeddedPdfPage')
   expect(await pageContent(output, 1)).toMatch(/72 144 144 72 re[\s\S]*\/EmbeddedPdfPage/)
+})
+
+function markerAnnotation(document: PDFDocument, id: string, rectangle: number[], structParent?: number): PDFRef {
+  return document.context.register(
+    document.context.obj({
+      Type: 'Annot',
+      Subtype: 'Link',
+      Rect: rectangle,
+      A: { S: 'URI', URI: PDFString.of(`https://placed-pdf.invalid/${id}`) },
+      ...(structParent === undefined ? {} : { StructParent: structParent }),
+    }),
+  )
+}
+
+test('unions every Chromium link rectangle for one marker regardless of annotation order', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([600, 800])
+  page.node.set(
+    key('Annots'),
+    document.context.obj([markerAnnotation(document, 'marker', [60, 140, 160, 180]), markerAnnotation(document, 'marker', [40, 140, 400, 180])]),
+  )
+  const measurements = markerMeasurements(document, [
+    { id: 'marker', address: 'placed', page: 1, paper: 0, draw: { x: 0, y: 0, width: 120, height: 60 }, clip: { x: 0, y: 0, width: 120, height: 60 } },
+  ])
+  const measured = measurements.get('marker')
+  expect(measured?.paper).toBe(0)
+  for (const box of [measured?.draw, measured?.clip]) {
+    expect(box?.x).toBeCloseTo(160 / 3)
+    expect(box?.y).toBeCloseTo(560 / 3)
+    expect(box?.width).toBeCloseTo(480)
+    expect(box?.height).toBeCloseTo(160 / 3)
+  }
+})
+
+test('refuses a marker whose link rectangles are split across pages and names its placement', async () => {
+  const document = await PDFDocument.create()
+  for (let index = 0; index < 2; index += 1) {
+    document.addPage([600, 800]).node.set(key('Annots'), document.context.obj([markerAnnotation(document, 'marker', [40, 140, 160, 180])]))
+  }
+  expect(() =>
+    markerMeasurements(document, [
+      {
+        id: 'marker',
+        address: 'assets/chapter.pdf',
+        page: 1,
+        paper: 0,
+        draw: { x: 0, y: 0, width: 120, height: 60 },
+        clip: { x: 0, y: 0, width: 120, height: 60 },
+      },
+    ]),
+  ).toThrow('Cannot place PDF at assets/chapter.pdf; its placed element was split across pages.')
+})
+
+test('removes marker OBJRs, empty structure elements, and annotation ParentTree entries', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([600, 800])
+  const realAnnotation = document.context.register(document.context.obj({ Type: 'Annot', Subtype: 'Link', Rect: [10, 10, 20, 20], StructParent: 1 }))
+  const marker = markerAnnotation(document, 'marker', [40, 140, 160, 180], 2)
+  page.node.set(key('Annots'), document.context.obj([realAnnotation, marker]))
+  const root = document.context.obj({ Type: 'StructTreeRoot' })
+  const rootReference = document.context.register(root)
+  const structureElements = [realAnnotation, marker].map((annotation) => {
+    const objectReference = document.context.register(document.context.obj({ Type: 'OBJR', Pg: page.ref, Obj: annotation }))
+    const element = document.context.obj({ Type: 'StructElem', S: 'Link', P: rootReference, K: [objectReference] })
+    return document.context.register(element)
+  })
+  root.set(key('K'), document.context.obj(structureElements))
+  root.set(key('ParentTree'), document.context.obj({ Nums: [1, structureElements[0], 2, structureElements[1]] }))
+  document.catalog.set(key('StructTreeRoot'), rootReference)
+
+  markerMeasurements(document, [
+    { id: 'marker', address: 'placed', page: 1, paper: 0, draw: { x: 0, y: 0, width: 120, height: 60 }, clip: { x: 0, y: 0, width: 120, height: 60 } },
+  ])
+
+  const annotations = page.node.lookup(key('Annots'), PDFArray)
+  expect(annotations.size()).toBe(1)
+  expect(annotations.get(0)).toEqual(realAnnotation)
+  const rootKids = root.lookup(key('K'), PDFArray)
+  expect(rootKids.size()).toBe(1)
+  expect(rootKids.get(0)).toEqual(structureElements[0] as PDFRef)
+  const parentNumbers = root.lookup(key('ParentTree'), PDFDict).lookup(key('Nums'), PDFArray)
+  expect(parentNumbers.asArray().map(String)).toEqual(['1', (structureElements[0] as PDFRef).toString()])
 })

@@ -3,12 +3,12 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { DocumentInput, Media } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
-import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, PDFString, StandardFonts } from 'pdf-lib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFObject, PDFRawStream, PDFRef, PDFString, StandardFonts } from 'pdf-lib'
 import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
-const marker = '<img data-segnavia-media="placed" style="display:block;width:120px;height:60px;margin-left:20px">'
+const marker = (marginLeft: number) => `<img data-segnavia-media="placed" style="display:block;width:120px;height:60px;margin-left:${marginLeft}px">`
 
 async function sourcePdf(): Promise<{ bytes: Uint8Array; media: Media }> {
   const document = await PDFDocument.create()
@@ -67,13 +67,52 @@ function annotationUris(document: PDFDocument): string[] {
   })
 }
 
-function extractedText(work: string, name: string, bytes: Uint8Array): { text: string; x: number } {
+function resolved(document: PDFDocument, object: PDFObject | undefined): PDFObject | undefined {
+  return object instanceof PDFRef ? document.context.lookup(object) : object
+}
+
+function annotationStructure(document: PDFDocument): { annotations: Set<string>; objectReferences: Set<string>; realLink?: string } {
+  const annotations = new Set<string>()
+  let realLink: string | undefined
+  for (const page of document.getPages()) {
+    const pageAnnotations = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray)
+    for (const object of pageAnnotations?.asArray() ?? []) {
+      if (!(object instanceof PDFRef)) continue
+      const annotation = resolved(document, object)
+      if (!(annotation instanceof PDFDict)) continue
+      const reference = object.toString()
+      annotations.add(reference)
+      const uri = annotation.lookupMaybe(PDFName.of('A'), PDFDict)?.lookupMaybe(PDFName.of('URI'), PDFString)?.decodeText()
+      if (uri === 'https://author.invalid/real') realLink = reference
+    }
+  }
+  const objectReferences = new Set<string>()
+  const visit = (object: PDFObject | undefined): void => {
+    const value = resolved(document, object)
+    if (value instanceof PDFArray) {
+      for (const child of value.asArray()) visit(child)
+      return
+    }
+    if (!(value instanceof PDFDict)) return
+    if (value.lookupMaybe(PDFName.of('Type'), PDFName) === PDFName.of('OBJR')) {
+      const target = value.get(PDFName.of('Obj'))
+      if (target instanceof PDFRef) objectReferences.add(target.toString())
+      return
+    }
+    visit(value.get(PDFName.of('K')))
+  }
+  const root = document.catalog.lookupMaybe(PDFName.of('StructTreeRoot'), PDFDict)
+  visit(root?.get(PDFName.of('K')))
+  return { annotations, objectReferences, ...(realLink ? { realLink } : {}) }
+}
+
+function extractedText(work: string, name: string, bytes: Uint8Array): { text: string; x: number; y: number } {
   const file = path.join(work, name)
   writeFileSync(file, bytes)
   const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' })
   const boxes = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
-  const x = Number(/<word xMin="([\d.]+)"[^>]*>PLACED_VECTOR<\/word>/.exec(boxes)?.[1])
-  return { text, x }
+  const match = /<word xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>PLACED_VECTOR<\/word>/.exec(boxes)
+  return { text, x: Number(match?.[1]), y: Number(match?.[2]) }
 }
 
 export async function verifyPlacedPdfRender(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -85,9 +124,9 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
     },
   })
   const print = { paper: 'a5' as const, orientation: 'portrait' as const, margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }
-  const pageBytes = await renderer.pagePdf(screenPage({ html: `<p>PAGE</p>${marker}` }, { print }), options())
+  const pageBytes = await renderer.pagePdf(screenPage({ html: `<p>PAGE</p>${marker(12)}` }, { print }), options())
   const pagesBytes = await renderer.pagesPdf(
-    [screenPage({ html: '<p>FIRST</p>' }, { print }), screenPage({ html: `<p>SECOND</p>${marker}` }, { print })],
+    [screenPage({ html: '<p>FIRST</p>' }, { print }), screenPage({ html: `<p>SECOND</p>${marker(20)}` }, { print })],
     options(),
   )
   const book: DocumentInput = {
@@ -101,31 +140,54 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
         type: 'division',
         name: 'body',
         children: [
-          { type: 'section', title: 'Proof', children: [{ type: 'flow', html: `<p>BOOK FIRST</p><div style="break-before:page">BOOK SECOND${marker}</div>` }] },
+          {
+            type: 'section',
+            title: 'Proof',
+            children: [
+              {
+                type: 'flow',
+                html: `<p>BOOK FIRST <a href="https://author.invalid/real">AUTHOR LINK</a></p><div style="break-before:page">BOOK SECOND${marker(28)}</div>`,
+              },
+            ],
+          },
         ],
       },
     ],
   }
   const bookBytes = await renderer.bookPdf(book, options())
+  const sourceText = { x: 20, yFromTop: 47.076 }
+  const placedScale = (120 * 0.75) / 200
   const outputs = [
-    { name: 'pagePdf', bytes: pageBytes, expected: 0 },
-    { name: 'pagesPdf', bytes: pagesBytes, expected: 1 },
-    { name: 'bookPdf', bytes: bookBytes, expected: 1 },
+    { name: 'pagePdf', bytes: pageBytes, expectedPage: 0, contentLeft: 48, markerLeft: 12 * 0.75, markerTop: 79.5 },
+    { name: 'pagesPdf', bytes: pagesBytes, expectedPage: 1, contentLeft: 48, markerLeft: 20 * 0.75, markerTop: 79.5 },
+    { name: 'bookPdf', bytes: bookBytes, expectedPage: 1, contentLeft: 48.75, markerLeft: 28 * 0.75, markerTop: 56.25 },
   ]
   for (const output of outputs) {
     const document = await PDFDocument.load(output.bytes)
     const pages = placedPages(document)
     const extracted = extractedText(work, `placed-${output.name}.pdf`, output.bytes)
     const page = pages[0] ?? -1
+    const expectedX = output.contentLeft + output.markerLeft + sourceText.x * placedScale
+    const expectedY = output.markerTop + sourceText.yFromTop * placedScale
     check(
       `${output.name} places a PDF form on the fragmented output page at its margin offset`,
-      pages.length === 1 && page >= output.expected && extracted.x > 50,
-      `pages=${pages.join(',')} x=${extracted.x} uris=${annotationUris(document).join(',')}`,
+      pages.length === 1 && page === output.expectedPage && Math.abs(extracted.x - expectedX) <= 0.5 && Math.abs(extracted.y - expectedY) <= 0.5,
+      `pages=${pages.join(',')} x=${extracted.x}/${expectedX} y=${extracted.y}/${expectedY} uris=${annotationUris(document).join(',')}`,
     )
     check(
       `${output.name} keeps placed PDF text but not source actions`,
       extracted.text.includes('PLACED_VECTOR') && !unsafeActions(document),
       extracted.text.trim(),
     )
+    if (output.name === 'bookPdf') {
+      const structure = annotationStructure(document)
+      check(
+        'bookPdf structure OBJRs target retained annotations and keep the author link',
+        [...structure.objectReferences].every((reference) => structure.annotations.has(reference)) &&
+          structure.realLink !== undefined &&
+          structure.objectReferences.has(structure.realLink),
+        `annotations=${[...structure.annotations].join(',')} objrs=${[...structure.objectReferences].join(',')} real=${structure.realLink ?? 'missing'}`,
+      )
+    }
   }
 }
