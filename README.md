@@ -50,6 +50,10 @@ that lowers a document by itself calls `resolveBrand` first.
 
 Authoring print and export should call `authoring.draftDeck()`, which returns the deck as shown, including unsaved notes, without waiting for the host save. `flush()` still waits until every save settles, so a paused save would hang export. `useAuthoring` returns the same controller, including `draftDeck()` and `adoptNotes()`.
 
+## Book structure numbers
+
+Books opt into reader-visible numbers with `numbering.parts` and `numbering.chapters`. Each level supports Arabic, upper- or lower-Roman and Hebrew-letter styles. Parts may override styles for their descendants or restart a count; a part or section may supply one displayed `number`, or use `number: false` to skip the count. The same number reaches the contents, PDF outline, and the `part-number` or `chapter-number` running-head variables. Part `contentsLabel` supplies its shorter contents and outline label. A part with `opens: 'continue'` joins the preceding flow and generates a headless heading when it has no HTML.
+
 ## Quick look
 
 Four ways to use it, from bare to finished:

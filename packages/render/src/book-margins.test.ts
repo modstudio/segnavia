@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, bookParentPages } from '@segnavia/format'
 import { type BookPrintedPagePlan, parseBookFixture } from '@segnavia/html'
+import { marginFactsFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 
 test('fills catalogued furniture by its parsed motif key and uses its resolved parent margin', () => {
@@ -40,6 +41,34 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   expect(css).toContain('[data-segnavia-region="foot"]){top:188mm;left:23mm;width:101mm;height:22mm')
   expect(css).toContain('.segnavia-folio){text-align:right')
   expect(html).not.toContain('data-motif')
+})
+
+test('resolves chapter-number on the server margin path', () => {
+  const facts = marginFactsFor(
+    [{ id: 'chapter', kind: 'chapter', division: 'body', number: '4' }],
+    new Map([['chapter', { page: 1, x: 0, y: 0 }]]),
+    1,
+    new Set(),
+    { system: 'arabic', printed: true },
+    [{ name: 'chapter', kind: 'text', from: 'chapter-number', pick: 'first' }],
+  )
+  expect(facts[0]?.variables?.chapter).toBe('4')
+})
+
+test('leaves chapter-number empty on a part opening page', () => {
+  const facts = marginFactsFor(
+    [{ id: 'part', kind: 'part', division: 'body', partNumbers: { gate: 'II' } }],
+    new Map([['part', { page: 1, x: 0, y: 0 }]]),
+    1,
+    new Set(),
+    { system: 'arabic', printed: true },
+    [
+      { name: 'chapter', kind: 'text', from: 'chapter-number', pick: 'first' },
+      { name: 'part', kind: 'text', from: 'part-number', part: 'gate', pick: 'first' },
+    ],
+  )
+  expect(facts[0]?.variables?.chapter).toBeUndefined()
+  expect(facts[0]?.variables?.part).toBe('II')
 })
 
 test('places asymmetric binding margins on the physical spine edges of an RTL book', () => {

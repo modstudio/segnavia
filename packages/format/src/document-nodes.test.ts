@@ -12,6 +12,20 @@ function issues(result: ReturnType<typeof Document.safeParse>): z.core.$ZodIssue
 const book = (children: unknown[]) => ({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children })
 
 describe('document node discrimination', () => {
+  test('uses only the document-kind refusal for a part outside a book', () => {
+    const found = issues(
+      Document.safeParse({
+        type: 'document',
+        kind: 'printed',
+        parentPages: [{ type: 'parentPage', name: 'body' }],
+        parentRules: [{ parent: 'body' }],
+        children: [{ type: 'part', name: 'one', title: 'One', children: [] }],
+      }),
+    )
+    expect(found).toContainEqual(expect.objectContaining({ path: ['children', 0, 'type'], message: expect.stringContaining('printed document') }))
+    expect(found.map(({ message }) => message).join('\n')).not.toContain('part field')
+  })
+
   test('reports a nested known node field at its full path', () => {
     const found = issues(
       Document.safeParse(

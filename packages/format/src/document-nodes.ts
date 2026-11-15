@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { BookOpens } from './book-opens.ts'
+import { ContentsLabel, PartNumbering, StructureNumber } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { discriminatedNodeUnion } from './document-node-discriminator.ts'
 import { ContentsNode, SectionFields } from './document-nodes-book.ts'
@@ -32,9 +34,12 @@ export interface PartNode {
   id?: string
   name: string
   title?: string
+  contentsLabel?: string
   html?: string
+  number?: z.infer<typeof StructureNumber>
+  numbering?: z.infer<typeof PartNumbering>
   contents: boolean
-  opens?: 'recto' | 'verso' | 'any'
+  opens?: z.infer<typeof BookOpens>
   parentRules?: ParentRules
   parents?: unknown
   conditions?: z.infer<(typeof NodeConditions)['conditions']>
@@ -93,9 +98,12 @@ export const PartNodeFields = {
   id: z.string().optional(),
   name: z.string().min(1),
   title: z.string().optional(),
+  contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
+  number: StructureNumber.optional(),
+  numbering: PartNumbering.optional(),
   contents: z.boolean().default(true),
-  opens: z.enum(['recto', 'verso', 'any']).optional(),
+  opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   ...NodeConditions,

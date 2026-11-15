@@ -12,6 +12,8 @@ import {
   MAX_HEADING_LEVEL,
   noteMarkerIssues,
   resolveDirection,
+  type StructureNumberValue,
+  structureNumbers,
   type TemplatedSection,
 } from '@segnavia/format'
 import type { Document } from 'domhandler'
@@ -38,7 +40,8 @@ import {
 } from './book-held.ts'
 import { duplicateIdIssues, pageReferenceIssues, reservedIdIssues } from './book-issues.ts'
 import { pageReferenceNodes, pageReferenceTarget, pageReferenceTargets, removeAuthoredContentsPageReferenceMarkers } from './book-page-reference.ts'
-import { addPart, attachPendingPartHeadings, partNames } from './book-part-build.ts'
+import { addPart } from './book-part-build.ts'
+import { decorateSection } from './book-section-decoration.ts'
 import { appendChapterHeadings, appendHeldHeadings, withSectionDepth } from './book-section-headings.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
@@ -63,6 +66,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
     build.build,
     MAX_HEADING_LEVEL,
     build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
+    build.structureNumbers.get(sectionEntry.id)?.text,
   )
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
@@ -82,6 +86,7 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
     MAX_HEADING_LEVEL,
     build.templates,
     build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
+    build.structureNumbers.get(sectionEntry.id)?.text,
   )
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
@@ -155,18 +160,8 @@ export interface DocumentBuild {
   templatedNumber: number
   chapterNumber: number
   partTargets: Map<string, string>
-  pendingPartHeadings: Array<Pick<BookHeading, 'level' | 'depth' | 'text'> & { partId: string }>
-}
-
-function decorateSection(sectionEntry: BookSectionEntry, build: DocumentBuild): void {
-  const section = build.sections.at(-1)
-  if (!section) return
-  if (sectionEntry.ancestry.length > 0) {
-    const parts = partNames(sectionEntry.ancestry)
-    section.node.attribs['data-segnavia-parts'] = JSON.stringify(parts)
-    section.info.parts = parts
-  }
-  attachPendingPartHeadings(build, sectionEntry, section.info.id)
+  pendingPartHeadings: Array<Pick<BookHeading, 'level' | 'depth' | 'text' | 'number' | 'contentsLabel'> & { partId: string }>
+  structureNumbers: Map<string, StructureNumberValue>
 }
 
 function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: number, title: string | undefined, build: DocumentBuild): NoteSectionContext {
@@ -188,7 +183,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     if (sectionEntry.division !== 'front') continue
     const { entry } = sectionEntry
     if (isPart(entry)) {
-      addPart(sectionEntry, build, book.parentRules)
+      addPart(sectionEntry, build, book)
       continue
     }
     if (isBookContents(entry)) {
@@ -213,7 +208,13 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
-      build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth, entry.contentsDepth))
+      build.headings.push(
+        ...withSectionDepth(
+          [sectionHeading({ ...entry, title: entry.title }, section.info.id, build.structureNumbers.get(sectionEntry.id)?.text)],
+          sectionEntry.depth,
+          entry.contentsDepth,
+        ),
+      )
     }
     transformNotes(section.node, book, noteContext(sectionEntry, section.info.id, 0, entry.title, build), build.notes, build.build === 'galley')
   }
@@ -225,7 +226,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     if (sectionEntry.division !== division) continue
     const { entry } = sectionEntry
     if (isPart(entry)) {
-      addPart(sectionEntry, build, book.parentRules)
+      addPart(sectionEntry, build, book)
       continue
     }
     if (isBookContents(entry)) continue
@@ -245,7 +246,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
-    appendChapterHeadings(entry, section, sectionEntry.depth, MAX_HEADING_LEVEL, build.headings)
+    appendChapterHeadings(entry, section, sectionEntry.depth, MAX_HEADING_LEVEL, build.headings, build.structureNumbers.get(sectionEntry.id)?.text)
     transformNotes(
       section.node,
       book,
@@ -324,6 +325,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     chapterNumber: 0,
     partTargets: new Map(),
     pendingPartHeadings: [],
+    structureNumbers: structureNumbers(bookSections(book), { lang: book.lang, parts: book.numbering.parts, chapters: book.numbering.chapters }),
   }
   const contents = addFrontMatter(book, build)
   addChapters(book, build)

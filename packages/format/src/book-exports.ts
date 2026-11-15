@@ -38,7 +38,10 @@ export {
   resolveBookPageGeometry,
   resolveBookPagination,
   SECTION_BOUNDARY_CLASS,
+  type StructureNumberSettings,
+  type StructureNumberValue,
   sectionPageGeometry,
+  structureNumbers,
   TemplatedPage,
   TemplatedSection,
 } from './book.ts'

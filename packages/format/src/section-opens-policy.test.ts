@@ -39,6 +39,23 @@ test('accepts continue between adjacent flowing sections in one sequence', () =>
   expect(sectionOpensIssues([section({ id: 'one', opens: 'any', path: ['body', 0] }), section()])).toEqual([])
 })
 
+test('names continuing part refusals as parts', () => {
+  const part = section({ subject: 'Part' })
+  expect(sectionOpensIssues([part])[0]?.message).toContain('Part "Two"')
+  expect(sectionOpensIssues([section({ id: 'one', opens: 'any', flowing: false }), part])[0]?.message).toContain('no flow to join')
+  expect(sectionOpensIssues([section({ id: 'one', opens: 'any' }), { ...part, parentRules: [{ parent: 'chapter' }] }])[0]?.path.at(-1)).toBe('parentRules')
+  const geometry = (name: string, width: number): ResolvedBookPageGeometry => ({
+    name,
+    paper: { width, height: 200 },
+    margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+    columns: { count: 1, gap: 4 },
+    parents: [],
+  })
+  expect(
+    sectionOpensIssues([section({ id: 'one', opens: 'any', geometry: geometry('one', 100) }), { ...part, geometry: geometry('two', 120) }])[0]?.message,
+  ).toContain('differs from the preceding section')
+})
+
 test('refuses continue when adjacent resolved geometries differ', () => {
   const geometry = (name: string, width: number): ResolvedBookPageGeometry => ({
     name,

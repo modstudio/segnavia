@@ -27,10 +27,16 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
       ({ expected, openingPartId, chapterIds, appendixId, frontIds }) => {
         const papers = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-book-page]'))
         const entries = Array.from(document.querySelectorAll<HTMLElement>('.segnavia-contents-entry'))
-        const entry = (title: string) => entries.find((item) => item.querySelector('a')?.textContent?.trim() === title)
+        const label = (item: HTMLElement) => {
+          const link = item.querySelector('a')?.cloneNode(true) as HTMLElement | undefined
+          link?.querySelector('.segnavia-contents-number')?.remove()
+          return link?.textContent?.trim()
+        }
+        const entry = (title: string) => entries.find((item) => label(item) === title)
         const facts = (title: string) => {
           const item = entry(title)
           return {
+            number: item?.querySelector('.segnavia-contents-number')?.textContent?.trim() ?? '',
             level: item?.getAttribute('data-level') ?? '',
             depth: item?.getAttribute('data-depth') ?? '',
             page: item?.querySelector('.segnavia-contents-page')?.textContent?.trim() ?? '',
@@ -77,12 +83,12 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
     )
     h.check(`${id} part opening page is a recto`, report.openingPage > 0 && report.openingPage % 2 === 1, String(report.openingPage))
     h.check(
-      `${id} contents nests part, chapter and h2 by level and depth`,
+      `${id} contents nests numbered part, numbered chapter and h2 by level and depth`,
       JSON.stringify(report.levels) ===
         JSON.stringify([
-          { level: '1', depth: '0', page: report.levels[0]?.page ?? '' },
-          { level: '2', depth: '1', page: report.levels[1]?.page ?? '' },
-          { level: '3', depth: '1', page: report.levels[2]?.page ?? '' },
+          { number: hebrew ? 'א' : 'I', level: '1', depth: '0', page: report.levels[0]?.page ?? '' },
+          { number: hebrew ? 'א' : '1', level: '2', depth: '1', page: report.levels[1]?.page ?? '' },
+          { number: '', level: '3', depth: '1', page: report.levels[2]?.page ?? '' },
         ]),
       JSON.stringify(report.levels),
     )

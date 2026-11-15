@@ -10,6 +10,12 @@ test('part-title variables ignore inherited names', () => {
   ).toBe('')
 })
 
+test('resolves chapter and named part numbers', () => {
+  const facts = { numberingTotal: '', documentTotal: '', chapterNumber: 'טו', partNumbers: { gate: 'ב' } }
+  expect(variableValue({ name: 'chapter', kind: 'text', from: 'chapter-number', pick: 'first' }, facts)).toBe('טו')
+  expect(variableValue({ name: 'part', kind: 'text', from: 'part-number', part: 'gate', pick: 'first' }, facts)).toBe('ב')
+})
+
 describe('meta variables', () => {
   const metadata = { title: 'Book', subject: 'Subject', authors: ['Ada', 'Ben', 'Cy'], extra: { edition: 'Second' } }
 

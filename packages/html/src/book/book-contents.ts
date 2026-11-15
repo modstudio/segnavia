@@ -29,6 +29,9 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
             dir: entryDirection(book, label),
           },
           [
+            ...(heading.number === undefined
+              ? []
+              : [element('span', { class: 'segnavia-contents-number' }, [element('bdi', {}, [text(heading.number)])]), text(' ')]),
             text(label),
             ...(heading.subtitle === undefined
               ? []

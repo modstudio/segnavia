@@ -173,6 +173,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-measure.ts',
       'src/composer-measure-embed.ts',
       'src/composer-table-measure.ts',
+      'src/composer-title-values.ts',
       'src/composer-side-note-measure.ts',
       'src/composer-margin.ts',
       'src/composer-margin-embed.ts',

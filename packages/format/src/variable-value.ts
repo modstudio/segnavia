@@ -12,14 +12,18 @@ export interface VariablePageFacts {
   recordFolio?: string
   recordTotal?: string
   sectionTitle?: string
+  chapterNumber?: string
   partTitles?: Record<string, string>
+  partNumbers?: Record<string, string>
   document?: VariableDocumentFacts
 }
 
 export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>, facts: VariablePageFacts): string {
   if (variable.from === 'section-title') return facts.sectionTitle ?? ''
-  if (variable.from === 'part-title') {
-    return facts.partTitles !== undefined && Object.hasOwn(facts.partTitles, variable.part) ? (facts.partTitles[variable.part] ?? '') : ''
+  if (variable.from === 'chapter-number') return facts.chapterNumber ?? ''
+  if (variable.from === 'part-title' || variable.from === 'part-number') {
+    const values = variable.from === 'part-title' ? facts.partTitles : facts.partNumbers
+    return values !== undefined && Object.hasOwn(values, variable.part) ? (values[variable.part] ?? '') : ''
   }
   return ''
 }

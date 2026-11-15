@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
-import { SectionNumbering } from './folio.ts'
+import { NumberingRestart, SectionNumbering } from './folio.ts'
+import { NumberSystem } from './numbering.ts'
 import { REGION_NAME } from './parent-regions.ts'
 import { type ParentRules, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { PlacementShape } from './placement.ts'
@@ -13,7 +14,9 @@ import { Slots } from './slots.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
-const PartOpens = z.enum(['recto', 'verso', 'any'])
+export const StructureNumber = z.union([z.string().min(1), z.number().int().positive().max(Number.MAX_SAFE_INTEGER), z.literal(false)])
+export const StructureNumberingLevel = closedObject({ style: NumberSystem.optional(), restart: NumberingRestart.optional() })
+export const PartNumbering = closedObject({ parts: StructureNumberingLevel.optional(), chapters: StructureNumberingLevel.optional() })
 
 export const DesignedPage = closedObject({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
@@ -53,6 +56,7 @@ const sectionFields = {
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   numbering: SectionNumbering.optional(),
+  number: StructureNumber.optional(),
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
   dir: Direction.optional(),
@@ -66,9 +70,12 @@ const partFields = {
   id: z.string(),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
   title: z.string().optional(),
+  contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
+  number: StructureNumber.optional(),
+  numbering: PartNumbering.optional(),
   contents: z.boolean().default(true),
-  opens: PartOpens.optional(),
+  opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
 }
@@ -133,7 +140,13 @@ export const BookItem: z.ZodType<BookItem> = z.lazy(() => z.union([Part, BookFro
 export type BookDivision = 'front' | 'body' | 'end'
 
 interface BookSectionLocation {
-  ancestry: Array<{ name: string; title?: string; id: string }>
+  ancestry: Array<{
+    name: string
+    title?: string
+    id: string
+    number?: z.infer<typeof StructureNumber>
+    numbering?: z.infer<typeof PartNumbering>
+  }>
   depth: number
   path: (string | number)[]
 }
@@ -162,8 +175,14 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
         return
       }
       const id = entry.id
-      if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
-      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, id }])
+      if (entry.html !== undefined || entry.title !== undefined || entry.opens === 'continue')
+        sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
+      walk(
+        entry.children,
+        division,
+        [...path, 'children'],
+        [...ancestry, { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering }],
+      )
     })
   }
   walk(book.frontMatter, 'front', ['frontMatter'], [])
@@ -198,9 +217,10 @@ export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
     title: entry.title,
     path,
     sequence: path.slice(0, -1).join('.'),
-    flowing: flowingSection(entry),
+    flowing: flowingSection(entry) || (isPart(entry) && (entry.html !== undefined || entry.opens === 'continue')),
+    ...(isPart(entry) ? { subject: 'Part' as const } : {}),
     opens: entry.opens,
-    ...('numbering' in entry ? { numbering: entry.numbering } : {}),
+    ...(!isPart(entry) && 'numbering' in entry ? { numbering: entry.numbering } : {}),
     parentRules: entry.parentRules,
     ...('pageGeometry' in entry ? { pageGeometry: entry.pageGeometry } : {}),
   }))

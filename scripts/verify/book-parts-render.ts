@@ -10,19 +10,20 @@ export async function verifyPartsOutlines(renderer: Renderer, check: Check): Pro
     const bytes = await renderer.bookPdf(partsFixture(hebrew), { effects: false })
     const document = await PDFDocument.load(bytes)
     const labels = partBookLabels(hebrew)
-    const actual = pdfOutlineItems(document).filter((item) =>
-      [labels.openingPart, labels.chapterOne, `${labels.topic} 1`, labels.titleOnlyPart, labels.chapterTwo, `${labels.topic} 2`].includes(item.title),
-    )
+    const [first, second] = hebrew ? ['א', 'ב'] : ['I', 'II']
+    const [chapterFirst, chapterSecond] = hebrew ? ['א', 'ב'] : ['1', '2']
     const expected = [
-      { title: labels.openingPart, depth: 0 },
-      { title: labels.chapterOne, depth: 1 },
+      { title: `${first} ${labels.openingPart}`, depth: 0 },
+      { title: `${chapterFirst} ${labels.chapterOne}`, depth: 1 },
       { title: `${labels.topic} 1`, depth: 2 },
-      { title: labels.titleOnlyPart, depth: 0 },
-      { title: labels.chapterTwo, depth: 1 },
+      { title: `${second} ${labels.titleOnlyPart}`, depth: 0 },
+      { title: `${chapterSecond} ${labels.chapterTwo}`, depth: 1 },
       { title: `${labels.topic} 2`, depth: 2 },
     ]
+    const titles = expected.map(({ title }) => title)
+    const actual = pdfOutlineItems(document).filter((item) => titles.includes(item.title))
     check(
-      `${hebrew ? 'hebrew' : 'english'} printed parts outline nests part, chapter and h2`,
+      `${hebrew ? 'hebrew' : 'english'} printed parts outline nests numbered part, numbered chapter and h2`,
       JSON.stringify(actual.map(({ title, depth }) => ({ title, depth }))) === JSON.stringify(expected),
       JSON.stringify(actual),
     )

@@ -26,6 +26,7 @@ export function partsFixture(hebrew: boolean): DocumentInput {
     mode: 'paginated',
     settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
+    numbering: { parts: {}, chapters: {} },
     rectoOpenings: true,
     variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title', part: 'part' }],
     headTemplates: [{ type: 'headTemplate', name: 'part', parts: [{ variable: 'part' }] }],

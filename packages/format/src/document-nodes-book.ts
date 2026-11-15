@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BookOpens, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
+import { BookOpens, BookTemplate, ContentsLabel, StructureNumber, Subtitle } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
 import { NodeConditions, NodeId } from './document-nodes-common.ts'
@@ -10,7 +10,16 @@ import { NoteSeries } from './note-series.ts'
 import { RemovedParentPageFields } from './parent-page-fields.ts'
 import { ParentRegions } from './parent-regions.ts'
 import { parentRules } from './parent-rules.ts'
-import { ContentTextVariable, MetaVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
+import {
+  ChapterNumberTextVariable,
+  ContentTextVariable,
+  MetaVariable,
+  NumberVariable,
+  PartNumberTextVariable,
+  PartTitleTextVariable,
+  RecordVariable,
+  SectionTitleTextVariable,
+} from './variable.ts'
 
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
@@ -23,6 +32,7 @@ export const SectionFields = {
   contentsDepth: z.number().int().min(1).max(6).optional(),
   opens: BookOpens.optional(),
   numbering: SectionNumbering.optional(),
+  number: StructureNumber.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   pageGeometry: z.string().optional(),
@@ -65,7 +75,9 @@ const VariableNodeFields = { type: z.literal('variable'), id: z.string().optiona
 const TextVariableNode = z.discriminatedUnion('from', [
   ContentTextVariable.extend(VariableNodeFields),
   SectionTitleTextVariable.extend(VariableNodeFields),
+  ChapterNumberTextVariable.extend(VariableNodeFields),
   PartTitleTextVariable.extend(VariableNodeFields),
+  PartNumberTextVariable.extend(VariableNodeFields),
 ])
 
 export const VariableNode = z.discriminatedUnion('kind', [

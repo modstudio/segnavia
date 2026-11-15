@@ -28,13 +28,27 @@ export function defaultPageNumbering(lang: string | undefined): NumberSystem {
 /** A book's division number systems: each configured system, or the language's default for that division. */
 export function divisionNumbering(
   lang: string | undefined,
-  configured: { frontMatter?: NumberSystem; body?: NumberSystem; printed?: BookPrinted } = {},
-): { frontMatter: NumberSystem; body: NumberSystem; printed: { frontMatter: boolean; body: boolean } } {
+  configured: {
+    frontMatter?: NumberSystem
+    body?: NumberSystem
+    printed?: BookPrinted
+    parts?: { style?: NumberSystem }
+    chapters?: { style?: NumberSystem }
+  } = {},
+): {
+  frontMatter: NumberSystem
+  body: NumberSystem
+  printed: { frontMatter: boolean; body: boolean }
+  parts?: { style?: NumberSystem }
+  chapters?: { style?: NumberSystem }
+} {
   const hebrew = isHebrew(lang)
   return {
     frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
     body: configured.body ?? defaultPageNumbering(lang),
     printed: { frontMatter: divisionPrints(configured, 'frontMatter'), body: divisionPrints(configured, 'body') },
+    ...(configured.parts === undefined ? {} : { parts: configured.parts }),
+    ...(configured.chapters === undefined ? {} : { chapters: configured.chapters }),
   }
 }
 

@@ -93,7 +93,9 @@ export function marginFactsFor(
         recordFolio: numbers.recordFolios[documentIndex] ?? undefined,
         recordTotal: owner ? numbers.recordTotals[owner.section.id] : undefined,
         sectionTitle: owner?.section.title,
+        chapterNumber: owner?.section.number,
         partTitles: owner?.section.parts,
+        partNumbers: owner?.section.partNumbers,
         document: documentFacts,
       })
       if (value) resolved[variable.name] = value

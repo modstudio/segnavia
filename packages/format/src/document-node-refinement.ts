@@ -31,6 +31,7 @@ export const PROFILED_SECTION_FIELDS = [
   'contentsDepth',
   'opens',
   'numbering',
+  'number',
   'parentRules',
   'pageGeometry',
   'template',

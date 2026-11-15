@@ -74,7 +74,7 @@
     },
     {
       "size": [419.528, 595.276],
-      "text": "Contents\nPreface\nOpening Part\nChapter One\nTopic 1\nTitle-only Part\nChapter Two\nTopic 2\nChapter Three\nTopic 3\nAppendix\nAfterword\nTopic 4\n\nxix\n\ni\n1\n3\n3\n17\n17\n17\n31\n31\n35\n35\n35"
+      "text": "Contents\nPreface\nI Opening Part\n1 Chapter One\nTopic 1\nII Title-only Part\n2 Chapter Two\nTopic 2\n3 Chapter Three\nTopic 3\nIII Appendix\nAfterword\nTopic 4\n\nxix\n\ni\n1\n3\n3\n17\n17\n17\n31\n31\n35\n35\n35"
     },
     {
       "size": [419.528, 595.276],
@@ -236,12 +236,12 @@
       "depth": 0
     },
     {
-      "title": "Opening Part",
+      "title": "I Opening Part",
       "page": 21,
       "depth": 0
     },
     {
-      "title": "Chapter One",
+      "title": "1 Chapter One",
       "page": 23,
       "depth": 1
     },
@@ -251,12 +251,12 @@
       "depth": 2
     },
     {
-      "title": "Title-only Part",
+      "title": "II Title-only Part",
       "page": 37,
       "depth": 0
     },
     {
-      "title": "Chapter Two",
+      "title": "2 Chapter Two",
       "page": 37,
       "depth": 1
     },
@@ -266,7 +266,7 @@
       "depth": 2
     },
     {
-      "title": "Chapter Three",
+      "title": "3 Chapter Three",
       "page": 51,
       "depth": 1
     },
@@ -276,7 +276,7 @@
       "depth": 2
     },
     {
-      "title": "Appendix",
+      "title": "III Appendix",
       "page": 55,
       "depth": 0
     },

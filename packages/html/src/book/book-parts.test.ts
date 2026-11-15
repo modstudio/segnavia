@@ -38,7 +38,7 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
   expect(result.sections.find(({ id }) => id === 'outer-part')?.parts).toEqual({ part: 'Outer' })
   expect(result.sections.find(({ id }) => id === 'section-3')?.parts).toEqual({ part: 'Outer', gate: 'Inner' })
   expect(result.html).not.toMatch(/id="inner-part"/)
-  expect(result.html).toContain(':where(.segnavia-part,.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}')
+  expect(result.html).toContain(':where(.segnavia-part:not([data-opens="continue"]),.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}')
   expect(result.html).toContain('data-level="12"]){padding-inline-start:11em}')
 })
 

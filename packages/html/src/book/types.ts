@@ -16,10 +16,12 @@ export interface BookSectionInfo {
   kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes' | 'designed' | 'templated'
   division: 'front' | 'body' | 'end'
   title?: string
+  number?: string
   opens?: BookOpens
   values?: Record<string, string>
   record?: { index: number; count: number }
   parts?: Record<string, string>
+  partNumbers?: Record<string, string>
   numbering?: SectionNumbering
   parentRules?: ParentRules
 }
@@ -35,6 +37,7 @@ export interface BookHeading {
   block: string
   level: number
   text: string
+  number?: string
   contentsLabel?: string
   subtitle?: string
   sectionId: string
@@ -45,6 +48,11 @@ export interface BookHeading {
 
 export function headingLabel(heading: BookHeading): string {
   return heading.contentsLabel ?? heading.text
+}
+
+export function numberedHeadingLabel(heading: BookHeading): string {
+  const label = headingLabel(heading)
+  return heading.number === undefined ? label : `${heading.number} ${label}`
 }
 
 export interface BookDocument {
