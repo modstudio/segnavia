@@ -218,7 +218,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     if (sectionEntry.division !== 'front') continue
     const { entry } = sectionEntry
     if (isPart(entry)) {
-      addPart(sectionEntry, build, book.parentRules)
+      addPart(sectionEntry, build, book)
       continue
     }
     if (isBookContents(entry)) {
@@ -256,7 +256,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     if (sectionEntry.division !== division) continue
     const { entry } = sectionEntry
     if (isPart(entry)) {
-      addPart(sectionEntry, build, book.parentRules)
+      addPart(sectionEntry, build, book)
       continue
     }
     if (isBookContents(entry)) continue

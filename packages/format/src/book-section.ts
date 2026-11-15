@@ -182,7 +182,7 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
         return
       }
       const id = entry.id
-      if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
+      if (entry.html !== undefined || entry.title !== undefined || entry.opens === 'continue') sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
       walk(entry.children, division, [...path, 'children'], [
         ...ancestry,
         { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering },
@@ -221,7 +221,8 @@ export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
     title: entry.title,
     path,
     sequence: path.slice(0, -1).join('.'),
-    flowing: flowingSection(entry),
+    flowing: flowingSection(entry) || (isPart(entry) && (entry.html !== undefined || entry.opens === 'continue')),
+    ...(isPart(entry) ? { subject: 'Part' as const } : {}),
     opens: entry.opens,
     ...(!isPart(entry) && 'numbering' in entry ? { numbering: entry.numbering } : {}),
     parentRules: entry.parentRules,

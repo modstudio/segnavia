@@ -8,6 +8,7 @@ function partSectionIssues(items: BookItem[], path: (string | number)[]): BookSt
     const partPath = [...path, index]
     const hasSection =
       entry.html !== undefined ||
+      entry.opens === 'continue' ||
       bookSections({ frontMatter: [], body: entry.children, endMatter: [] }).some(({ entry: child }) => !isPart(child) || child.html !== undefined)
     const own = !hasSection
       ? [{ path: partPath, message: `part ${partPath.join('.')} has no section; add html or a section inside it to clear this refusal` }]

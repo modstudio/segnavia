@@ -30,7 +30,9 @@ function contentsCss(book: Book): string {
 }
 
 function printCss(book: Book): string {
-  const breaks = hasParts(book) ? '.segnavia-part,.segnavia-chapter,.segnavia-endnotes,.segnavia-blank' : '.segnavia-chapter,.segnavia-endnotes,.segnavia-blank'
+  const breaks = hasParts(book)
+    ? '.segnavia-part:not([data-opens="continue"]),.segnavia-chapter,.segnavia-endnotes,.segnavia-blank'
+    : '.segnavia-chapter,.segnavia-endnotes,.segnavia-blank'
   return `${contentsCss(book)}@media print{:where(.segnavia-front,.segnavia-contents)~:where(.segnavia-front,.segnavia-contents),:where(${breaks}){break-before:page}:where(.segnavia-blank){break-after:page}}`
 }
 

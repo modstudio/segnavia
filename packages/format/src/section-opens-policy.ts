@@ -15,6 +15,7 @@ export interface SectionOpensFact {
   parentRules?: ParentRules
   pageGeometry?: string
   geometry?: ResolvedBookPageGeometry
+  subject?: 'Section' | 'Part'
 }
 
 export interface SectionOpensIssue {
@@ -28,6 +29,10 @@ function label(section: SectionOpensFact): string {
   return section.title ?? section.id
 }
 
+function subject(section: SectionOpensFact): string {
+  return section.subject ?? 'Section'
+}
+
 export function sectionOpensIssues(sections: readonly SectionOpensFact[]): SectionOpensIssue[] {
   const previous = new Map<string, SectionOpensFact>()
   const issues: SectionOpensIssue[] = []
@@ -39,31 +44,31 @@ export function sectionOpensIssues(sections: readonly SectionOpensFact[]): Secti
     if (!before) {
       issues.push({
         path: [...section.path, 'opens'],
-        message: `Section "${name}" (${section.id}) opens with continue but is first in its division or part; ${CONTINUE_OPENS_REMEDY}.`,
+        message: `${subject(section)} "${name}" (${section.id}) opens with continue but is first in its division or part; ${CONTINUE_OPENS_REMEDY}.`,
       })
     } else if (!section.flowing || !before.flowing) {
       issues.push({
         path: [...section.path, 'opens'],
-        message: `Section "${name}" (${section.id}) opens with continue but it or the preceding section has no flow to join; use another opens value to clear this refusal.`,
+        message: `${subject(section)} "${name}" (${section.id}) opens with continue but it or the preceding section has no flow to join; use another opens value to clear this refusal.`,
       })
     } else if (!sameBookPageGeometry(section.geometry, before.geometry)) {
       const beforeName = before.geometry?.name ?? 'the preceding geometry'
       const currentName = section.geometry?.name ?? section.pageGeometry ?? 'the section geometry'
       issues.push({
         path: [...section.path, 'opens'],
-        message: `Section "${name}" (${section.id}) opens with continue but its resolved page geometry ${JSON.stringify(currentName)} differs from the preceding section's ${JSON.stringify(beforeName)}; use the same geometry, or another opens value to clear this refusal.`,
+        message: `${subject(section)} "${name}" (${section.id}) opens with continue but its resolved page geometry ${JSON.stringify(currentName)} differs from the preceding section's ${JSON.stringify(beforeName)}; use the same geometry, or another opens value to clear this refusal.`,
       })
     }
     if (section.numbering !== undefined) {
       issues.push({
         path: [...section.path, 'numbering'],
-        message: `Section "${name}" (${section.id}) opens with continue and sets numbering, but a continuing section has no first page to count or restart; remove numbering or use another opens value to clear this refusal.`,
+        message: `${subject(section)} "${name}" (${section.id}) opens with continue and sets numbering, but a continuing section has no first page to count or restart; remove numbering or use another opens value to clear this refusal.`,
       })
     }
     if (section.parentRules !== undefined) {
       issues.push({
         path: [...section.path, 'parentRules'],
-        message: `Section "${name}" (${section.id}) opens with continue and sets parentRules, but a continuing section has no first page to dress; remove parentRules or use another opens value to clear this refusal.`,
+        message: `${subject(section)} "${name}" (${section.id}) opens with continue and sets parentRules, but a continuing section has no first page to dress; remove parentRules or use another opens value to clear this refusal.`,
       })
     }
   }

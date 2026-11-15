@@ -1,6 +1,7 @@
-import { type BookSectionEntry, DEFAULT_HEADING_LISTING, isPart, type ParentRules } from '@segnavia/format'
+import { type Book, type BookSectionEntry, DEFAULT_HEADING_LISTING, isPart, resolveDirection } from '@segnavia/format'
 import type { DocumentBuild } from './book-document.ts'
 import { partSection } from './book-held.ts'
+import { element, linkChildren, text } from './dom.ts'
 
 type PartFact = BookSectionEntry['ancestry'][number]
 
@@ -8,11 +9,11 @@ export function partNames(ancestry: PartFact[], own?: PartFact): Record<string, 
   return Object.fromEntries([...ancestry, ...(own ? [own] : [])].map((part) => [part.name, part.title ?? '']))
 }
 
-export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bookRules?: ParentRules): boolean {
+export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, book: Pick<Book, 'parentRules' | 'dir' | 'lang'>): boolean {
   const { entry } = sectionEntry
   if (!isPart(entry)) return false
   const id = sectionEntry.id ?? ''
-  if (entry.html !== undefined) {
+  if (entry.html !== undefined || entry.opens === 'continue') {
     const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering })
     const partNumbers = Object.fromEntries(
       [...sectionEntry.ancestry, { name: entry.name, id }].flatMap((part) => {
@@ -20,8 +21,35 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
         return number === undefined ? [] : [[part.name, number]]
       }),
     )
-    const section = partSection({ ...entry, parentRules: entry.parentRules ?? bookRules }, id, sectionEntry.division, build.build, parts, partNumbers)
+    const section = partSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, id, sectionEntry.division, build.build, parts, partNumbers)
     const number = build.structureNumbers.get(id)?.text
+    if (entry.html === undefined) {
+      const numberChildren =
+        number === undefined
+          ? []
+          : [
+              element('span', { class: 'segnavia-part-number', dir: resolveDirection(book.dir, book.lang, number) }, [
+                element('bdi', {}, [text(number)]),
+              ]),
+            ]
+      const title = entry.title ?? ''
+      const titleChildren =
+        title === ''
+          ? []
+          : [
+              element('span', { class: 'segnavia-part-title', dir: resolveDirection(book.dir, book.lang, title) }, [
+                element('bdi', {}, [text(title)]),
+              ]),
+            ]
+      section.node.children = [
+        element('h1', { class: 'segnavia-part-heading', dir: resolveDirection(book.dir, book.lang, `${number ?? ''} ${title}`) }, [
+          ...numberChildren,
+          ...(numberChildren.length > 0 && titleChildren.length > 0 ? [text(' ')] : []),
+          ...titleChildren,
+        ]),
+      ]
+      linkChildren(section.node)
+    }
     if (number !== undefined) {
       section.info.number = number
       section.node.attribs['data-segnavia-section-number'] = number
