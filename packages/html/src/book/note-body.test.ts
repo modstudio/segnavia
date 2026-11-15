@@ -21,9 +21,7 @@ test('holds block content in a div and runs the lead into its deepest first text
 
 test('leaves the lead before a first child that does not hold running text', () => {
   const content = [element('ul', [element('li', [text('first')])]), element('p', [text('second')])]
-  expect(render(noteBody('note', 'n-1', [text('1'), text(' ')], content))).toBe(
-    '<div class="note" id="n-1">1 <ul><li>first</li></ul><p>second</p></div>',
-  )
+  expect(render(noteBody('note', 'n-1', [text('1'), text(' ')], content))).toBe('<div class="note" id="n-1">1 <ul><li>first</li></ul><p>second</p></div>')
 })
 
 test('uses a div for other elements whose start tag closes a paragraph', () => {
