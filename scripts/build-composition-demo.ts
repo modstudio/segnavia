@@ -22,3 +22,11 @@ async function buildCompositionDemo(site: string): Promise<void> {
 export async function buildBookSupportDemos(site: string): Promise<void> {
   await Promise.all([buildIdmlTableDemo(site), buildCompositionDemo(site)])
 }
+
+export function writeLargeBookCompositionProfile(site: string, singleLine: unknown): void {
+  writeFileSync(path.join(site, 'book-paginated-large-en-single-line.json'), JSON.stringify(singleLine))
+  writeFileSync(
+    path.join(site, 'book-paginated-large-profile.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0}segnavia-book{display:block;block-size:70vh}</style></head><body><segnavia-book id="book-large-profile" src="book-paginated-large-en.json"></segnavia-book><segnavia-book id="book-large-single-line" src="book-paginated-large-en-single-line.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
+  )
+}

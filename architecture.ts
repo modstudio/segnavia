@@ -179,6 +179,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-margin-embed.ts',
       'src/composer-paragraph-box.ts',
       'src/composer-paragraph-dom.ts',
+      'src/composer-paragraph-measure.ts',
       'src/composer-paragraph.ts',
       'src/line-number-style.ts',
       'src/composer-properties.ts',

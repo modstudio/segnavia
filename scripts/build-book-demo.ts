@@ -9,7 +9,7 @@ import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { writeBookFeatureDemos } from './build-book-feature-demos.ts'
 import { writeBookFillDemo } from './build-book-fill-demo.ts'
 import { fixtureIds } from './build-book-fixture-ids.ts'
-import { buildBookSupportDemos } from './build-composition-demo.ts'
+import { buildBookSupportDemos, writeLargeBookCompositionProfile } from './build-composition-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
@@ -224,7 +224,7 @@ function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: strin
   )
 }
 
-export function largePaginatedFixture(hebrew: boolean): DocumentInput {
+export function largePaginatedFixture(hebrew: boolean, composer: 'paragraph' | 'single-line' = 'paragraph'): DocumentInput {
   // Regular paginated fixtures exercise continued notes. The short footnote lets this stress fixture
   // check page-note geometry and whole-text output without introducing a continuation.
   const footnote = hebrew ? 'הערה קצרה לספר הגדול.' : 'A short footnote for the large book.'
@@ -255,7 +255,7 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
         children: [
           flowSection(
             hebrew ? 'פתיחה' : 'Preface',
-            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}:where(.segnavia-chapter p){text-align:justify;--segnavia-composer:paragraph;--segnavia-hyphenate:true}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
+            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}:where(.segnavia-chapter p){text-align:justify;--segnavia-composer:${composer};--segnavia-hyphenate:true}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
           ),
           { type: 'contents', title: hebrew ? 'תוכן' : 'Contents', pageNumbers: false, contentsDepth: 2 },
         ],
@@ -278,7 +278,6 @@ export async function buildNoteCasePdfs(site: string, render: (book: DocumentInp
     writeFileSync(path.join(site, `book-paginated-notes-${hebrew ? 'he' : 'en'}.pdf`), await render(noteCasesFixture(hebrew), css))
   }
 }
-
 export async function buildBookDemo(site: string): Promise<void> {
   await buildBookSupportDemos(site)
   await writePlacedMediaBook(site)
@@ -337,6 +336,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull, profile: PREFLIGHT_PRESETS.default }),
     )
   }
+  writeLargeBookCompositionProfile(site, bookView(bookFixtureValue(largePaginatedFixture(false, 'single-line'))))
   const tableCss = `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}`
   writePaginatedTableBook(site, tableCss)
   writeFileSync(
