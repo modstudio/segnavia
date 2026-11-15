@@ -13,12 +13,19 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
   if (!isPart(entry)) return false
   const id = sectionEntry.id ?? ''
   if (entry.html !== undefined) {
-    const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, id })
+    const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering })
     build.sections.push(partSection({ ...entry, parentRules: entry.parentRules ?? bookRules }, id, sectionEntry.division, build.build, parts))
     attachPendingPartHeadings(build, sectionEntry, id)
   }
   if (entry.contents && entry.title !== undefined) {
-    const heading = { level: 1, depth: sectionEntry.depth, text: entry.title }
+    const number = build.structureNumbers.get(id)?.text
+    const heading = {
+      level: 1,
+      depth: sectionEntry.depth,
+      text: entry.title,
+      ...(entry.contentsLabel === undefined ? {} : { contentsLabel: entry.contentsLabel }),
+      ...(number === undefined ? {} : { number }),
+    }
     if (entry.html === undefined) build.pendingPartHeadings.push({ ...heading, partId: id })
     else build.headings.push({ ...heading, id, block: id, sectionId: id, listed: DEFAULT_HEADING_LISTING })
   }

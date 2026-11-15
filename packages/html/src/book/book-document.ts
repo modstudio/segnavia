@@ -12,6 +12,8 @@ import {
   MAX_HEADING_LEVEL,
   noteMarkerIssues,
   resolveDirection,
+  structureNumbers,
+  type StructureNumberValue,
   type TemplatedSection,
 } from '@segnavia/format'
 import type { Document } from 'domhandler'
@@ -68,6 +70,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...designedSectionAttributeIssues(entry, id))
   appendHeldHeadings(entry, held.headings, sectionEntry.depth, build.headings)
+  attachSectionNumber(build, sectionEntry.id)
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
 }
@@ -87,6 +90,7 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...templatedSectionIssues(entry, id, build.templates))
   appendHeldHeadings(entry, held.headings, sectionEntry.depth, build.headings)
+  attachSectionNumber(build, sectionEntry.id)
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
 }
@@ -155,7 +159,14 @@ export interface DocumentBuild {
   templatedNumber: number
   chapterNumber: number
   partTargets: Map<string, string>
-  pendingPartHeadings: Array<Pick<BookHeading, 'level' | 'depth' | 'text'> & { partId: string }>
+  pendingPartHeadings: Array<Pick<BookHeading, 'level' | 'depth' | 'text' | 'number' | 'contentsLabel'> & { partId: string }>
+  structureNumbers: Map<string, StructureNumberValue>
+}
+
+function attachSectionNumber(build: DocumentBuild, id: string): void {
+  const heading = build.headings.findLast((candidate) => candidate.id === id)
+  const number = build.structureNumbers.get(id)?.text
+  if (heading && number !== undefined) heading.number = number
 }
 
 function decorateSection(sectionEntry: BookSectionEntry, build: DocumentBuild): void {
@@ -214,6 +225,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
       build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth, entry.contentsDepth))
+      attachSectionNumber(build, sectionEntry.id)
     }
     transformNotes(section.node, book, noteContext(sectionEntry, section.info.id, 0, entry.title, build), build.notes, build.build === 'galley')
   }
@@ -246,6 +258,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
     appendChapterHeadings(entry, section, sectionEntry.depth, MAX_HEADING_LEVEL, build.headings)
+    attachSectionNumber(build, sectionEntry.id)
     transformNotes(
       section.node,
       book,
@@ -324,6 +337,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     chapterNumber: 0,
     partTargets: new Map(),
     pendingPartHeadings: [],
+    structureNumbers: structureNumbers(bookSections(book), { lang: book.lang, parts: book.numbering.parts, chapters: book.numbering.chapters }),
   }
   const contents = addFrontMatter(book, build)
   addChapters(book, build)

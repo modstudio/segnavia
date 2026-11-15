@@ -75,7 +75,7 @@ export {
 export { parseBookFixture } from './book/book-test-fixture.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
-export { bookPrintPart, headingLabel } from './book/types.ts'
+export { bookPrintPart, headingLabel, numberedHeadingLabel } from './book/types.ts'
 export { sanitizeBookCss } from './book-css.ts'
 export { type BrandSpecimenOptions, brandSpecimen } from './brand-specimen.ts'
 export { asOfValues, slotsForDay, slotsOptionsRefusal, slotsWithDay } from './day-slots.ts'

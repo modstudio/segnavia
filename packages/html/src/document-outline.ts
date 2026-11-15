@@ -2,7 +2,7 @@ import { type Book, bookFromDocument, type Document, type OutlineHeading, type O
 import { type ChildNode, isTag } from 'domhandler'
 import { bookDocument } from './book/book-document.ts'
 import { headingText } from './book/dom.ts'
-import { type BookDocument, headingLabel } from './book/types.ts'
+import { type BookDocument, numberedHeadingLabel } from './book/types.ts'
 import { headingListing } from './heading-listing.ts'
 import { printedPageDirection, resolvePrintedPageHtml } from './markdown.ts'
 import { printedSectionOutlineHtml } from './printed-section-flows.ts'
@@ -59,7 +59,7 @@ export function bookOutlineSource(book: Book, built: Pick<BookDocument, 'html' |
     depth: book.outline.depth,
     headings: built.headings.map((heading) => ({
       id: heading.id,
-      title: headingLabel(heading),
+      title: numberedHeadingLabel(heading),
       level: heading.level + (heading.depth ?? 0),
       listed: heading.listed,
       block: heading.block,

@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { bookDocument } from './book-document.ts'
+import { bookOutlineSource } from '../document-outline.ts'
 import { parseBookFixture } from './book-test-fixture.ts'
 
 test('uses a section contents label and independently resolves its subtitle direction', () => {
@@ -25,6 +26,39 @@ test('uses a section contents label and independently resolves its subtitle dire
     },
   ])
   expect(result.html).toContain('<a href="#section-2" dir="rtl">פרק ראשון<span class="segnavia-contents-subtitle" dir="ltr">Introduction</span></a>')
+})
+
+test('prints chapter numbers in contents and outline only when opted in', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    numbering: { chapters: {} },
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    chapters: [
+      { title: 'One', html: '<p>One</p>' },
+      { title: 'Two', html: '<p>Two</p>' },
+    ],
+  })
+  const built = bookDocument(book)
+  expect(built.html).toContain('<span class="segnavia-contents-number"><bdi>1</bdi></span> One')
+  expect(built.html).toContain('<span class="segnavia-contents-number"><bdi>2</bdi></span> Two')
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['1 One', '2 Two'])
+})
+
+test('prints isolated Hebrew numbers and a part contents label', () => {
+  const book = parseBookFixture({
+    title: 'ספר',
+    mode: 'continuous',
+    lang: 'he',
+    dir: 'rtl',
+    numbering: { parts: {}, chapters: {} },
+    frontMatter: [{ kind: 'contents', title: 'תוכן' }],
+    body: [{ id: 'part', name: 'one', title: 'חלק', contentsLabel: 'שער', children: [{ id: 'chapter', title: 'פרק', html: '<p>טקסט</p>' }] }],
+  })
+  const built = bookDocument(book)
+  expect(built.html).toContain('<span class="segnavia-contents-number"><bdi>א</bdi></span> שער')
+  expect(built.html).toContain('<span class="segnavia-contents-number"><bdi>א</bdi></span> פרק')
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['א שער', 'א פרק'])
 })
 
 test('an unlabeled contents entry takes its title direction before the book language', () => {

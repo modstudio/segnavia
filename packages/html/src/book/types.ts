@@ -35,6 +35,7 @@ export interface BookHeading {
   block: string
   level: number
   text: string
+  number?: string
   contentsLabel?: string
   subtitle?: string
   sectionId: string
@@ -45,6 +46,11 @@ export interface BookHeading {
 
 export function headingLabel(heading: BookHeading): string {
   return heading.contentsLabel ?? heading.text
+}
+
+export function numberedHeadingLabel(heading: BookHeading): string {
+  const label = headingLabel(heading)
+  return heading.number === undefined ? label : `${heading.number} ${label}`
 }
 
 export interface BookDocument {
