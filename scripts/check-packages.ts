@@ -32,6 +32,7 @@ interface Manifest {
   name: string
   exports: Record<string, ExportConditions>
   dependencies?: Record<string, string>
+  files?: string[]
 }
 
 async function run(command: string[], cwd = ROOT): Promise<void> {
@@ -83,9 +84,12 @@ for (const name of Object.keys(PACKAGES)) {
   const directory = path.join(HOST, 'node_modules', '@segnavia', name)
   mkdirSync(directory, { recursive: true })
   await run(['tar', '-xzf', tarball, '-C', directory, '--strip-components=1'])
+  const manifest = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8')) as Manifest
   if (!existsSync(path.join(directory, 'LICENSE'))) throw new Error(`${tarball} does not contain LICENSE.`)
   if (!existsSync(path.join(directory, 'CHANGELOG.md'))) throw new Error(`${tarball} does not contain CHANGELOG.md.`)
-  const manifest = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8')) as Manifest
+  for (const file of manifest.files?.filter((entry) => !entry.includes('/')) ?? []) {
+    if (!existsSync(path.join(directory, file))) throw new Error(`${manifest.name} package does not contain ${file}.`)
+  }
   installed.push({ name, directory, manifest })
 }
 

@@ -10,8 +10,16 @@ interface Hyphenator {
   root: TrieNode
 }
 
-const languageData: Record<string, { exceptions: string; patterns: string }> = {
+type LanguageData = { exceptions: string; patterns: string } | { patterns: null }
+
+const LEFT_MINIMUM = 2
+const RIGHT_MINIMUM = 3
+const LETTER = /^\p{Letter}$/u
+
+const languageData: Record<string, LanguageData> = {
   en: { exceptions: HYPHENATION_EN_US_EXCEPTIONS, patterns: HYPHENATION_EN_US_PATTERNS },
+  he: { patterns: null },
+  yi: { patterns: null },
 }
 const hyphenators = new Map<string, Hyphenator>()
 
@@ -61,7 +69,7 @@ function exceptionPoints(exception: string): [string, number[]] {
 function hyphenator(language: string): Hyphenator | undefined {
   const primary = language.toLowerCase().split('-')[0] ?? ''
   const data = languageData[primary]
-  if (!data) return undefined
+  if (!data || data.patterns === null) return undefined
   const cached = hyphenators.get(primary)
   if (cached) return cached
   const built = {
@@ -85,24 +93,31 @@ function patternPoints(word: string, root: TrieNode): number[] {
       }
     }
   }
-  return scores.flatMap((score, index) => (score % 2 === 1 && index > 2 && index < word.length - 1 ? [index - 1] : []))
+  return scores.flatMap((score, index) => (score % 2 === 1 && index > LEFT_MINIMUM && index < word.length - RIGHT_MINIMUM + 2 ? [index - 1] : []))
 }
 
 function pointsForSegment(word: string, language: string): number[] {
   const built = hyphenator(language)
-  if (!built || word.length < 5) return []
+  if (!built || word.length < LEFT_MINIMUM + RIGHT_MINIMUM) return []
   const normalized = word.toLowerCase()
   return built.exceptions.get(normalized) ?? patternPoints(normalized, built.root)
 }
 
-/** Returns indices at which a word may be broken, without changing the word. */
+function isMaqafBreak(word: string, index: number): boolean {
+  return word[index] === '\u05be' && LETTER.test(word[index - 1] ?? '') && LETTER.test(word[index + 1] ?? '')
+}
+
+/**
+ * Returns indices at which a word may be broken, without changing the word.
+ * A break following U+05BE maqaf inserts no hyphen; every other break does.
+ */
 export function hyphenationPoints(word: string, language: string): number[] {
   const points: number[] = []
   let segmentStart = 0
   for (let index = 0; index <= word.length; index += 1) {
     if (word[index] !== '\u05be' && index !== word.length) continue
     points.push(...pointsForSegment(word.slice(segmentStart, index), language).map((point) => segmentStart + point))
-    if (index < word.length) points.push(index + 1)
+    if (isMaqafBreak(word, index)) points.push(index + 1)
     segmentStart = index + 1
   }
   return points
