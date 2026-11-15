@@ -35,15 +35,18 @@ function pageContent(document: PDFDocument, index: number): string {
     .join('\n')
 }
 
-function placedPages(document: PDFDocument): number[] {
-  return document.getPages().flatMap((_page, index) => (pageContent(document, index).includes('/EmbeddedPdfPage') ? [index] : []))
+function placedFormName(document: PDFDocument, page: number): string | undefined {
+  const xobjects = document.getPage(page).node.Resources()?.lookupMaybe(PDFName.of('XObject'), PDFDict)
+  if (!xobjects) return undefined
+  return xobjects.entries().find(([, value]) => {
+    const form = document.context.lookupMaybe(value, PDFRawStream)
+    const box = form?.dict.lookupMaybe(PDFName.of('BBox'), PDFArray)?.asRectangle()
+    return box?.width === 200 && box.height === 100
+  })?.[0].asString()
 }
 
-function placementX(document: PDFDocument, page: number): number {
-  const content = pageContent(document, page)
-  const before = content.slice(0, content.indexOf('/EmbeddedPdfPage'))
-  const translations = [...before.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) cm/g)]
-  return Number(translations.find((translation) => Number(translation[1]) !== 0 || Number(translation[2]) !== 0)?.[1])
+function placedPages(document: PDFDocument): number[] {
+  return document.getPages().flatMap((_page, index) => (placedFormName(document, index) ? [index] : []))
 }
 
 function unsafeActions(document: PDFDocument): boolean {
@@ -59,10 +62,25 @@ function unsafeActions(document: PDFDocument): boolean {
   })
 }
 
-function extractedText(work: string, name: string, bytes: Uint8Array): string {
+function annotationUris(document: PDFDocument): string[] {
+  return document.getPages().flatMap((page) => {
+    const annotations = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray)
+    if (!annotations) return []
+    return annotations.asArray().flatMap((value) => {
+      const annotation = document.context.lookup(value, PDFDict)
+      const uri = annotation.lookupMaybe(PDFName.of('A'), PDFDict)?.lookupMaybe(PDFName.of('URI'), PDFString)?.decodeText()
+      return uri ? [uri] : []
+    })
+  })
+}
+
+function extractedText(work: string, name: string, bytes: Uint8Array): { text: string; x: number } {
   const file = path.join(work, name)
   writeFileSync(file, bytes)
-  return execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' })
+  const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' })
+  const boxes = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
+  const x = Number(/<word xMin="([\d.]+)"[^>]*>PLACED_VECTOR<\/word>/.exec(boxes)?.[1])
+  return { text, x }
 }
 
 export async function verifyPlacedPdfRender(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -104,13 +122,17 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
   for (const output of outputs) {
     const document = await PDFDocument.load(output.bytes)
     const pages = placedPages(document)
-    const text = extractedText(work, `placed-${output.name}.pdf`, output.bytes)
+    const extracted = extractedText(work, `placed-${output.name}.pdf`, output.bytes)
     const page = pages[0] ?? -1
     check(
       `${output.name} places a PDF form on the fragmented output page at its margin offset`,
-      pages.length === 1 && page >= output.expected && placementX(document, page) > 50,
-      `pages=${pages.join(',')} x=${page < 0 ? 'missing' : placementX(document, page)}`,
+      pages.length === 1 && page >= output.expected && extracted.x > 50,
+      `pages=${pages.join(',')} x=${extracted.x} uris=${annotationUris(document).join(',')}`,
     )
-    check(`${output.name} keeps placed PDF text but not source actions`, text.includes('PLACED_VECTOR') && !unsafeActions(document), text.trim())
+    check(
+      `${output.name} keeps placed PDF text but not source actions`,
+      extracted.text.includes('PLACED_VECTOR') && !unsafeActions(document),
+      extracted.text.trim(),
+    )
   }
 }

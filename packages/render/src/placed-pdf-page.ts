@@ -8,6 +8,7 @@ import { loadPdf } from './pdf-load.ts'
 
 export interface PlacedPdfMeasurement {
   id?: string
+  anchorOffset?: { x: number; y: number }
   address: string
   page: number
   box?: PageBoxName
@@ -29,10 +30,14 @@ export async function preparePlacedPdfPages(tab: Tab): Promise<void> {
       if (element.hasAttribute('data-segnavia-placed-pdf-id')) continue
       const id = String(index)
       element.setAttribute('data-segnavia-placed-pdf-id', id)
+      const marker = element.getBoundingClientRect()
       const link = document.createElement('a')
       link.href = `${prefix}${id}`
       element.replaceWith(link)
       link.append(element)
+      const anchor = link.getBoundingClientRect()
+      element.setAttribute('data-segnavia-placed-pdf-offset-x', String(marker.left - anchor.left))
+      element.setAttribute('data-segnavia-placed-pdf-offset-y', String(anchor.bottom - marker.bottom))
     }
   }, MARKER_LINK_PREFIX)
 }
@@ -66,6 +71,8 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
       const box = element.getAttribute('data-segnavia-box') as PageBoxName | null
       const crop = element.getAttribute('data-segnavia-crop')
       const id = element.getAttribute('data-segnavia-placed-pdf-id')
+      const offsetX = Number(element.getAttribute('data-segnavia-placed-pdf-offset-x'))
+      const offsetY = Number(element.getAttribute('data-segnavia-placed-pdf-offset-y'))
       if (!address || !Number.isSafeInteger(page) || page < 1) return []
       const paperElement = element.closest<HTMLElement>('[data-segnavia-printed-page]')
       const paper = paperElement ? papers.indexOf(paperElement) : 0
@@ -82,6 +89,7 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
         {
           address,
           ...(id ? { id } : {}),
+          ...(Number.isFinite(offsetX) && Number.isFinite(offsetY) ? { anchorOffset: { x: offsetX, y: offsetY } } : {}),
           page,
           ...(box ? { box } : {}),
           ...(crop ? { crop } : {}),
@@ -99,7 +107,12 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
     width: box.width * scale,
     height: box.height * scale,
   })
-  return measured.map((placement) => ({ ...placement, draw: scaled(placement.draw), clip: scaled(placement.clip) }))
+  return measured.map((placement) => ({
+    ...placement,
+    draw: scaled(placement.draw),
+    clip: scaled(placement.clip),
+    ...(placement.anchorOffset ? { anchorOffset: { x: placement.anchorOffset.x * scale, y: placement.anchorOffset.y * scale } } : {}),
+  }))
 }
 
 function markerUri(annotation: PDFDict): string | undefined {
@@ -214,7 +227,24 @@ export async function drawPlacedPdfPages(
   const limits = resolveLimits(undefined, options.limits)
   for (const placement of measurements) {
     const measured = placement.id ? markers.get(placement.id) : undefined
-    const positioned = measured ? { ...placement, ...measured } : placement
+    const positioned = measured
+      ? {
+          ...placement,
+          paper: measured.paper,
+          draw: {
+            x: measured.draw.x + (placement.anchorOffset?.x ?? 0),
+            y: measured.draw.y + (placement.anchorOffset?.y ?? 0),
+            width: placement.draw.width,
+            height: placement.draw.height,
+          },
+          clip: {
+            x: measured.draw.x + (placement.anchorOffset?.x ?? 0) + placement.clip.x - placement.draw.x,
+            y: measured.draw.y + (placement.anchorOffset?.y ?? 0) + placement.clip.y - placement.draw.y,
+            width: placement.clip.width,
+            height: placement.clip.height,
+          },
+        }
+      : placement
     const source = registered.get(placement.address)
     const target = output.getPage(positioned.paper)
     if (!source || !target) continue

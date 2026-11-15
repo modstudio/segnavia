@@ -24,6 +24,7 @@ import {
   libraryMotifPlacementRefusal,
   MotifRefusedError,
   parseDocument,
+  PLACED_PDF_SOURCES,
   resolveEdition,
   resolvePlacements,
 } from '@segnavia/html'
@@ -253,6 +254,7 @@ async function resolveBookShape<T extends Book | BookView>(
         width: bookPlacementWidth(shape.book, field.pageGeometry, pageWidths),
         signal,
         day,
+        pdfSources: placements[PLACED_PDF_SOURCES],
       }),
     ),
   )
