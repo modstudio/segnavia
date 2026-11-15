@@ -231,7 +231,7 @@ export async function drawPlacedPdfPages(
     if (!source || !target) continue
     let document = loaded.get(placement.address)
     if (!document) {
-      document = await loadPdf(source.bytes, { source: 'received', limits })
+      document = await loadPdf(source.bytes, { source: 'received', operation: 'placements.resolve', limits })
       loaded.set(placement.address, document)
     }
     const selected = placedPdfPage(source.media, placement.page, placement.box)

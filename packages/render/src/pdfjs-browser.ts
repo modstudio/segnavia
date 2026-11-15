@@ -6,13 +6,15 @@ const PDFJS_WORKER_SOURCE = readFileSync(new URL(import.meta.resolve('pdfjs-dist
 
 export interface PdfjsRasterRequest {
   page: number
+  box: { x: number; y: number; width: number; height: number }
   width: number
   height: number
+  inspectPixels?: boolean
 }
 
 export interface PdfjsRaster {
   png: Uint8Array
-  rgba: Uint8Array
+  rgba?: Uint8Array
 }
 
 export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, request: PdfjsRasterRequest): Promise<PdfjsRaster> {
@@ -30,14 +32,29 @@ export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, reques
         const pdf = await loading.promise
         try {
           const page = await pdf.getPage(request.page)
-          const viewport = page.getViewport({ scale: request.width / page.getViewport({ scale: 1 }).width })
+          const viewport = page.getViewport({ scale: 1 })
+          const { x, y, width, height } = request.box
+          const corners = [
+            viewport.convertToViewportPoint(x, y),
+            viewport.convertToViewportPoint(x + width, y),
+            viewport.convertToViewportPoint(x, y + height),
+            viewport.convertToViewportPoint(x + width, y + height),
+          ]
+          const left = Math.min(...corners.map(([value]) => value))
+          const top = Math.min(...corners.map(([, value]) => value))
+          const right = Math.max(...corners.map(([value]) => value))
+          const scale = request.width / (right - left)
           const canvas = new OffscreenCanvas(request.width, request.height)
           const context = canvas.getContext('2d', { alpha: false })
           if (!context) throw new Error('Chromium could not create a 2D canvas for PDF rendering')
           context.fillStyle = 'white'
           context.fillRect(0, 0, request.width, request.height)
-          await page.render({ annotationMode: pdfjs.AnnotationMode.DISABLE, canvasContext: context, viewport }).promise
-          const pixels = context.getImageData(0, 0, request.width, request.height).data
+          await page.render({
+            annotationMode: pdfjs.AnnotationMode.DISABLE,
+            canvasContext: context,
+            transform: [scale, 0, 0, scale, -left * scale, -top * scale],
+            viewport,
+          }).promise
           const blob = await canvas.convertToBlob({ type: 'image/png' })
           const output = new Uint8Array(await blob.arrayBuffer())
           const base64 = (value: Uint8Array | Uint8ClampedArray) => {
@@ -46,7 +63,8 @@ export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, reques
               text += String.fromCharCode(...value.subarray(offset, Math.min(value.length, offset + 32_768)))
             return btoa(text)
           }
-          return { png: base64(output), rgba: base64(pixels) }
+          const rgba = request.inspectPixels ? base64(context.getImageData(0, 0, request.width, request.height).data) : undefined
+          return { png: base64(output), ...(rgba ? { rgba } : {}) }
         } finally {
           await loading.destroy()
         }
@@ -57,5 +75,8 @@ export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, reques
     },
     { encoded, pdfjsSource: PDFJS_SOURCE, request, workerSource: PDFJS_WORKER_SOURCE },
   )
-  return { png: new Uint8Array(Buffer.from(rendered.png, 'base64')), rgba: new Uint8Array(Buffer.from(rendered.rgba, 'base64')) }
+  return {
+    png: new Uint8Array(Buffer.from(rendered.png, 'base64')),
+    ...(rendered.rgba ? { rgba: new Uint8Array(Buffer.from(rendered.rgba, 'base64')) } : {}),
+  }
 }

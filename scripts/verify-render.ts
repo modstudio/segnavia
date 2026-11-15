@@ -77,7 +77,7 @@ const output = path.resolve(import.meta.dirname, '../out')
 const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb })
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
 try {
-  await verifyPdfjsBrowser(CHROMIUM, check)
+  await verifyPdfjsBrowser(CHROMIUM, renderer, check)
   await verifyPageAsOfRender(renderer, work, check)
   await verifyDependencyRender(renderer, work, refusal, check)
   await verifyDiagramRender(renderer, work, check)

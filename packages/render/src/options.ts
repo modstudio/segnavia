@@ -160,7 +160,7 @@ function checkedPlacements(placements: NonNullable<RenderOptions['placements']>,
       const address = args[0].address
       let validation = checked.get(address)
       if (!validation) {
-        validation = loadPdf(answer.bytes, { source: 'received', limits: resolveLimits(undefined, limits) })
+        validation = loadPdf(answer.bytes, { source: 'received', operation: 'placements.resolve', limits: resolveLimits(undefined, limits) })
         checked.set(address, validation)
       }
       try {

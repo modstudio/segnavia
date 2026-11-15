@@ -40,6 +40,7 @@ export {
   DEFAULT_JS_HEAP_MB,
   PAGE_READY_BOUND_MS,
   type PagePdfOptions,
+  type PdfPageImageOptions,
   RENDER_BOUND_MS,
   type Renderer,
   type RendererOptions,

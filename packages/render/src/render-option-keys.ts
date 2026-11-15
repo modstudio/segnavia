@@ -8,6 +8,7 @@ import type {
   DeckPdfInputOptions,
   PagePdfOptions,
   PagesPdfInputOptions,
+  PdfPageImageOptions,
   RenderCall,
   SlideImageInputOptions,
   StampPdfOptions,
@@ -137,6 +138,13 @@ export const STAMP_PDF_OPTION_KEYS = {
   boundMs: true,
 } as const satisfies Record<keyof StampPdfOptions, true>
 
+export const PDF_PAGE_IMAGE_OPTION_KEYS = {
+  page: true,
+  box: true,
+  width: true,
+  limits: true,
+} as const satisfies Record<keyof PdfPageImageOptions, true>
+
 export type KnownOptionKeys = Readonly<Record<string, true>>
 
 export const RENDER_OPTION_KEYS = {
@@ -149,6 +157,7 @@ export const RENDER_OPTION_KEYS = {
   deckPdf: DECK_PDF_OPTION_KEYS,
   slideImage: SLIDE_IMAGE_OPTION_KEYS,
   proofImage: PROOF_IMAGE_OPTION_KEYS,
+  pdfPageImage: PDF_PAGE_IMAGE_OPTION_KEYS,
   stampPdf: STAMP_PDF_OPTION_KEYS,
 } as const satisfies Record<RenderCall, KnownOptionKeys>
 
