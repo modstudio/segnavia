@@ -122,3 +122,20 @@ export function hyphenationPoints(word: string, language: string): number[] {
   }
   return points
 }
+
+/** Embeds the language hyphenator in an author-document frame. */
+export function hyphenationScript(): string {
+  return `var HYPHENATION_EN_US_EXCEPTIONS=${JSON.stringify(HYPHENATION_EN_US_EXCEPTIONS)};
+var HYPHENATION_EN_US_PATTERNS=${JSON.stringify(HYPHENATION_EN_US_PATTERNS)};
+var LEFT_MINIMUM=${LEFT_MINIMUM};var RIGHT_MINIMUM=${RIGHT_MINIMUM};var LETTER=/^\\p{Letter}$/u;
+var languageData={en:{exceptions:HYPHENATION_EN_US_EXCEPTIONS,patterns:HYPHENATION_EN_US_PATTERNS},he:{patterns:null},yi:{patterns:null}};
+var hyphenators=new Map();
+${patternParts.toString()}
+${buildTrie.toString()}
+${exceptionPoints.toString()}
+${hyphenator.toString()}
+${patternPoints.toString()}
+${pointsForSegment.toString()}
+${isMaqafBreak.toString()}
+${hyphenationPoints.toString()}`
+}

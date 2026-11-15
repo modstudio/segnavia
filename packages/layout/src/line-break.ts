@@ -313,3 +313,24 @@ function penaltyBoundary(item: Item | undefined): Penalty {
     flagged: item?.type === 'penalty' && item.flagged,
   }
 }
+
+/** Embeds the total-fit breaker in an author-document frame. */
+export function breakLinesScript(): string {
+  return `var CHUNK_ITEMS=${CHUNK_ITEMS};var INFINITE_BADNESS=${INFINITE_BADNESS};
+${breakpoints.toString()}
+${prefixes.toString()}
+${lineStart.toString()}
+${adjustment.toString()}
+${overflowBadness.toString()}
+${fitnessClass.toString()}
+${adjustmentForRatio.toString()}
+${lineDemerits.toString()}
+${hasSkippedForced.toString()}
+${candidateNode.toString()}
+${candidatesAtPoint.toString()}
+${solve.toString()}
+${chunkEnds.toString()}
+${chosenNodes.toString()}
+${penaltyBoundary.toString()}
+${breakLines.toString()}`
+}

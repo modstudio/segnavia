@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
 import { layoutScript } from './layout-script.ts'
+import { hyphenationPoints } from './hyphenate.ts'
+import { breakLines } from './line-break.ts'
 import { block, flow, input, settings } from './paginate-book.test-helper.ts'
 import { paginateScript } from './paginate-book.ts'
 import { defaultParentRules } from './parent-selection.ts'
@@ -51,6 +53,22 @@ test('layoutScript evaluates in a bare scope and its planners match the module',
   ]
   expect(embedded.planPrintedPages(rules, 3, 'rtl', 'hebrew')).toEqual(planPrintedPages(rules, 3, 'rtl', 'hebrew'))
   expect(typeof embedded.convergeLayout).toBe('function')
+})
+
+test('layoutScript embeds the paragraph breaker and English and Hebrew hyphen points', () => {
+  const embedded = new Function(`${layoutScript()};return {breakLines,hyphenationPoints}`)() as {
+    breakLines: typeof breakLines
+    hyphenationPoints: typeof hyphenationPoints
+  }
+  const items = [
+    { type: 'box' as const, width: 30 },
+    { type: 'glue' as const, width: 5, stretch: 3, shrink: 2 },
+    { type: 'box' as const, width: 30 },
+  ]
+  expect(embedded.breakLines(items, [40])).toEqual(breakLines(items, [40]))
+  for (const [word, language] of [['hyphenation', 'en-US'], ['שלום־עליכם', 'he']] as const) {
+    expect(embedded.hyphenationPoints(word, language)).toEqual(hyphenationPoints(word, language))
+  }
 })
 
 test('layoutScript keeps its planner names after minification', async () => {

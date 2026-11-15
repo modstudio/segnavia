@@ -340,6 +340,8 @@ describe('bookDocument', () => {
     expect(flow).toContain('BOOK_LAYOUTS.indexOf(data.layout)<0')
     expect(flow).toContain('data.place!==undefined&&place===undefined')
     expect(flow).not.toContain(MESSAGE.composeFailure)
+    expect(flow).not.toContain('composeParagraphs(document,document')
+    expect(screen).toContain('composeParagraphs(document,document')
     expect(flow).toContain('var settleBookPlace=function(key){scrollTo(')
     expect(print).not.toContain('"presentation"')
     expect(print).not.toContain('<template data-segnavia-flow-build>')

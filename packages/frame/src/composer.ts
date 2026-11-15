@@ -46,6 +46,7 @@ import { composerLineLabelConvergenceScript, embeddedComposerLineLabelFunctions 
 import { embeddedComposerMarginFunctions } from './composer-margin-embed.ts'
 import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
+import { paragraphComposerScript } from './composer-paragraph.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
@@ -248,6 +249,7 @@ var outlineEntries=${outlineEntriesJson};
 var preflightEntries=[],fitPreflightEntries=[],preflightFits=[],preflightRegions=[],fitResults=[],propertyResults=[];
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
 ${layoutScript()}
+${paragraphComposerScript()}
 ${lineNotes ? embeddedComposerLineLabelFunctions() : ''}
 ${embedFunction('flowSectionNumbering', flowSectionNumbering)}
 ${embeddedComposerFunctions(lineNotes)}
@@ -350,6 +352,7 @@ fitResults=fitSourceElements();
 fillSourceRegions();
 // Measured properties run after source-shaping stages and before pagination.
 propertyResults=measureSourceProperties();
+composeParagraphs(document,document,getComputedStyle,NodeFilter.SHOW_TEXT);
 var selectedLayout=document.querySelector('[${LAYOUT_ATTRIBUTE}]');if(selectedLayout&&!window.segnaviaLayout){fail('Layout provider '+JSON.stringify((selectedLayout.getAttribute('${LAYOUT_ATTRIBUTE}')||'').trim().split(/\\s+/)[0]||'selected')+' was selected, but its runtime was not installed; inject the registered provider runtime to clear this refusal');return;}if(window.segnaviaLayout)await window.segnaviaLayout.run('galley');
 var input=measureInput();
 var plan;
