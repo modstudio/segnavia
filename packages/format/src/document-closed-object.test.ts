@@ -9,7 +9,6 @@ describe('Document closed objects', () => {
     const root = { type: 'document' as const, kind: 'book' as const, title: 'Book', mode: 'continuous' as const }
     const cases = [
       [{ ...root, children: [{ type: 'contents', future: 3 }] }, 'children[0].future'],
-      [{ ...root, children: [{ type: 'part', name: 'one', contentsLabel: 'One', number: 1, children: [] }] }, 'children[0]'],
       [
         {
           ...root,
@@ -69,13 +68,6 @@ describe('Document closed objects', () => {
     if (!marginAndUnknown.success && marginAndUnknown.error instanceof z.ZodError)
       expect(marginAndUnknown.error.issues[0]?.message).toContain('move "margin" to geometry.margin and remove "future"')
 
-    const multiple = Document.safeParse({ ...root, children: [{ type: 'part', name: 'one', number: 1, contentsLabel: 'One', children: [] }] })
-    expect(multiple.success).toBeFalse()
-    if (!multiple.success && multiple.error instanceof z.ZodError) {
-      const issue = multiple.error.issues.find((candidate) => candidate.code === 'unrecognized_keys')
-      expect(issue?.message).toContain('children[0]: unknown keys "number", "contentsLabel"')
-      expect(multiple.error.issues.filter((candidate) => candidate.code === 'unrecognized_keys')).toHaveLength(1)
-    }
   })
 
   test('keeps author-named maps open', () => {

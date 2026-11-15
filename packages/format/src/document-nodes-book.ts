@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BookOpens, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
+import { BookOpens, BookTemplate, ContentsLabel, StructureNumber, Subtitle } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
 import { NodeConditions, NodeId } from './document-nodes-common.ts'
@@ -23,6 +23,7 @@ export const SectionFields = {
   contentsDepth: z.number().int().min(1).max(6).optional(),
   opens: BookOpens.optional(),
   numbering: SectionNumbering.optional(),
+  number: StructureNumber.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   pageGeometry: z.string().optional(),

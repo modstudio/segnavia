@@ -6,6 +6,7 @@ import { SectionNumbering } from './folio.ts'
 import { REGION_NAME } from './parent-regions.ts'
 import { type ParentRules, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { PlacementShape } from './placement.ts'
+import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
@@ -13,7 +14,16 @@ import { Slots } from './slots.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
-const PartOpens = z.enum(['recto', 'verso', 'any'])
+const PartOpens = z.enum(['recto', 'verso', 'any', 'continue'])
+
+const positiveSafeInteger = z
+  .number()
+  .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+  .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+  .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
+export const StructureNumber = z.union([z.string().min(1), z.number().int().positive().max(Number.MAX_SAFE_INTEGER), z.literal(false)])
+export const StructureNumberingLevel = closedObject({ style: NumberSystem.optional(), restart: positiveSafeInteger.optional() })
+export const PartNumbering = closedObject({ parts: StructureNumberingLevel.optional(), chapters: StructureNumberingLevel.optional() })
 
 export const DesignedPage = closedObject({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
@@ -53,6 +63,7 @@ const sectionFields = {
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   numbering: SectionNumbering.optional(),
+  number: StructureNumber.optional(),
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
   dir: Direction.optional(),
@@ -66,7 +77,10 @@ const partFields = {
   id: z.string(),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
   title: z.string().optional(),
+  contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
+  number: StructureNumber.optional(),
+  numbering: PartNumbering.optional(),
   contents: z.boolean().default(true),
   opens: PartOpens.optional(),
   parentRules: parentRules.optional(),
@@ -200,7 +214,7 @@ export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
     sequence: path.slice(0, -1).join('.'),
     flowing: flowingSection(entry),
     opens: entry.opens,
-    ...('numbering' in entry ? { numbering: entry.numbering } : {}),
+    ...(!isPart(entry) && 'numbering' in entry ? { numbering: entry.numbering } : {}),
     parentRules: entry.parentRules,
     ...('pageGeometry' in entry ? { pageGeometry: entry.pageGeometry } : {}),
   }))

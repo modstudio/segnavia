@@ -7,6 +7,7 @@ import {
   BookChapterEntry,
   BookItem,
   BookTemplate,
+  StructureNumberingLevel,
   bookParentIssues,
   bookSectionOpensFacts,
   bookSections,
@@ -119,6 +120,8 @@ export const BookShape = closedObject({
     frontMatter: NumberSystem.optional(),
     body: NumberSystem.optional(),
     printed: BookPrinted.optional(),
+    parts: StructureNumberingLevel.omit({ restart: true }).optional(),
+    chapters: StructureNumberingLevel.omit({ restart: true }).optional(),
   }).default({}),
   footnotes: closedObject({
     marker: NoteMarker.optional(),
@@ -359,7 +362,7 @@ export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx
     ctx.addIssue({ code: 'custom', ...issue })
   }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
-    'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
+    !isPart(entry) && 'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
   )
   for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections })) {
     ctx.addIssue({ code: 'custom', ...issue })

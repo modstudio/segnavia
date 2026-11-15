@@ -31,6 +31,7 @@ function selectedNode(member: NodeUnionMember, kind: DocumentKind): ObjectSchema
   const selections: Partial<Record<string, readonly string[]>> = {
     page: profile.pageFields,
     section: [...UNRESTRICTED_SECTION_FIELDS, ...profile.sectionFields],
+    part: profile.partFields,
   }
   const selected = selections[documentNodeType(member)]
   const structural = STRUCTURAL_NODE_FIELDS.filter((field) => field in schema.shape)
