@@ -63,6 +63,8 @@ export async function verifyPdfjsBrowser(executablePath: string, renderer: Rende
       size?.width === 200 && size.height === 100 && output[0] === 0x89 && output[1] === 0x50 && pixel[0] === 0 && (pixel[1] ?? 0) > 100 && pixel[2] === 0,
       `size=${size?.width}x${size?.height}; pixel=${pixel.join(',')}`,
     )
+    const ground = page ? await decodedPixel(page, output, 5, 5) : []
+    check('pdfPageImage paints an opaque white ground outside the page content', ground.join(',') === '255,255,255,255', `pixel=${ground.join(',')}`)
 
     let requestRefusal: unknown
     try {

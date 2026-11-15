@@ -1,8 +1,16 @@
 import { readFileSync } from 'node:fs'
 import type { Page as Tab } from 'playwright-core'
 
-const PDFJS_SOURCE = readFileSync(new URL(import.meta.resolve('pdfjs-dist/legacy/build/pdf.mjs')), 'utf8')
-const PDFJS_WORKER_SOURCE = readFileSync(new URL(import.meta.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs')), 'utf8')
+let pdfjsSources: { pdfjsSource: string; workerSource: string } | undefined
+
+/** Reads the pdf.js build and worker on first use, so importing render never pays for them. */
+function sources(): { pdfjsSource: string; workerSource: string } {
+  pdfjsSources ??= {
+    pdfjsSource: readFileSync(new URL(import.meta.resolve('pdfjs-dist/legacy/build/pdf.min.mjs')), 'utf8'),
+    workerSource: readFileSync(new URL(import.meta.resolve('pdfjs-dist/legacy/build/pdf.worker.min.mjs')), 'utf8'),
+  }
+  return pdfjsSources
+}
 
 export interface PdfjsRasterRequest {
   page: number
@@ -73,7 +81,7 @@ export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, reques
         URL.revokeObjectURL(workerUrl)
       }
     },
-    { encoded, pdfjsSource: PDFJS_SOURCE, request, workerSource: PDFJS_WORKER_SOURCE },
+    { encoded, request, ...sources() },
   )
   return {
     png: new Uint8Array(Buffer.from(rendered.png, 'base64')),
