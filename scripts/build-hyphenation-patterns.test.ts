@@ -1,0 +1,14 @@
+import { expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
+const notice = `Copyright (C) 1990, 2004, 2005 Gerard D.C. Kuiken
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.`
+
+test('ships the pattern copyright notice in NOTICE and the generated module header', () => {
+  const root = path.resolve(import.meta.dirname, '..')
+  expect(readFileSync(path.join(root, 'packages/layout/NOTICE'), 'utf8')).toBe(`${notice}\n`)
+  expect(readFileSync(path.join(root, 'packages/layout/src/hyphenation-en-us.ts'), 'utf8').startsWith(`/*\n${notice}\n*/\n`)).toBe(true)
+})

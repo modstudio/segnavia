@@ -1,0 +1,58 @@
+import { readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+
+const sourcePath = Bun.argv[2]
+if (!sourcePath) throw new Error('Pass the path to a hyph-*.tex file.')
+
+const source = readFileSync(sourcePath, 'utf8')
+
+function block(command: string): string {
+  const match = source.match(new RegExp(`\\\\${command}\\s*\\{([\\s\\S]*?)\\n\\}`))
+  if (!match?.[1]) throw new Error(`${sourcePath} has no \\${command} block.`)
+  return match[1]
+}
+
+function entries(command: string): string[] {
+  return block(command).replace(/%.*$/gm, '').trim().split(/\s+/).filter(Boolean)
+}
+
+function notice(): string {
+  const copyright = source.match(/^% copyright: (.+)$/m)?.[1]
+  const lines = source.match(/^% licence:\n% {5}text: >\n((?:% {9}.*\n)+)/m)?.[1]
+  if (!copyright || !lines) throw new Error(`${sourcePath} has no copyright notice.`)
+  return [
+    copyright,
+    ...lines
+      .trimEnd()
+      .split('\n')
+      .map((line) => line.slice('%         '.length)),
+  ].join('\n')
+}
+
+function packed(name: string, values: string[]): string {
+  const lines: string[] = []
+  let line = ''
+  for (const value of values) {
+    const next = line ? `${line} ${value}` : value
+    if (next.length <= 150) line = next
+    else {
+      lines.push(line)
+      line = value
+    }
+  }
+  if (line) lines.push(line)
+  return `export const ${name} = \`\n${lines.join('\n')}\n\``
+}
+
+const copyrightNotice = notice()
+const module = `/*\n${copyrightNotice}
+*/
+
+${packed('HYPHENATION_EN_US_PATTERNS', entries('patterns'))}
+
+${packed('HYPHENATION_EN_US_EXCEPTIONS', entries('hyphenation'))}
+`
+
+const root = path.resolve(import.meta.dirname, '..')
+writeFileSync(path.join(root, 'packages/layout/src/hyphenation-en-us.ts'), module)
+writeFileSync(path.join(root, 'packages/layout/NOTICE'), `${copyrightNotice}\n`)
