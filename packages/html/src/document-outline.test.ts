@@ -74,6 +74,30 @@ test('gathers designed-page headings in author order', () => {
   expect(documentOutlineSource(document).headings.map(({ title }) => title)).toEqual(['First designed heading', 'Second designed heading'])
 })
 
+test('selects the same book outline headings with and without section contents caps', () => {
+  const input = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    title: 'Book',
+    mode: 'continuous' as const,
+    outline: { depth: 6 },
+    children: [
+      {
+        type: 'section' as const,
+        title: 'Chapter',
+        children: [{ type: 'flow' as const, html: '<h2>Topic</h2><h3>Detail</h3>' }],
+      },
+    ],
+  }
+  const parse = (value: unknown) => {
+    let next = 0
+    return parseDocument(value, { newId: () => `block-${++next}` })
+  }
+  const uncapped = documentOutlineSource(parse(input)).headings
+  const capped = documentOutlineSource(parse({ ...input, children: [{ ...input.children[0], contentsDepth: 1 }] })).headings
+  expect(capped).toEqual(uncapped)
+})
+
 test('uses the printed page body direction when Latin headings do not establish it (mutation: infer from heading titles)', () => {
   const document = parseDocument({
     type: 'document',

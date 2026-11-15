@@ -5,9 +5,13 @@ import { CONTENTS_PAGE_REFERENCE_ATTRIBUTE, CONTENTS_PAGE_REFERENCE_CLASS, PAGE_
 import { element, linkChildren, text } from './dom.ts'
 import { type BookDocumentOptions, type BookHeading, headingLabel } from './types.ts'
 
+export function listedInContents(heading: BookHeading, bookDepth: number): boolean {
+  return heading.listed.contents && heading.level <= Math.min(bookDepth, heading.contentsDepth ?? bookDepth)
+}
+
 function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {
   const entries = headings
-    .filter((heading) => heading.listed.contents && heading.level <= book.contents.depth)
+    .filter((heading) => listedInContents(heading, book.contents.depth))
     .map((heading) => {
       const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
       const label = headingLabel(heading)

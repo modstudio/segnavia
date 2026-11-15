@@ -15,7 +15,6 @@ const hebrewPageFixture = {
   dir: 'rtl' as const,
   lang: 'he',
 }
-
 const printedPagesFixture = {
   html: '<style>body{font:14px sans-serif}</style><p>עברית-1 flowing body</p><p class="forced">עברית-2 flowing body</p>',
   lang: 'he',
@@ -38,7 +37,6 @@ const printedPagesFixture = {
     parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
   },
 }
-
 const hebrewBookFixture = {
   title: 'ספר ההפלגה',
   mode: 'paginated' as const,
@@ -305,7 +303,13 @@ describe('Document lowering', () => {
           name: 'front',
           children: [
             { type: 'section', id: frontFlow.id, title: frontFlow.title, contents: false, children: [{ type: 'flow', html: frontFlow.html }] },
-            { type: 'contents', id: front[1]?.id, title: front[1]?.title, pageNumbers: expected.contents.pageNumbers, depth: expected.contents.depth },
+            {
+              type: 'contents',
+              id: front[1]?.id,
+              title: front[1]?.title,
+              pageNumbers: expected.contents.pageNumbers,
+              contentsDepth: expected.contents.depth,
+            },
           ],
         },
         {

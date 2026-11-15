@@ -257,7 +257,7 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
             hebrew ? 'פתיחה' : 'Preface',
             `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
           ),
-          { type: 'contents', title: hebrew ? 'תוכן' : 'Contents', pageNumbers: false, depth: 2 },
+          { type: 'contents', title: hebrew ? 'תוכן' : 'Contents', pageNumbers: false, contentsDepth: 2 },
         ],
       },
       { type: 'division', name: 'body', children: sections },

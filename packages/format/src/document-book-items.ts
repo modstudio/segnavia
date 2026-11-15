@@ -31,6 +31,7 @@ export function documentSectionFields(section: Extract<DocumentNode, { type: 'se
     contentsLabel: section.contentsLabel,
     subtitle: section.subtitle,
     contents: section.contents ?? SECTION_CONTENTS_DEFAULT,
+    contentsDepth: section.contentsDepth,
     opens: section.opens,
     parentRules: section.parentRules,
     numbering: section.numbering,
