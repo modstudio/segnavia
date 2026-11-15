@@ -17,15 +17,9 @@ export interface PdfjsRasterRequest {
   box: { x: number; y: number; width: number; height: number }
   width: number
   height: number
-  inspectPixels?: boolean
 }
 
-export interface PdfjsRaster {
-  png: Uint8Array
-  rgba?: Uint8Array
-}
-
-export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, request: PdfjsRasterRequest): Promise<PdfjsRaster> {
+export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, request: PdfjsRasterRequest): Promise<Uint8Array> {
   const encoded = Buffer.from(bytes).toString('base64')
   const rendered = await tab.evaluate(
     async ({ encoded, pdfjsSource, request, workerSource }) => {
@@ -65,14 +59,10 @@ export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, reques
           }).promise
           const blob = await canvas.convertToBlob({ type: 'image/png' })
           const output = new Uint8Array(await blob.arrayBuffer())
-          const base64 = (value: Uint8Array | Uint8ClampedArray) => {
-            let text = ''
-            for (let offset = 0; offset < value.length; offset += 32_768)
-              text += String.fromCharCode(...value.subarray(offset, Math.min(value.length, offset + 32_768)))
-            return btoa(text)
-          }
-          const rgba = request.inspectPixels ? base64(context.getImageData(0, 0, request.width, request.height).data) : undefined
-          return { png: base64(output), ...(rgba ? { rgba } : {}) }
+          let text = ''
+          for (let offset = 0; offset < output.length; offset += 32_768)
+            text += String.fromCharCode(...output.subarray(offset, Math.min(output.length, offset + 32_768)))
+          return btoa(text)
         } finally {
           await loading.destroy()
         }
@@ -83,8 +73,5 @@ export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, reques
     },
     { encoded, request, ...sources() },
   )
-  return {
-    png: new Uint8Array(Buffer.from(rendered.png, 'base64')),
-    ...(rendered.rgba ? { rgba: new Uint8Array(Buffer.from(rendered.rgba, 'base64')) } : {}),
-  }
+  return new Uint8Array(Buffer.from(rendered, 'base64'))
 }

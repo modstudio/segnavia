@@ -1,55 +1,39 @@
-import { displayedPdfPage, type MediaPage, type PageBoxName, placedPdfPage, resolveLimits } from '@segnavia/format'
-import { PDFArray, PDFName, type PDFPage } from 'pdf-lib'
+import { type MediaPage, placedPdfPage, resolveLimits } from '@segnavia/format'
 import type { TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { loadPdf } from './pdf-load.ts'
 import { type ParsedPdfPageImageOptions, parsePdfPageImageOptions } from './pdf-page-image-options.ts'
 import { rasterPdfPageInBrowser } from './pdfjs-browser.ts'
-import { sourcePdfPageFacts } from './placed-pdf-source.ts'
+import { sourcePdfMediaPage } from './placed-pdf-source.ts'
 import { MAX_PROOF_IMAGE_PIXELS } from './proof-image.ts'
 import { type RenderDeadline, withinRenderPermit } from './render-deadline.ts'
 import { RENDER_BOUND_MS, type Renderer } from './renderer.ts'
 
-const BOX_KEYS: Record<PageBoxName, string> = {
-  media: 'MediaBox',
-  crop: 'CropBox',
-  bleed: 'BleedBox',
-  trim: 'TrimBox',
-  art: 'ArtBox',
+export interface PdfPageImagePlan {
+  page: number
+  box: { x: number; y: number; width: number; height: number }
+  width: number
+  height: number
 }
 
-function directBox(page: PDFPage, box: PageBoxName): MediaPage['boxes'][PageBoxName] | undefined {
-  const object = page.node.get(PDFName.of(BOX_KEYS[box]))
-  return page.doc.context.lookupMaybe(object, PDFArray)?.asRectangle()
-}
-
-function pageFacts(page: PDFPage): MediaPage {
-  const media = directBox(page, 'media') ?? page.getMediaBox()
-  const boxes = Object.fromEntries(
-    (Object.keys(BOX_KEYS) as PageBoxName[]).flatMap((box) => {
-      const bounds = box === 'media' ? media : directBox(page, box)
-      return bounds ? [[box, bounds]] : []
-    }),
-  ) as MediaPage['boxes']
-  return { boxes, ...sourcePdfPageFacts(page) }
-}
-
-export function pdfPageImageSize(
-  bounds: { x: number; y: number; width: number; height: number },
-  rotate: number,
-  userUnit: number,
-  width: number,
-): { width: number; height: number } {
-  const displayed = displayedPdfPage(bounds, rotate, userUnit)
-  const height = Math.max(1, Math.round((width * displayed.height) / displayed.width))
+/** Selects the page and box as placed media does, and sizes the image to the displayed page at the requested width. */
+export function pdfPageImagePlan(pages: MediaPage[], options: Pick<ParsedPdfPageImageOptions, 'page' | 'box' | 'width'>): PdfPageImagePlan {
+  const selected = placedPdfPage({ format: 'pdf', pages }, options.page, options.box)
+  if (selected === 'no-page') {
+    throw new RenderRefusedError(
+      `pdfPageImage page ${options.page} is beyond the received PDF's ${pages.length} pages; pass a page from 1 through ${pages.length} to clear this refusal.`,
+    )
+  }
+  const { width } = options
+  const height = Math.max(1, Math.round((width * selected.bounds.height) / selected.bounds.width))
   const pixels = width * height
   if (!Number.isSafeInteger(pixels) || pixels > MAX_PROOF_IMAGE_PIXELS) {
     throw new RenderRefusedError(
       `pdfPageImage would make ${pixels} pixels; the ceiling is ${MAX_PROOF_IMAGE_PIXELS} pixels. Reduce width to clear this refusal.`,
     )
   }
-  return { width, height }
+  return { page: selected.page, box: selected.sourceBounds, width, height }
 }
 
 export async function renderPdfPageImage(
@@ -60,18 +44,11 @@ export async function renderPdfPageImage(
 ): Promise<Uint8Array> {
   const limits = resolveLimits(undefined, options.limits)
   const document = await loadPdf(bytes, { source: 'received', operation: 'pdfPageImage', limits })
-  const count = document.getPageCount()
-  if (options.page > count) {
-    throw new RenderRefusedError(
-      `pdfPageImage page ${options.page} is beyond the received PDF's ${count} pages; pass a page from 1 through ${count} to clear this refusal.`,
-    )
-  }
-  const pages = document.getPages().map(pageFacts)
-  const selected = placedPdfPage({ format: 'pdf', pages }, options.page, options.box)
-  if (selected === 'no-page') throw new RenderRefusedError('pdfPageImage could not select the requested PDF page; pass an existing page to clear this refusal.')
-  const source = pages[selected.page - 1] as MediaPage
-  const size = pdfPageImageSize(selected.sourceBounds, source.rotate ?? 0, source.userUnit ?? 1, options.width)
-  const raster = await withTab(
+  const plan = pdfPageImagePlan(
+    document.getPages().map((page, index) => sourcePdfMediaPage(page, index + 1)),
+    options,
+  )
+  const png = await withTab(
     {
       viewport: { width: 1, height: 1 },
       scripts: true,
@@ -79,9 +56,9 @@ export async function renderPdfPageImage(
       readiness: { author: false },
       deadline,
     },
-    (tab) => rasterPdfPageInBrowser(tab, bytes, { page: selected.page, box: selected.sourceBounds, ...size }),
+    (tab) => rasterPdfPageInBrowser(tab, bytes, plan),
   )
-  return enforceImageBytes(raster.png, options.limits?.bytes)
+  return enforceImageBytes(png, options.limits?.bytes)
 }
 
 export function createPdfPageImageOperation(acquire: () => Promise<void>, release: () => void, withTab: TabRunner): Renderer['pdfPageImage'] {

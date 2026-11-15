@@ -1,4 +1,4 @@
-import { type PageBoxName, parseLimits } from '@segnavia/format'
+import { PAGE_BOXES, type PageBoxName, parseLimits } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
 import { refuseUnknownOptions } from './render-option-keys.ts'
 import type { PdfPageImageOptions } from './renderer.ts'
@@ -7,7 +7,7 @@ export interface ParsedPdfPageImageOptions extends PdfPageImageOptions {
   page: number
 }
 
-const PAGE_BOXES = new Set<PageBoxName>(['media', 'crop', 'bleed', 'trim', 'art'])
+const BOXES: ReadonlySet<string> = new Set<PageBoxName>(PAGE_BOXES)
 
 export function parsePdfPageImageOptions(options: PdfPageImageOptions): ParsedPdfPageImageOptions {
   refuseUnknownOptions('pdfPageImage', options)
@@ -18,7 +18,7 @@ export function parsePdfPageImageOptions(options: PdfPageImageOptions): ParsedPd
   if (!Number.isSafeInteger(options.width) || options.width < 1) {
     throw new RenderRefusedError('pdfPageImage width needs to be a positive integer; pass a width in whole CSS pixels to clear this refusal.')
   }
-  if (options.box !== undefined && !PAGE_BOXES.has(options.box)) {
+  if (options.box !== undefined && !BOXES.has(options.box)) {
     throw new RenderRefusedError(
       'pdfPageImage box needs to be media, crop, bleed, trim or art; pass a supported PDF page box or omit box to clear this refusal.',
     )

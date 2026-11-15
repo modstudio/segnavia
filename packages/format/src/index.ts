@@ -215,6 +215,7 @@ export {
   MediaPage,
   MediaText,
   mediaTextDirection,
+  PAGE_BOXES,
   type PageBoxName,
   PageSelector,
   PointSize,
