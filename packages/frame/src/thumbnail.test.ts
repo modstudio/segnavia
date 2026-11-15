@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
 import type { DocumentInput } from '@segnavia/format'
+import { Page } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
+import { internalThumbnailPageLoad } from './document-value-load.ts'
 
 test('page readback keeps the parsed document with markdown lowered and ids minted', async () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
@@ -79,6 +81,64 @@ test('an edition change keeps the last document surface selected by the host', a
     expect(thumbnail.deck).toBeNull()
     expect(JSON.stringify(thumbnail.page)).toContain('Answer')
     expect(JSON.stringify(thumbnail.page)).not.toContain('Deck')
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'HTMLElement', previous)
+    else Reflect.deleteProperty(globalThis, 'HTMLElement')
+  }
+})
+
+test('clearing a deck clears the displayed deck', async () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  Object.defineProperty(globalThis, 'HTMLElement', {
+    configurable: true,
+    value: class HTMLElement extends EventTarget {
+      getAttribute() {
+        return null
+      }
+    },
+  })
+  try {
+    const { SegnaviaThumbnail } = await import('./thumbnail.ts')
+    const thumbnail = Object.create(SegnaviaThumbnail.prototype) as InstanceType<typeof SegnaviaThumbnail>
+    Reflect.set(thumbnail, 'style', { setProperty() {}, removeProperty() {} })
+    Reflect.set(thumbnail, 'changed', () => {})
+    thumbnail.deck = {
+      type: 'document',
+      kind: 'deck',
+      title: 'Deck',
+      children: [{ type: 'slide', content: { kind: 'html', html: '<p>Deck</p>' } }],
+    }
+
+    thumbnail.deck = null
+
+    expect(Reflect.get(thumbnail, 'value')).toBeNull()
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'HTMLElement', previous)
+    else Reflect.deleteProperty(globalThis, 'HTMLElement')
+  }
+})
+
+test('an edition change keeps an internally loaded page', async () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  Object.defineProperty(globalThis, 'HTMLElement', {
+    configurable: true,
+    value: class HTMLElement extends EventTarget {
+      getAttribute() {
+        return null
+      }
+    },
+  })
+  try {
+    const { SegnaviaThumbnail } = await import('./thumbnail.ts')
+    const thumbnail = Object.create(SegnaviaThumbnail.prototype) as InstanceType<typeof SegnaviaThumbnail>
+    const page = Page.parse({ html: '<p>Internal</p>' })
+    Reflect.set(thumbnail, 'updatePageAspect', () => {})
+    Reflect.set(thumbnail, 'changed', () => {})
+    thumbnail[internalThumbnailPageLoad](page)
+
+    thumbnail.attributeChangedCallback('edition')
+
+    expect(Reflect.get(thumbnail, 'pageValue')).toBe(page)
   } finally {
     if (previous) Object.defineProperty(globalThis, 'HTMLElement', previous)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

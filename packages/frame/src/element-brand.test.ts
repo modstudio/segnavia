@@ -192,6 +192,10 @@ test('document element resolves a named brand before keeping lowered pages', asy
   Object.assign(element, {
     brandResolution: new DocumentBrandLoader(
       () => element.sourceDocuments,
+      () => {
+        element.sourceValues = []
+        element.pageValues = []
+      },
       (sources, pages) => {
         element.sourceValues = sources
         element.pageValues = pages

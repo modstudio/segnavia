@@ -34,6 +34,7 @@ export class DocumentBrandLoader {
 
   constructor(
     private readonly current: () => Document[],
+    private readonly pending: () => void,
     private readonly commit: (sources: ReturnType<typeof pageOrPrintedFromDocument>[], pages: HtmlPage[]) => void,
     private readonly refuse: (error: unknown) => void,
   ) {}
@@ -44,6 +45,7 @@ export class DocumentBrandLoader {
 
   resolve(documents: Document[], brands: BrandsOptions | undefined, origins: Iterable<OriginApproval>): void {
     this.abort()
+    if (documents.some((document) => document.brand !== undefined)) this.pending()
     this.controller = resolveDocumentBrands(documents, brands, origins, () => documents === this.current(), this.commit, this.refuse)
   }
 }

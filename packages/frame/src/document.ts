@@ -60,6 +60,11 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private brandOptions: BrandsOptions | undefined
   private brandResolution = new DocumentBrandLoader(
     () => this.sourceDocuments,
+    () => {
+      this.sourceValues = []
+      this.pageValues = []
+      this.paint()
+    },
     (sources, pages) => {
       this.sourceValues = sources
       this.pageValues = pages
@@ -183,6 +188,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   protected reloadEdition(): void {
+    if (this.editionDocuments.length === 0) return
     this.sourceDocuments = resolveDocumentEditions(this.editionDocuments, this.edition)
     this.resolveDocuments(this.sourceDocuments)
   }
