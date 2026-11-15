@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { type Brand, Document, Imposition, impose, pageFromDocument } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
+import { DocumentBrandLoader } from './document-brand-resolution.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { pageDocument } from './page-document.test-helper.ts'
 import { printablePaper } from './print-document.ts'
@@ -183,11 +184,23 @@ test('document element resolves a named brand before keeping lowered pages', asy
   const element = {
     sourceDocuments: [sourceDocument],
     sourceValues: [] as Array<{ brand?: unknown }>,
-    pageValues: [],
+    pageValues: [] as ReturnType<typeof resolvePageHtml>[],
     brandOptions: { source: { brand: async () => ({ css: '.house{color:red}' }) } },
     paint() {},
     dispatchEvent: () => true,
   }
+  Object.assign(element, {
+    brandResolution: new DocumentBrandLoader(
+      () => element.sourceDocuments,
+      (sources, pages) => {
+        element.sourceValues = sources
+        element.pageValues = pages
+      },
+      (error) => {
+        throw error
+      },
+    ),
+  })
   const resolveDocuments = (SegnaviaDocument.prototype as unknown as { resolveDocuments(documents: Document[]): void }).resolveDocuments
   resolveDocuments.call(element, element.sourceDocuments)
   expect(element.sourceValues).toHaveLength(0)

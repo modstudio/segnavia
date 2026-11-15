@@ -21,6 +21,7 @@ import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { loadShownPageDocument } from './page-document-loading.ts'
+import { reloadPageEdition } from './page-edition-reload.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -164,13 +165,11 @@ export class SegnaviaPage extends PageParseOptionsElement {
 
   async attributeChangedCallback(name: string, _: string | null, value: string | null) {
     if (name === 'edition') {
-      if (this.pageInput !== undefined) {
-        try {
-          this.load(this.pageInput)
-        } catch (error) {
-          dispatchPageFailure(this, error, true)
-        }
-      }
+      reloadPageEdition(
+        this.pageInput,
+        (input) => this.load(input),
+        (error) => dispatchPageFailure(this, error, true),
+      )
       return
     }
     if (name === 'bounded') {

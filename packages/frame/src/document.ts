@@ -11,21 +11,14 @@ import {
   type PrintInput,
   type SlotsOptions,
 } from '@segnavia/format'
-import {
-  type EstablishedPageDay,
-  fillAsOfBindings,
-  type HtmlPage,
-  parseDocument,
-  resolveDocumentDayContexts,
-  resolveEdition,
-  resolvePageHtml,
-} from '@segnavia/html'
+import { type EstablishedPageDay, fillAsOfBindings, type HtmlPage, parseDocument, resolveDocumentDayContexts, resolvePageHtml } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
 import { DocumentBrandLoader } from './document-brand-resolution.ts'
+import { resolveDocumentEditions } from './document-edition.ts'
 import { mountDocumentPage } from './document-page-mount.ts'
 import { documentSheets } from './document-sheets.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
@@ -184,13 +177,13 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   set pages(value: PageOrPrintedInput[] | undefined) {
     this.editionDocuments = (value ?? []).map((input) => parseDocument(input))
-    this.sourceDocuments = this.editionDocuments.map((document) => resolveEdition(document, this.edition))
+    this.sourceDocuments = resolveDocumentEditions(this.editionDocuments, this.edition)
     this.resolveDocuments(this.sourceDocuments)
     this.changed()
   }
 
   protected reloadEdition(): void {
-    this.sourceDocuments = this.editionDocuments.map((document) => resolveEdition(document, this.edition))
+    this.sourceDocuments = resolveDocumentEditions(this.editionDocuments, this.edition)
     this.resolveDocuments(this.sourceDocuments)
   }
 
@@ -221,7 +214,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
     const editionDocuments = pageInputs.map((input) => parseDocument(input))
-    const documents = editionDocuments.map((document) => resolveEdition(document, this.edition))
+    const documents = resolveDocumentEditions(editionDocuments, this.edition)
     const print = Print.parse(printInput)
     if (documents.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     this.editionDocuments = editionDocuments
