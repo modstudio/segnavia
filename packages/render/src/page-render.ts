@@ -102,8 +102,8 @@ export async function renderPagePdf(
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
-      const placedPdfPages = hasPlacedPdfPages(opts) ? await measurePlacedPdfPages(tab) : []
-      const drawPlaced = (bytes: Uint8Array) => drawPlacedPdfPages(bytes, placedPdfPages, opts)
+      const drawPlaced = async (bytes: Uint8Array, scale = 1) =>
+        drawPlacedPdfPages(bytes, hasPlacedPdfPages(opts) ? await measurePlacedPdfPages(tab, scale) : [], opts)
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
         const print = page.print
@@ -136,10 +136,10 @@ export async function renderPagePdf(
           }
           const exact = await setPdfPageSizes(printed.bytes, plan.sizes, remedy)
           const bytes = plan.pressBoxes ? await addPressBoxesByPage(exact, plan.pressBoxes, print.markColor, plan.sourceBox) : exact
-          return { ...printed, ...font, bytes: await drawPlaced(await tagBackdropRasters(bytes, captures)) }
+          return { ...printed, ...font, bytes: await drawPlaced(await tagBackdropRasters(bytes, captures), printed.overflow.scale) }
         }
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page), tagged)
-        return { ...printed, ...font, bytes: await drawPlaced(await tagBackdropRasters(printed.bytes, captures)) }
+        return { ...printed, ...font, bytes: await drawPlaced(await tagBackdropRasters(printed.bytes, captures), printed.overflow.scale) }
       }
       const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
       const height = fixedHeight ?? (await contentHeight(tab))
@@ -160,7 +160,7 @@ export async function renderPagePdf(
         { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1', tagged },
         inputIndex,
       )
-      return { ...printed, ...font, bytes: await drawPlaced(await tagBackdropRasters(printed.bytes, captures)) }
+      return { ...printed, ...font, bytes: await drawPlaced(await tagBackdropRasters(printed.bytes, captures), printed.overflow.scale) }
     },
   )
 }
@@ -191,25 +191,21 @@ export async function renderPiecePdf(
       ...assetSetup(opts),
     },
     async (tab) => {
-      const placedPdfPages = hasPlacedPdfPages(opts) ? await measurePlacedPdfPages(tab) : []
+      const bytes = await pdfWithBackdropRasters(
+        tab,
+        {
+          width: geometry.pdf.width,
+          height: geometry.pdf.height,
+          printBackground: true,
+          tagged,
+          preferCSSPageSize: false,
+          pageRanges: '1',
+          margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+        },
+        opts.effects,
+      )
       return {
-        bytes: await drawPlacedPdfPages(
-          await pdfWithBackdropRasters(
-            tab,
-            {
-              width: geometry.pdf.width,
-              height: geometry.pdf.height,
-              printBackground: true,
-              tagged,
-              preferCSSPageSize: false,
-              pageRanges: '1',
-              margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-            },
-            opts.effects,
-          ),
-          placedPdfPages,
-          opts,
-        ),
+        bytes: await drawPlacedPdfPages(bytes, hasPlacedPdfPages(opts) ? await measurePlacedPdfPages(tab) : [], opts),
         ...(captureFontFacts ? await pageFontFacts(tab) : {}),
       }
     },

@@ -13,7 +13,7 @@ export async function printBookPartWithPlacedPdf(
   options: ParsedBookPdfOptions,
 ): Promise<PrintResult<true>> {
   const captures = await prepareBackdropRasters(tab, options.effects)
-  const placements = hasPlacedPdfPages(options) ? await measurePlacedPdfPages(tab) : []
   const printed = await printWithOverflow(tab, pageWidth, part, pdf)
+  const placements = hasPlacedPdfPages(options) ? await measurePlacedPdfPages(tab, printed.overflow.scale) : []
   return { ...printed, bytes: await drawPlacedPdfPages(await tagBackdropRasters(printed.bytes, captures), placements, options) }
 }

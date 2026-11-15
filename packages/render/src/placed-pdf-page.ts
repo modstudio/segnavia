@@ -17,8 +17,9 @@ export interface PlacedPdfMeasurement {
 }
 
 /** Measures PDF marker images in CSS pixels relative to their output paper. */
-export async function measurePlacedPdfPages(tab: Tab): Promise<PlacedPdfMeasurement[]> {
-  return tab.evaluate(() => {
+export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<PlacedPdfMeasurement[]> {
+  await tab.emulateMedia({ media: 'print' })
+  const measured = await tab.evaluate(() => {
     const intersect = (a: DOMRect, b: DOMRect) => {
       const left = Math.max(a.left, b.left)
       const top = Math.max(a.top, b.top)
@@ -67,6 +68,14 @@ export async function measurePlacedPdfPages(tab: Tab): Promise<PlacedPdfMeasurem
       ]
     })
   })
+  if (scale === 1) return measured
+  const scaled = (box: PlacedPdfMeasurement['draw']) => ({
+    x: box.x * scale,
+    y: box.y * scale,
+    width: box.width * scale,
+    height: box.height * scale,
+  })
+  return measured.map((placement) => ({ ...placement, draw: scaled(placement.draw), clip: scaled(placement.clip) }))
 }
 
 const pixelPoints = (value: number) => (value * 72) / 96
