@@ -369,7 +369,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     path.join(site, 'book-paginated-large.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Large paginated book elements</title><style>
       html,body{margin:0}body{display:grid;grid-template-columns:1fr 1fr;gap:16px}segnavia-book{display:block;block-size:70vh}
-    </style></head><body><segnavia-book id="book-large-en" src="book-paginated-large-en.json"></segnavia-book><segnavia-book id="book-large-he" src="book-paginated-large-he.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
+    </style></head><body><segnavia-book id="book-large-en" src="book-paginated-large-en.json"></segnavia-book><segnavia-book id="book-large-he"></segnavia-book><script>document.addEventListener('composeprogress',event=>{if(event.target.id!=='book-large-en'||event.detail.total===0||event.detail.pages!==event.detail.total)return;const hebrew=document.getElementById('book-large-he');if(!hebrew.hasAttribute('src'))hebrew.setAttribute('src','book-paginated-large-he.json')})</script><script type="module" src="segnavia.js"></script></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-paginated-notes.html'),

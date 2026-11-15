@@ -7,18 +7,6 @@ export interface ParagraphToken {
   end?: number
 }
 
-export interface ParagraphCompositionProfile {
-  tokenMeasurementMs: number
-  cacheHits: number
-  rangeRects: number
-  itemHyphenationMs: number
-  breakLinesMs: number
-  rewriteMs: number
-  paragraphs: number
-  tokens: number
-  passes: Array<{ paragraphs: number; recomposed: number; tokens: number }>
-}
-
 export function graphemes(text: string): { text: string; start: number; end: number }[] {
   if (typeof Intl.Segmenter === 'function') {
     const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
@@ -49,7 +37,6 @@ export function appendTextTokens(
   doc: Document,
   styleFor: typeof getComputedStyle,
   writingMode: string,
-  profile: ParagraphCompositionProfile,
 ): void {
   const styleKey = measurementStyleKey(node, styleFor)
   for (const part of graphemes(node.data)) {
@@ -59,10 +46,9 @@ export function appendTextTokens(
     const key = `${styleKey}|${part.text}`
     let width = cache.get(key)
     if (width === undefined) {
-      profile.rangeRects += 1
       width = inlineExtent(range, writingMode)
       cache.set(key, width)
-    } else profile.cacheHits += 1
+    }
     tokens.push({ kind: /^\s+$/u.test(part.text) ? 'space' : 'text', text: part.text, width, node, start: part.start, end: part.end })
   }
 }
@@ -74,11 +60,10 @@ export function appendMeasuredTokens(
   doc: Document,
   styleFor: typeof getComputedStyle,
   writingMode: string,
-  profile: ParagraphCompositionProfile,
 ): void {
   for (const node of parent.childNodes) {
     if (node.nodeType === 3) {
-      appendTextTokens(node as Text, tokens, cache, doc, styleFor, writingMode, profile)
+      appendTextTokens(node as Text, tokens, cache, doc, styleFor, writingMode)
       continue
     }
     if (node.nodeType !== 1) continue
@@ -88,38 +73,13 @@ export function appendMeasuredTokens(
     else if (!element.textContent) {
       const rect = element.getBoundingClientRect()
       tokens.push({ kind: 'atomic', text: '', width: writingMode.startsWith('vertical') ? rect.height : rect.width, node: element })
-    } else appendMeasuredTokens(element, tokens, cache, doc, styleFor, writingMode, profile)
+    } else appendMeasuredTokens(element, tokens, cache, doc, styleFor, writingMode)
   }
 }
 
-export function measuredTokens(
-  paragraph: Element,
-  cache: Map<string, number>,
-  doc: Document,
-  styleFor: typeof getComputedStyle,
-  profile: ParagraphCompositionProfile,
-): ParagraphToken[] {
+export function measuredTokens(paragraph: Element, cache: Map<string, number>, doc: Document, styleFor: typeof getComputedStyle): ParagraphToken[] {
   const writingMode = styleFor(paragraph).writingMode
   const tokens: ParagraphToken[] = []
-  appendMeasuredTokens(paragraph, tokens, cache, doc, styleFor, writingMode, profile)
+  appendMeasuredTokens(paragraph, tokens, cache, doc, styleFor, writingMode)
   return tokens
-}
-
-export function paragraphProfile(doc: Document): ParagraphCompositionProfile {
-  const view = doc.defaultView as (Window & { __segnaviaParagraphCompositionProfile?: ParagraphCompositionProfile }) | null
-  const held = view?.__segnaviaParagraphCompositionProfile
-  if (held) return held
-  const profile = {
-    tokenMeasurementMs: 0,
-    cacheHits: 0,
-    rangeRects: 0,
-    itemHyphenationMs: 0,
-    breakLinesMs: 0,
-    rewriteMs: 0,
-    paragraphs: 0,
-    tokens: 0,
-    passes: [],
-  }
-  if (view) view.__segnaviaParagraphCompositionProfile = profile
-  return profile
 }

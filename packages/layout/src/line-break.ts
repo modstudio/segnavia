@@ -2,30 +2,25 @@ export interface Box {
   type: 'box'
   width: number
 }
-
 export interface Glue {
   type: 'glue'
   width: number
   stretch: number
   shrink: number
 }
-
 export interface Penalty {
   type: 'penalty'
   width: number
   penalty: number
   flagged?: boolean
 }
-
 type Item = Box | Glue | Penalty
-
 interface Breakpoint {
   index: number
   penalty: number
   flagged: boolean
   forced: boolean
 }
-
 interface Node {
   breakpoint: Breakpoint
   previous?: Node
@@ -34,7 +29,6 @@ interface Node {
   demerits: number
   fitness: number
 }
-
 interface Options {
   minRatio?: number
   maxRatio?: number
@@ -155,13 +149,7 @@ function hasSkippedForced(sums: ReturnType<typeof prefixes>, start: number, curr
   return (sums.forced[current.index] ?? 0) - (sums.forced[start] ?? 0) > 0
 }
 
-function overfullPastShrink(
-  items: readonly Item[],
-  sums: ReturnType<typeof prefixes>,
-  start: number,
-  current: Breakpoint,
-  target: number,
-): boolean {
+function overfullPastShrink(sums: ReturnType<typeof prefixes>, start: number, current: Breakpoint, target: number): boolean {
   const end = current.index
   const natural = (sums.width[end] ?? 0) - (sums.width[start] ?? 0)
   const shrink = (sums.shrink[end] ?? 0) - (sums.shrink[start] ?? 0)
@@ -240,7 +228,19 @@ function solve(
 
   for (const point of points) {
     if (point.flagged && !pass.hyphens && !point.forced) continue
-    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, active, point, starts, infiniteBadness)
+    const atPoint = candidatesAtPoint(
+      items,
+      sums,
+      widths,
+      widthOffset,
+      pass.settings,
+      pass.enforceLimits,
+      singleMeasure,
+      active,
+      point,
+      starts,
+      infiniteBadness,
+    )
     const removed: Node[] = []
     const surviving: Node[] = []
     if (!point.forced) {
@@ -248,7 +248,7 @@ function solve(
       for (const node of active) {
         const target = widths[widthOffset + node.line] ?? finalWidth
         const start = starts[node.breakpoint.index + 1] ?? 0
-        if (overfullPastShrink(items, sums, start, point, target)) removed.push(node)
+        if (overfullPastShrink(sums, start, point, target)) removed.push(node)
         else surviving.push(node)
       }
     }

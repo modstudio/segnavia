@@ -337,5 +337,3 @@ function penaltyBoundary(item: Item | undefined): Penalty {
     flagged: item?.type === 'penalty' && item.flagged,
   }
 }
-
-

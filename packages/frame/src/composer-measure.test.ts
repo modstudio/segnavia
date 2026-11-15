@@ -80,11 +80,15 @@ test('a hidden descendant table does not change its block lines', () => {
 })
 
 test('a composed paragraph measures each authored line span once', () => {
-  const lines = [
-    { getBoundingClientRect: () => ({ top: 13, bottom: 37 }) },
-    { getBoundingClientRect: () => ({ top: 37, bottom: 61 }) },
-  ]
-  const paragraph = measuredElement({ range: [{ top: 13, bottom: 37 }, { top: 16, bottom: 34 }, { top: 37, bottom: 61 }, { top: 40, bottom: 58 }] })
+  const lines = [{ getBoundingClientRect: () => ({ top: 13, bottom: 37 }) }, { getBoundingClientRect: () => ({ top: 37, bottom: 61 }) }]
+  const paragraph = measuredElement({
+    range: [
+      { top: 13, bottom: 37 },
+      { top: 16, bottom: 34 },
+      { top: 37, bottom: 61 },
+      { top: 40, bottom: 58 },
+    ],
+  })
   paragraph.querySelectorAll = (selector: string) => (selector === ':scope > span[data-segnavia-line]' ? lines : [])
   expect(measureLineBoxes(paragraph as unknown as Element, 10)).toEqual([
     { top: 3, bottom: 27 },
