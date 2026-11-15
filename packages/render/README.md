@@ -6,7 +6,7 @@ The host implements `assets` to answer approved document requests; `limits.asset
 
 ## Folder fonts
 
-Use `directoryFontSource(catalog, { root })` when a catalog's face `src` values name files beneath one server directory. It refuses absolute paths, parent and symbolic-link escapes, missing paths, and non-regular files. Loaded families are cached for the lifetime of the source, with default bounds of 16 MiB per face and 32 MiB per family; pass `limits: { each, bytes }` to set host bounds.
+Use `directoryFontSource(catalog, { root })` when a catalog's face `src` values name files beneath one server directory. It refuses absolute paths, parent and symbolic-link escapes, missing paths, and non-regular files. A collection face names the face to extract with `postscriptName`. Loaded families are cached for the lifetime of the source, with default bounds of 16 MiB per face and 32 MiB per family; pass `limits: { each, bytes }` to set host bounds.
 
 Pass the same catalog to `urlFontSource` for a browser-preview host and to `directoryFontSource` for server rendering when the two environments expose the same font files differently. Both produce the same `FontSource` face descriptions.
 

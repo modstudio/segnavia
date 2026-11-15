@@ -61,6 +61,22 @@ describe('directoryFontSource', () => {
     await expect(directoryFontSource(catalog('face'), { root: path }).font('body', { signal })).rejects.toThrow(/not a regular file/)
   })
 
+  test('does no root I/O at construction and refuses a missing root on lookup', async () => {
+    const path = join(tmpdir(), `segnavia-missing-font-root-${crypto.randomUUID()}`)
+    const source = directoryFontSource(catalog('body.woff2'), { root: path })
+    await Promise.resolve()
+    await expect(source.font('body', { signal })).rejects.toThrow(new RegExp(`${path}.*existing directory`))
+  })
+
+  test('refuses a file above the per-face limit before reading it', async () => {
+    const path = await root()
+    await writeFile(join(path, 'body.woff2'), Buffer.from('wOF2x'))
+    const source = directoryFontSource(catalog('body.woff2'), { root: path, limits: { each: 4 } })
+    await expect(source.font('body', { signal })).rejects.toMatchObject({
+      exceeded: [{ measure: 'fontSource.each', actual: 5, limit: 4, message: expect.any(String), where: expect.any(String) }],
+    })
+  })
+
   test('refuses a symbolic link outside the root', async () => {
     const path = await root()
     const outside = await root()

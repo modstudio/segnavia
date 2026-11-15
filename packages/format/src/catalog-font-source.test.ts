@@ -26,6 +26,31 @@ describe('catalogFontSource', () => {
     expect(loads).toBe(1)
     expect(first?.faces[0]?.unicodeRange).toBe(HEBREW_UNICODE_RANGE)
     expect(await source.font('unknown', { signal })).toBeUndefined()
+    expect(await source.font('constructor', { signal })).toBeUndefined()
+    expect(await source.font('toString', { signal })).toBeUndefined()
+  })
+
+  test("does not let one caller's abort cancel a shared load", async () => {
+    let finish: ((bytes: Uint8Array) => void) | undefined
+    let loadSignal: AbortSignal | undefined
+    const source = catalogFontSource(catalog, (_src, options) => {
+      loadSignal = options.signal
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    const firstController = new AbortController()
+    const secondController = new AbortController()
+    const first = source.font('body', { signal: firstController.signal })
+    const second = source.font('body', { signal: secondController.signal })
+    const reason = new Error('cancelled first caller')
+    firstController.abort(reason)
+    await expect(first).rejects.toBe(reason)
+    expect(loadSignal).not.toBe(firstController.signal)
+    expect(loadSignal?.aborted).toBe(false)
+    finish?.(woff2())
+    expect((await second)?.family).toBe('Catalog Body')
+    expect((await source.font('body', { signal }))?.family).toBe('Catalog Body')
   })
 
   test('evicts a rejected load and retries', async () => {
@@ -48,7 +73,10 @@ describe('catalogFontSource', () => {
 
   test('refuses each and family limits one byte over', async () => {
     const each = catalogFontSource(catalog, async () => woff2(5), { limits: { each: 4 } })
-    await expect(each.font('body', { signal })).rejects.toMatchObject({ exceeded: [{ measure: 'fontSource.each', actual: 5, limit: 4 }] })
+    await expect(each.font('body', { signal })).rejects.toMatchObject({
+      message: expect.stringContaining("raise the font source's limits.each option, or use a smaller font"),
+      exceeded: [{ measure: 'fontSource.each', actual: 5, limit: 4, message: expect.any(String), where: expect.any(String) }],
+    })
     const twoFaces = {
       body: {
         family: 'Body',
@@ -59,7 +87,26 @@ describe('catalogFontSource', () => {
       },
     }
     const family = catalogFontSource(twoFaces, async () => woff2(4), { limits: { each: 4, bytes: 7 } })
-    await expect(family.font('body', { signal })).rejects.toMatchObject({ exceeded: [{ measure: 'fontSource.bytes', actual: 8, limit: 7 }] })
+    await expect(family.font('body', { signal })).rejects.toMatchObject({
+      message: expect.stringContaining("raise the font source's limits.bytes option, or use a smaller font family"),
+      exceeded: [{ measure: 'fontSource.bytes', actual: 8, limit: 7, message: expect.any(String), where: expect.any(String) }],
+    })
+  })
+
+  test('refuses invalid source limits at construction', () => {
+    expect(() => catalogFontSource(catalog, async () => woff2(), { limits: { each: -1 } })).toThrow(/non-negative safe integer/)
+    expect(() => catalogFontSource(catalog, async () => woff2(), { limits: { bytes: 1.5 } })).toThrow(/non-negative safe integer/)
+  })
+
+  test('carries a collection PostScript name onto the loaded face', async () => {
+    const collection = {
+      body: {
+        family: 'Collection Body',
+        faces: [{ src: 'body.ttc', format: 'collection' as const, postscriptName: 'Body-Regular' }],
+      },
+    }
+    const source = catalogFontSource(collection, async () => new Uint8Array(Buffer.from('ttcf')))
+    expect((await source.font('body', { signal }))?.faces[0]?.postscriptName).toBe('Body-Regular')
   })
 })
 

@@ -1,6 +1,6 @@
 import { FontCatalog } from './font-catalog.ts'
 import { classifyFont } from './font-signature.ts'
-import type { AppFont, FontSource } from './fonts.ts'
+import type { AppFont, FontFace, FontSource } from './fonts.ts'
 import { LimitExceededError } from './limits.ts'
 
 const DEFAULT_EACH_LIMIT = 16 * 1024 * 1024
@@ -34,6 +34,26 @@ function faceRefusal(family: string, index: number, src: string, detail: string)
   )
 }
 
+function loadedFace(
+  entry: ReturnType<typeof FontCatalog.parse>[string],
+  index: number,
+  face: ReturnType<typeof FontCatalog.parse>[string]['faces'][number],
+  data: Uint8Array,
+): FontFace {
+  const detected = classifyFont(data)
+  if (detected === undefined) throw faceRefusal(entry.family, index, face.src, 'is not a supported font')
+  if (detected !== face.format) throw faceRefusal(entry.family, index, face.src, `declares ${face.format}, but its signature is ${detected}`)
+  return {
+    family: entry.family,
+    data,
+    format: face.format,
+    ...(face.weight === undefined ? {} : { weight: Array.isArray(face.weight) ? `${face.weight[0]} ${face.weight[1]}` : face.weight }),
+    ...(face.style === undefined ? {} : { style: face.style }),
+    ...(face.unicodeRange === undefined ? {} : { unicodeRange: face.unicodeRange }),
+    ...(face.postscriptName === undefined ? {} : { postscriptName: face.postscriptName }),
+  }
+}
+
 async function loadCatalogFont(
   entry: ReturnType<typeof FontCatalog.parse>[string],
   load: CatalogFontLoad,
@@ -56,10 +76,7 @@ async function loadCatalogFont(
         where: JSON.stringify(entry.family),
         setting: 'limits.bytes',
       })
-    const detected = classifyFont(data)
-    if (detected === undefined) throw faceRefusal(entry.family, index, face.src, 'is not a supported font')
-    if (detected !== face.format) throw faceRefusal(entry.family, index, face.src, `declares ${face.format}, but its signature is ${detected}`)
-    faces.push({ ...face, family: entry.family, data })
+    faces.push(loadedFace(entry, index, face, data))
   }
   return { family: entry.family, faces, ...(entry.generic === undefined ? {} : { generic: entry.generic }) }
 }
@@ -68,19 +85,38 @@ export function catalogFontSource(catalogInput: FontCatalog, load: CatalogFontLo
   const catalog = FontCatalog.parse(catalogInput)
   const limits = resolvedLimits(options.limits)
   const cache = new Map<string, Promise<AppFont>>()
+  const loadSignal = new AbortController().signal
+
+  function forCaller<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+    if (signal.aborted) return Promise.reject(signal.reason)
+    return new Promise((resolve, reject) => {
+      const aborted = () => reject(signal.reason)
+      signal.addEventListener('abort', aborted, { once: true })
+      promise.then(
+        (value) => {
+          signal.removeEventListener('abort', aborted)
+          resolve(value)
+        },
+        (error) => {
+          signal.removeEventListener('abort', aborted)
+          reject(error)
+        },
+      )
+    })
+  }
 
   return {
     font(name, { signal }) {
-      const entry = catalog[name]
+      const entry = Object.hasOwn(catalog, name) ? catalog[name] : undefined
       if (!entry) return Promise.resolve(undefined)
       const present = cache.get(name)
-      if (present) return present
-      const loading = loadCatalogFont(entry, load, limits, signal)
+      if (present) return forCaller(present, signal)
+      const loading = loadCatalogFont(entry, load, limits, loadSignal)
       cache.set(name, loading)
       loading.catch(() => {
         if (cache.get(name) === loading) cache.delete(name)
       })
-      return loading
+      return forCaller(loading, signal)
     },
   }
 }

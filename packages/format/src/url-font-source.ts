@@ -11,12 +11,27 @@ export interface UrlFontSourceOptions {
 
 export type FontFetch = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
-function fontUrl(src: string, baseUrl: string | URL | undefined): string {
+function displayUrl(url: URL): string {
+  const display = new URL(url)
+  display.username = ''
+  display.password = ''
+  display.search = ''
+  display.hash = ''
+  return display.href
+}
+
+function fontUrl(src: string, baseUrl: string | URL | undefined): URL {
+  let url: URL
   try {
-    return new URL(src, baseUrl).href
+    url = new URL(src, baseUrl)
   } catch {
-    throw new Error(`The font URL ${JSON.stringify(src)} is invalid; provide an absolute src or a baseUrl to clear this refusal.`)
+    throw new Error('The font URL src is invalid; provide an absolute src or a baseUrl to clear this refusal.')
   }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:')
+    throw new Error(
+      `The font URL ${JSON.stringify(displayUrl(url))} uses the ${JSON.stringify(url.protocol)} scheme; use an http: or https: src to clear this refusal.`,
+    )
+  return url
 }
 
 async function responseBytes(response: Response, url: string, limit: number, abort: () => void): Promise<Uint8Array> {
@@ -61,13 +76,14 @@ export function urlFontSource(catalog: FontCatalog, options: UrlFontSourceOption
     catalog,
     async (src, { signal, limit }) => {
       const url = fontUrl(src, options.baseUrl)
+      const displayedUrl = displayUrl(url)
       const controller = new AbortController()
       const response = await fetchFont(url, { signal: AbortSignal.any([signal, controller.signal]) })
       if (!response.ok)
         throw new Error(
-          `The font URL ${JSON.stringify(url)} answered with status ${response.status}; make the font available with a successful response to clear this refusal.`,
+          `The font URL ${JSON.stringify(displayedUrl)} answered with status ${response.status}; make the font available with a successful response to clear this refusal.`,
         )
-      return responseBytes(response, url, limit, () => controller.abort())
+      return responseBytes(response, displayedUrl, limit, () => controller.abort())
     },
     { limits: options.limits },
   )

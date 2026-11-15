@@ -31,6 +31,22 @@ describe('urlFontSource', () => {
     await expect(source.font('body', { signal })).rejects.toThrow(/fonts\.example\/body\.woff2.*404/)
   })
 
+  test.each(['file:///tmp/body.woff2', 'data:font/woff2;base64,d09GMg=='])('refuses the %s scheme', async (src) => {
+    const source = urlFontSource({ body: { family: 'Body', faces: [{ src, format: 'woff2' }] } })
+    await expect(source.font('body', { signal })).rejects.toThrow(new RegExp(`${new URL(src).protocol}.*http:.*https:`))
+  })
+
+  test('redacts URL credentials, query, and fragment from refusals', async () => {
+    const source = urlFontSource(
+      { body: { family: 'Body', faces: [{ src: 'https://user:pass@fonts.example/body.woff2?token=secret#face', format: 'woff2' }] } },
+      { fetch: async () => new Response('', { status: 403 }) },
+    )
+    const error = await source.font('body', { signal }).catch((reason: unknown) => reason)
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toContain('https://fonts.example/body.woff2')
+    expect((error as Error).message).not.toMatch(/user|pass|token|secret|#face/)
+  })
+
   test('stops a streaming response at the per-face cap', async () => {
     let cancelled = false
     const body = new ReadableStream<Uint8Array>({

@@ -9,6 +9,7 @@ const CatalogFontFace = closedObject({
   format: z.enum(FONT_FORMATS),
   weight: FontDeclarationWeight.optional(),
   style: z.enum(['normal', 'italic']).optional(),
+  postscriptName: z.string().min(1).optional(),
   unicodeRange: z
     .string()
     .min(1)
@@ -19,9 +20,8 @@ const CatalogFontFace = closedObject({
   .refine((face) => face.unicodeRange === undefined || face.script === undefined, {
     message: 'a font catalog face may have unicodeRange or script, but not both',
   })
-  .transform(({ script, weight, ...face }) => ({
+  .transform(({ script, ...face }) => ({
     ...face,
-    ...(weight === undefined ? {} : { weight: Array.isArray(weight) ? `${weight[0]} ${weight[1]}` : weight }),
     ...(script === 'hebrew' ? { unicodeRange: HEBREW_UNICODE_RANGE } : {}),
   }))
 
@@ -29,6 +29,15 @@ const CatalogFont = closedObject({
   family: z.string().min(1),
   faces: z.array(CatalogFontFace).min(1),
   generic: z.enum(FONT_GENERICS).optional(),
+}).superRefine((font, ctx) => {
+  for (const [index, face] of font.faces.entries()) {
+    if (face.format !== 'collection' || face.postscriptName !== undefined) continue
+    ctx.addIssue({
+      code: 'custom',
+      path: ['faces', index, 'postscriptName'],
+      message: `font catalog family ${JSON.stringify(font.family)} face ${index} is a collection and requires postscriptName; provide the face's PostScript name to clear this refusal`,
+    })
+  }
 })
 
 export const FontCatalog = z.record(CatalogFontName, CatalogFont)
