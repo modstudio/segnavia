@@ -168,6 +168,10 @@ function heldHeadings(children: ChildNode[], sectionId: string, depth: number): 
   return collectHeadings(children, sectionId, depth, 1)
 }
 
+function withContentsDepth(headings: BookHeading[], contentsDepth?: number): BookHeading[] {
+  return contentsDepth === undefined ? headings : headings.map((heading) => ({ ...heading, contentsDepth }))
+}
+
 export function designedSection(
   entry: DesignedSection,
   id: string,
@@ -204,7 +208,7 @@ export function designedSection(
       info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering, parentRules: entry.parentRules },
       node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
-    headings,
+    headings: withContentsDepth(headings, entry.contentsDepth),
   }
 }
 
@@ -342,7 +346,7 @@ export function templatedSection(
       info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering, parentRules: entry.parentRules },
       node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
-    headings,
+    headings: withContentsDepth(headings, entry.contentsDepth),
   }
 }
 
