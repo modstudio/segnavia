@@ -23,6 +23,7 @@ import {
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
+  PLACED_PDF_SOURCES,
   parseDocument,
   resolveEdition,
   resolvePlacements,
@@ -253,6 +254,7 @@ async function resolveBookShape<T extends Book | BookView>(
         width: bookPlacementWidth(shape.book, field.pageGeometry, pageWidths),
         signal,
         day,
+        pdfSources: placements[PLACED_PDF_SOURCES],
       }),
     ),
   )

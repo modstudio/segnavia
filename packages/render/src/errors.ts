@@ -31,6 +31,16 @@ export class RenderRefusedError extends Refusal {
     super(options.code ?? 'render', message, options)
   }
 }
+
+export class ReceivedPdfError extends RenderRefusedError {
+  override name = 'ReceivedPdfError'
+  readonly reason: 'encrypted' | 'unreadable' | 'too-large'
+
+  constructor(reason: 'encrypted' | 'unreadable' | 'too-large', message: string) {
+    super(message)
+    this.reason = reason
+  }
+}
 export class RenderLimitError extends RenderRefusedError {
   override name = 'RenderLimitError'
   readonly exceeded: readonly LimitExceeded[]

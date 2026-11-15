@@ -1,12 +1,13 @@
 import { inflateSync } from 'node:zlib'
-import { RenderRefusedError } from './errors.ts'
+import { ReceivedPdfError, RenderRefusedError } from './errors.ts'
 
 export const MAX_PDF_FILTER_CHAIN = 8
 
 export type PdfStreamFilter = 'FlateDecode' | 'LZWDecode' | 'ASCII85Decode' | 'ASCIIHexDecode' | 'RunLengthDecode'
 
 function overLimit(object: number, limit: number): never {
-  throw new RenderRefusedError(
+  throw new ReceivedPdfError(
+    'too-large',
     `Received PDF stream object ${object} decodes above the limits.input.streamBytes limit of ${limit} bytes; raise the host's limits.input.streamBytes, or use a PDF with smaller object and cross-reference streams, to clear this refusal.`,
   )
 }

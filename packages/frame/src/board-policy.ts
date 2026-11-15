@@ -18,7 +18,7 @@ import {
   pageOrPrintedFromDocument,
   zoomAt,
 } from '@segnavia/format'
-import { type PlacementReport, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
+import { type PlacementsOptions, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
 import type { ControllerOptions } from './controller.ts'
 import { type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 
@@ -39,7 +39,7 @@ export type ResolvedBoardItem =
 type WithoutDesignedCover<T> = T extends { designedCover?: DesignedCover } ? Omit<T, 'designedCover'> : T
 export type ResolvedAsset = ResolvedPlacement | WithoutDesignedCover<Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>>
 export type AssetResolver = ResolvePlacement<ResolvedAsset>
-export type AssetPlacementsOptions = { resolve: AssetResolver; report?: PlacementReport }
+export type AssetPlacementsOptions = PlacementsOptions<ResolvedAsset>
 
 type CheckedResolvedBase = Omit<ResolvedBase, 'designedCover'> & { designedCover?: ParsedDesignedCover }
 

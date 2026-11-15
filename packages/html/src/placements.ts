@@ -6,6 +6,8 @@ import {
   Placement,
   type Placement as PlacementValue,
   type PreflightEntry,
+  placedPdfPage,
+  pointsToCssPixels,
 } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
@@ -13,7 +15,7 @@ import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
 const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
-export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: DocumentInput }
+export type ResolvedPlacement = { kind: 'media'; media: Media; src: string; bytes?: Uint8Array } | { kind: 'page'; page: DocumentInput }
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
   context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal; day?: AsOfDay },
@@ -43,7 +45,7 @@ export interface PlacementPlan {
 export type PlacementReport = (entry: {
   address: string | undefined
   page: string | number | undefined
-  reason: 'missing' | 'refused-src' | 'invalid' | 'failed'
+  reason: 'missing' | 'refused-src' | 'invalid' | 'failed' | 'no-page' | 'encrypted' | 'unreadable' | 'too-large'
   message?: string
 }) => void
 
@@ -63,19 +65,41 @@ export function placementMissingEntry(entry: Parameters<PlacementReport>[0]): Pr
 export interface PlacementsOptions<R extends { kind: string } = ResolvedPlacement> {
   resolve: ResolvePlacement<R>
   report?: PlacementReport
+  [PLACED_PDF_SOURCES]?: Map<string, PlacedPdfSource>
 }
+
+export interface PlacedPdfSource {
+  bytes: Uint8Array
+  media: Media
+}
+
+export const PLACED_PDF_SOURCES = Symbol('segnavia.placedPdfSources')
 
 type ResolvedMedia = Extract<ResolvedPlacement, { kind: 'media' }>
 export type MediaAnswer =
   | { status: 'ok'; value: ResolvedMedia }
   | { status: 'missing' | 'refused-src'; message?: undefined }
   | { status: 'invalid'; message: string }
-  | { status: 'failed'; message: string }
+  | { status: 'failed' | 'encrypted' | 'unreadable' | 'too-large'; message: string }
+type MediaFailure = Exclude<MediaAnswer, { status: 'ok' }>
+
+export class PlacementResolutionError extends Error {
+  readonly reason: 'encrypted' | 'unreadable' | 'too-large'
+
+  constructor(reason: 'encrypted' | 'unreadable' | 'too-large', message: string) {
+    super(message)
+    this.name = 'PlacementResolutionError'
+    this.reason = reason
+  }
+}
 
 export function classifyMediaAnswer(input: { answer: { kind: string } | undefined }): Exclude<MediaAnswer, { status: 'failed' }>
-export function classifyMediaAnswer(input: { error: unknown }): Extract<MediaAnswer, { status: 'failed' }>
+export function classifyMediaAnswer(input: { error: unknown }): MediaFailure
 export function classifyMediaAnswer(input: { answer: { kind: string } | undefined } | { error: unknown }): MediaAnswer {
-  if ('error' in input) return { status: 'failed', message: input.error instanceof Error ? input.error.message : String(input.error) }
+  if ('error' in input) {
+    if (input.error instanceof PlacementResolutionError) return { status: input.error.reason, message: input.error.message }
+    return { status: 'failed', message: input.error instanceof Error ? input.error.message : String(input.error) }
+  }
   const answer = input.answer
   if (!answer) return { status: 'missing' }
   if (answer.kind !== 'media' || !('src' in answer) || !('media' in answer)) {
@@ -169,8 +193,18 @@ function placeholder(element: Element): void {
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
 }
 
-function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: ResolvedMedia): void {
-  element.attribs.src = resolved.src
+function transparentPageSource(width: number, height: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"/>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+function applyResolved(
+  element: Element,
+  entry: PlacementPlanEntry,
+  resolved: ResolvedMedia,
+  purpose: 'screen' | 'print',
+  pdfSources?: Map<string, PlacedPdfSource>,
+): 'no-page' | undefined {
   if (entry.alt === undefined && resolved.media.alt) {
     element.attribs.alt = resolved.media.alt.text
     if (entry.lang === undefined && entry.dir === undefined) {
@@ -184,6 +218,16 @@ function applyResolved(element: Element, entry: PlacementPlanEntry, resolved: Re
     const authored = element.attribs.style?.trim()
     element.attribs.style = authored ? `${authored.replace(/;?$/, ';')} ${declaration}` : declaration
   }
+  if (purpose === 'print' && resolved.media.format === 'pdf' && resolved.bytes && pdfSources) {
+    const selected = placedPdfPage(resolved.media, entry.placement.page, entry.placement.box)
+    if (selected === 'no-page') return selected
+    element.attribs.src = transparentPageSource(pointsToCssPixels(selected.bounds.width), pointsToCssPixels(selected.bounds.height))
+    element.attribs['data-segnavia-placed-pdf'] = String(selected.page)
+    pdfSources.set(entry.placement.address, { bytes: resolved.bytes, media: resolved.media })
+    if (!('alt' in element.attribs)) element.attribs.alt = ''
+    return
+  }
+  element.attribs.src = resolved.src
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
 }
 
@@ -217,6 +261,7 @@ export async function resolvePlacements<R extends { kind: string }>(
     signal: AbortSignal
     day?: AsOfDay
     report?: PlacementReport
+    pdfSources?: Map<string, PlacedPdfSource>
   },
 ): Promise<string> {
   const document = parse(html)
@@ -246,14 +291,14 @@ export async function resolvePlacements<R extends { kind: string }>(
         )
         options.signal.throwIfAborted()
         const classified = classifyMediaAnswer({ answer: resolved })
-        if (classified.status === 'ok') applyResolved(element, entry, classified.value)
-        else {
+        const resolvedFailure = classified.status === 'ok' ? applyResolved(element, entry, classified.value, options.purpose, options.pdfSources) : undefined
+        if (classified.status !== 'ok' || resolvedFailure) {
           placeholder(element)
           options.report?.({
             address: entry.placement.address,
             page: entry.placement.page,
-            reason: classified.status,
-            ...(classified.message === undefined ? {} : { message: classified.message }),
+            reason: resolvedFailure ?? (classified.status === 'ok' ? 'invalid' : classified.status),
+            ...(!('message' in classified) || classified.message === undefined ? {} : { message: classified.message }),
           })
         }
       } catch (error) {

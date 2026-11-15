@@ -13,13 +13,25 @@ import {
   type Page,
   PageWidths,
   parseLimits,
+  placedPdfPage,
+  resolveLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
-import { type AsOfInputs, type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, type SlotPrintOptions } from '@segnavia/html'
+import {
+  type AsOfInputs,
+  type HtmlPage,
+  isPrintedHtmlPage,
+  PLACED_PDF_SOURCES,
+  PlacementResolutionError,
+  type PrintedHtmlPage,
+  type SlotPrintOptions,
+} from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
-import { RenderLimitError, RenderRefusedError } from './errors.ts'
+import { ReceivedPdfError, RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
+import { loadPdf } from './pdf-load.ts'
+import { sourcePdfPageFacts } from './placed-pdf-source.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 import type { RenderProgressOptions } from './progress.ts'
@@ -131,16 +143,64 @@ export interface RenderOptions {
   }
 }
 
-export function parseRenderOptions<T extends RenderOptions>(options: T): Omit<T, 'progress'> & RenderOptions {
+function placementPdfFailure(error: unknown): PlacementResolutionError {
+  const message = error instanceof Error ? error.message : String(error)
+  return new PlacementResolutionError(error instanceof ReceivedPdfError ? error.reason : 'unreadable', message)
+}
+
+function checkedPlacements(placements: NonNullable<RenderOptions['placements']>, limits: ReturnType<typeof parseLimits>, drawPlacedPdfs: boolean) {
+  if (!drawPlacedPdfs) return placements
+  if (placements[PLACED_PDF_SOURCES]) return placements
+  const checked = new Map<string, ReturnType<typeof loadPdf>>()
+  return {
+    ...placements,
+    async resolve(...args: Parameters<typeof placements.resolve>) {
+      const answer = await placements.resolve(...args)
+      if (answer?.kind !== 'media' || answer.media.format !== 'pdf' || !answer.bytes) return answer
+      const address = args[0].address
+      let validation = checked.get(address)
+      if (!validation) {
+        validation = loadPdf(answer.bytes, { source: 'received', limits: resolveLimits(undefined, limits) })
+        checked.set(address, validation)
+      }
+      try {
+        const document = await validation
+        const selected = placedPdfPage(answer.media, args[0].page, args[0].box)
+        if (selected !== 'no-page' && selected.page > document.getPageCount()) {
+          throw new PlacementResolutionError(
+            'unreadable',
+            `Placement ${JSON.stringify(address)} names PDF page ${selected.page}, but the source has ${document.getPageCount()} pages.`,
+          )
+        }
+        if (selected !== 'no-page') {
+          const sourcePage = document.getPage(selected.page - 1)
+          const { rotate, userUnit } = sourcePdfPageFacts(sourcePage)
+          const pages = answer.media.pages?.map((page, index) => (index === selected.page - 1 ? { ...page, rotate, userUnit } : page))
+          return { ...answer, media: { ...answer.media, ...(pages ? { pages } : {}) } }
+        }
+      } catch (error) {
+        if (error instanceof PlacementResolutionError) throw error
+        throw placementPdfFailure(error)
+      }
+      return answer
+    },
+    [PLACED_PDF_SOURCES]: new Map(),
+  }
+}
+
+export function parseRenderOptions<T extends RenderOptions>(options: T, drawPlacedPdfs = false): Omit<T, 'progress'> & RenderOptions {
   if (typeof options.localFonts === 'object' && options.localFonts !== null && 'limits' in options.localFonts) {
     parseLimits({ localFonts: { limits: options.localFonts.limits } }, 'host')
   }
+  const limits = parseLimits(options.limits, 'host')
+  const placements = options.placements ? checkedPlacements(options.placements, limits, drawPlacedPdfs) : undefined
   return {
     ...options,
     origins: options.origins === undefined ? undefined : [...options.origins],
     assetBudget: { bytes: 0 },
-    limits: parseLimits(options.limits, 'host'),
+    limits,
     progress: parseRenderProgress(options.progress),
+    ...(placements ? { placements } : {}),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
   }
 }
@@ -219,8 +279,8 @@ export type ComposedRenderOptions = RenderOptions & { preflight?: ComposedPrefli
 
 export type ParsedComposedRenderOptions<T extends ComposedRenderInput> = Omit<T, 'preflight' | 'progress'> & ComposedRenderOptions
 
-export function parseComposedRenderOptions<T extends ComposedRenderInput>(options: T): ParsedComposedRenderOptions<T> {
-  const parsed = parseRenderOptions(options)
+export function parseComposedRenderOptions<T extends ComposedRenderInput>(options: T, drawPlacedPdfs = false): ParsedComposedRenderOptions<T> {
+  const parsed = parseRenderOptions(options, drawPlacedPdfs)
   const preflight = resolveRenderPreflight(options.preflight)
   return { ...parsed, ...(preflight === undefined ? {} : { preflight }) } as ParsedComposedRenderOptions<T>
 }

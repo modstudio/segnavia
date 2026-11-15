@@ -12,6 +12,7 @@ import {
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
+import { printBookPartWithPlacedPdf } from './book-placed-pdf.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
 import { resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
@@ -20,7 +21,7 @@ import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
-import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
+import { pdfWithBackdropRasters } from './effects/raster.ts'
 import { parseCoverImageOptions, parseDeckPdfOptions, parsePageImageOptions, parseProofImageOptions, parseSlideImageOptions } from './entry-options.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
@@ -34,7 +35,6 @@ import {
   refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
-import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContext, resolveRenderDayContexts } from './page-as-of.ts'
 import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue } from './page-document.ts'
 import { renderPreparedPageImage } from './page-image-render.ts'
@@ -158,12 +158,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           seededOptions,
           resolvedFontCss,
           {
-            render: (setup, pdf, pageWidth, part) =>
-              withTab({ ...setup, deadline }, async (tab) => {
-                const captures = await prepareBackdropRasters(tab, options.effects)
-                const printed = await printWithOverflow(tab, pageWidth, part, pdf)
-                return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
-              }),
+            render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printBookPartWithPlacedPdf(tab, pdf, pageWidth, part, options)),
             fontFaces: (options) => fontFaces(options.fonts),
             finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
             watermark: parsedOptions.watermark

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { BookView, isChapter, PAGE_WIDTHS, Page, PREFLIGHT_PRESETS, paperPixels, resolvePreflightProfile, sheetMm } from '@segnavia/format'
-import { bookDocument, parseBookFixture, resolvePageHtml } from '@segnavia/html'
+import { bookDocument, PLACED_PDF_SOURCES, parseBookFixture, resolvePageHtml } from '@segnavia/html'
 import { expandFrameBookValue as expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
@@ -241,6 +241,28 @@ test('placed media entries use image resolution and missing reporting', async ()
   const expanded = await expandFrameBook(book, undefined, signal, { resolve: async () => undefined, report: (entry) => reports.push(entry) })
   expect(bookDocument(expanded.book).html).toContain('data-segnavia-placement="missing"')
   expect(reports).toEqual([{ address: 'media/missing', page: undefined, reason: 'missing' }])
+})
+
+test('a printed placed PDF entry emits the vector draw marker when a registry is present', async () => {
+  const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/source' } }] })
+  const registry = new Map()
+  const expanded = await expandFrameBook(
+    book,
+    undefined,
+    signal,
+    {
+      resolve: async () => ({
+        kind: 'media',
+        media: { format: 'pdf', size: { width: 200, height: 100 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
+        src,
+        bytes: new Uint8Array([1]),
+      }),
+      [PLACED_PDF_SOURCES]: registry,
+    },
+    'print',
+  )
+  expect(bookDocument(expanded.book).html).toContain('data-segnavia-placed-pdf="1"')
+  expect(registry.has('media/source')).toBe(true)
 })
 
 test('chooses placement widths from print, flowing, fixed, and paginated book viewports', async () => {
