@@ -20,9 +20,7 @@ import {
   inlineExtent,
   measuredTokens,
   measurementStyleKey,
-  type ParagraphCompositionProfile,
   type ParagraphToken,
-  paragraphProfile,
 } from './composer-paragraph-measure.ts'
 
 export type { ParagraphToken } from './composer-paragraph-measure.ts'
@@ -100,20 +98,10 @@ function planParagraphLinesWith(
   markerWidth: number,
   breakForLines: typeof breakLines,
   pointsForWord: typeof hyphenationPoints,
-  profile?: ParagraphCompositionProfile,
-  now: () => number = () => performance.now(),
 ): ParagraphLine[] {
-  const itemsStarted = now()
   const { items, metadata, tokenItems } = paragraphItems(tokens, settings)
   addHyphenationItems(items, metadata, tokenItems, tokens, settings, markerWidth, pointsForWord)
-  if (profile) profile.itemHyphenationMs += now() - itemsStarted
-  const timedBreak: typeof breakLines = (source, measures) => {
-    const started = now()
-    const result = breakForLines(source, measures)
-    if (profile) profile.breakLinesMs += now() - started
-    return result
-  }
-  return plannedLines(tokens, settings, items, metadata, timedBreak)
+  return plannedLines(tokens, settings, items, metadata, breakForLines)
 }
 function paragraphItems(
   tokens: readonly ParagraphToken[],
@@ -266,12 +254,7 @@ export function composeParagraphs(
   variableValueAttribute: string,
 ): void {
   const cache = new Map<string, number>()
-  const profile = paragraphProfile(doc)
   const paragraphs = root.querySelectorAll('p')
-  const pass = { paragraphs: paragraphs.length, recomposed: 0, tokens: 0 }
-  profile.paragraphs += paragraphs.length
-  profile.passes.push(pass)
-  const now = () => (doc.defaultView?.performance ?? performance).now()
   for (const paragraph of paragraphs) {
     const rect = paragraph.getBoundingClientRect()
     const style = styleFor(paragraph)
@@ -284,11 +267,7 @@ export function composeParagraphs(
     const composer = composition.composer ?? 'paragraph'
     if (composer !== 'paragraph') continue
     const original = Array.from(paragraph.childNodes)
-    const tokensStarted = now()
-    const tokens = measuredTokens(paragraph, cache, doc, styleFor, profile)
-    profile.tokenMeasurementMs += now() - tokensStarted
-    profile.tokens += tokens.length
-    pass.tokens += tokens.length
+    const tokens = measuredTokens(paragraph, cache, doc, styleFor)
     const lines = planLines(
       tokens,
       {
@@ -301,15 +280,11 @@ export function composeParagraphs(
       hyphenWidth(paragraph, doc, styleFor),
       breakForLines,
       pointsForWord,
-      profile,
-      now,
     )
     const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length)
     if (action === 'leave' || action === 'restore') continue
     composedParagraphs.set(paragraph, { children: original, inlineSize })
-    pass.recomposed += 1
     if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(variableValueAttribute, paragraph.textContent ?? '')
-    const rewriteStarted = now()
     rewriteParagraph(
       paragraph,
       tokens,
@@ -320,7 +295,6 @@ export function composeParagraphs(
       continuationAttribute,
       variableValueAttribute,
     )
-    profile.rewriteMs += now() - rewriteStarted
   }
 }
 
@@ -354,6 +328,5 @@ ${embedFunction('rewriteParagraph', rewriteParagraph)}
 ${embedFunction('contentInlineSize', contentInlineSize)}
 ${embedFunction('paragraphLanguage', paragraphLanguage)}
 ${embedFunction('restoreParagraph', restoreParagraph)}
-${embedFunction('paragraphProfile', paragraphProfile)}
 ${embedFunction('composeParagraphs', composeParagraphs)}`
 }

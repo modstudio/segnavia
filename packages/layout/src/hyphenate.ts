@@ -132,9 +132,7 @@ function hyphenationPointsWith(
   for (let index = 0; index <= word.length; index += 1) {
     if (word[index] !== '\u05be' && index !== word.length) continue
     points.push(
-      ...pointsForSegment(word.slice(segmentStart, index), language, dataByLanguage, cache, leftMinimum, rightMinimum).map(
-        (point) => segmentStart + point,
-      ),
+      ...pointsForSegment(word.slice(segmentStart, index), language, dataByLanguage, cache, leftMinimum, rightMinimum).map((point) => segmentStart + point),
     )
     if (isMaqafBreak(word, index, letter)) points.push(index + 1)
     segmentStart = index + 1
