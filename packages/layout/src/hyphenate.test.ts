@@ -11,6 +11,7 @@ test.each([
 test('keeps pattern breaks at the 2/3 minimums and suppresses breaks inside them', () => {
   expect(hyphenationPoints('hyphenation', 'en-US')).toEqual([2, 6])
   expect(hyphenationPoints('computer', 'en-US')).toEqual([3])
+  expect(hyphenationPoints('abandon', 'en-US')).toEqual([4])
 })
 
 test('matches English by primary language subtag', () => {
