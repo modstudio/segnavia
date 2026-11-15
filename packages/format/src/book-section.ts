@@ -3,10 +3,10 @@ import { BookOpens } from './book-opens.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
+import { NumberSystem } from './numbering.ts'
 import { REGION_NAME } from './parent-regions.ts'
 import { type ParentRules, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { PlacementShape } from './placement.ts'
-import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
@@ -182,11 +182,14 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
         return
       }
       const id = entry.id
-      if (entry.html !== undefined || entry.title !== undefined || entry.opens === 'continue') sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
-      walk(entry.children, division, [...path, 'children'], [
-        ...ancestry,
-        { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering },
-      ])
+      if (entry.html !== undefined || entry.title !== undefined || entry.opens === 'continue')
+        sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
+      walk(
+        entry.children,
+        division,
+        [...path, 'children'],
+        [...ancestry, { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering }],
+      )
     })
   }
   walk(book.frontMatter, 'front', ['frontMatter'], [])

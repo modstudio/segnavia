@@ -7,13 +7,13 @@ import {
   BookChapterEntry,
   BookItem,
   BookTemplate,
-  StructureNumberingLevel,
   bookParentIssues,
   bookSectionOpensFacts,
   bookSections,
   flowingSection,
   isPart,
   isPlacedSection,
+  StructureNumberingLevel,
 } from './book-section.ts'
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { closedObject } from './closed-object.ts'
@@ -42,7 +42,6 @@ import { VariableDocumentFacts } from './variable-document-facts.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export { resolveBookPagination } from './book-pagination.ts'
-export { structureNumbers, type StructureNumberSettings, type StructureNumberValue } from './structure-numbers.ts'
 export {
   BookChapterEntry,
   BookContents,
@@ -74,6 +73,7 @@ export {
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'
+export { type StructureNumberSettings, type StructureNumberValue, structureNumbers } from './structure-numbers.ts'
 export type { PageGeometry } from './style-sheet.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])

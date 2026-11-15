@@ -67,7 +67,6 @@ describe('Document closed objects', () => {
     expect(marginAndUnknown.success).toBeFalse()
     if (!marginAndUnknown.success && marginAndUnknown.error instanceof z.ZodError)
       expect(marginAndUnknown.error.issues[0]?.message).toContain('move "margin" to geometry.margin and remove "future"')
-
   })
 
   test('keeps author-named maps open', () => {
