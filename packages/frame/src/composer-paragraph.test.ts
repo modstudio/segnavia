@@ -187,7 +187,7 @@ test('keeps embedded paragraph function names after minification', async () => {
         setup(builder) {
           builder.onResolve({ filter: /^virtual:paragraph-composer$/ }, () => ({ path: 'paragraph-composer', namespace: 'virtual' }))
           builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
-            contents: `import { paragraphComposerScript } from ${JSON.stringify(`${import.meta.dir}/composer-paragraph.ts`)}; export const script=paragraphComposerScript();`,
+            contents: `import { layoutScript } from ${JSON.stringify(new URL(import.meta.resolve('@segnavia/layout')).pathname)}; import { paragraphComposerScript } from ${JSON.stringify(`${import.meta.dir}/composer-paragraph.ts`)}; export const script=layoutScript()+paragraphComposerScript();`,
             loader: 'ts',
           }))
         },
@@ -197,7 +197,16 @@ test('keeps embedded paragraph function names after minification', async () => {
   expect(built.success).toBe(true)
   const bundle = await built.outputs[0]?.text()
   const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-  const compose = new Function(`${script};return composeParagraphs`)() as (...args: unknown[]) => void
+  const embedded = new Function(`${script};return {breakLines,hyphenationPoints,planParagraphLinesWith,composeParagraphs}`)() as {
+    breakLines: unknown
+    hyphenationPoints: unknown
+    planParagraphLinesWith: unknown
+    composeParagraphs: (...args: unknown[]) => void
+  }
+  const compose = embedded.composeParagraphs
+  expect(typeof embedded.breakLines).toBe('function')
+  expect(typeof embedded.hyphenationPoints).toBe('function')
+  expect(typeof embedded.planParagraphLinesWith).toBe('function')
   expect(typeof compose).toBe('function')
   const paragraph = { getBoundingClientRect: () => ({ width: 100, height: 20 }) }
   const style = { textAlign: 'start', writingMode: 'horizontal-tb', getPropertyValue: () => '' }

@@ -333,5 +333,6 @@ ${solve.toString()}
 ${chunkEnds.toString()}
 ${chosenNodes.toString()}
 ${penaltyBoundary.toString()}
-${breakLines.toString()}`
+${breakLines.toString()}
+var breakLines=${breakLines.name};`
 }

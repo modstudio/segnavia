@@ -135,5 +135,6 @@ ${hyphenator.toString()}
 ${patternPoints.toString()}
 ${pointsForSegment.toString()}
 ${isMaqafBreak.toString()}
-${hyphenationPoints.toString()}`
+${hyphenationPoints.toString()}
+var hyphenationPoints=${hyphenationPoints.name};`
 }

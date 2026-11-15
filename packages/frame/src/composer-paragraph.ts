@@ -269,15 +269,7 @@ export function paragraphMeasures(measure: number, indent: number): number[] {
   return [measure - indent, measure]
 }
 
-export type ParagraphCompositionAction = 'skip' | 'leave' | 'restore' | 'compose' | 'restore-and-compose'
-
-export function paragraphCompositionAction(
-  previousInlineSize: number | undefined,
-  inlineSize: number,
-  textAlign: string,
-  composer: string,
-  lineCount: number,
-): ParagraphCompositionAction {
+export function paragraphCompositionAction(previousInlineSize: number | undefined, inlineSize: number, textAlign: string, composer: string, lineCount: number) {
   if (previousInlineSize !== undefined && Math.abs(previousInlineSize - inlineSize) <= 0.5) return 'skip'
   const shouldCompose = textAlign === 'justify' && composer === 'paragraph' && lineCount > 1
   if (previousInlineSize !== undefined) return shouldCompose ? 'restore-and-compose' : 'restore'
