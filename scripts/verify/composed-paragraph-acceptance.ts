@@ -106,7 +106,7 @@ export async function verifyPrintedComposedParagraphs(
   const printedComposition: Array<{ language: string; report: ComposedLineWidthReport }> = []
   for (const language of ['en', 'he'] as const) {
     const fixture: PrintedCompositionFixture = {
-      html: readFileSync(path.join(ROOT, `fixtures/fidelity/control-book-${language}.html`), 'utf8'),
+      html: `<div class="segnavia-chapter">${readFileSync(path.join(ROOT, `fixtures/fidelity/control-book-${language}.html`), 'utf8')}</div>`,
       lang: language,
       dir: language === 'he' ? 'rtl' : undefined,
     }
