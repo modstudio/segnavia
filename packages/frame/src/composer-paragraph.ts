@@ -370,7 +370,7 @@ export function composeParagraphs(
 
 /** Embeds paragraph composition after the shared layout and style functions. */
 export function paragraphComposerScript(): string {
-  return `var composedParagraphs=new WeakMap();
+  return `var composedParagraphs=new WeakMap();var paragraphBreakLines=typeof ${breakLines.name}==='function'?${breakLines.name}:undefined;var paragraphHyphenationPoints=typeof ${hyphenationPoints.name}==='function'?${hyphenationPoints.name}:undefined;
 ${embedFunction('graphemes', graphemes)}
 ${embedFunction('inlineExtent', inlineExtent)}
 ${embedFunction('measurementStyleKey', measurementStyleKey)}
