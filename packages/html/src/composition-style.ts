@@ -1,8 +1,4 @@
-import {
-  type CompositionCustomProperties,
-  readCompositionStyle,
-  type TextStyle,
-} from '@segnavia/format'
+import { type CompositionCustomProperties, readCompositionStyle, type TextStyle } from '@segnavia/format'
 
 export type CustomPropertyValues = CompositionCustomProperties
 

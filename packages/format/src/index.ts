@@ -347,6 +347,7 @@ export {
   Brand,
   COMPOSER_CUSTOM_PROPERTY,
   COMPOSER_VALUES,
+  type CompositionCustomProperties,
   Dimension,
   HexColor,
   HYPHENATE_CUSTOM_PROPERTY,
@@ -354,6 +355,7 @@ export {
   PageGeometry,
   parseWordSpacing,
   readCompositionStyle,
+  readCompositionStyleWith,
   STYLE_NAME,
   StyleSheet,
   serializeWordSpacing,
@@ -362,8 +364,8 @@ export {
   type TextStyleKind,
   type TextStyleTokenGroup,
   TokenReference,
-  WORD_SPACING_CUSTOM_PROPERTY,
   validWordSpacing,
+  WORD_SPACING_CUSTOM_PROPERTY,
   WordSpacing,
 } from './style-sheet.ts'
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'

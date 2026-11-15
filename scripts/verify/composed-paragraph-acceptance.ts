@@ -132,6 +132,7 @@ export async function verifyPrintedComposedParagraphs(
         maxLines: Math.max(0, ...reports.map((report) => report.maxLines)),
         checked: reports.reduce((sum, report) => sum + report.checked, 0),
         failures: reports.flatMap((report) => report.failures),
+        optOuts: reports.flatMap((report) => report.optOuts),
       },
     })
   }

@@ -1,6 +1,6 @@
+import { firstStrongDirection } from '@segnavia/format'
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
-import { firstStrongDirection } from '@segnavia/format'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
@@ -15,18 +15,11 @@ import {
   setRangeEnd,
   setRangeStart,
 } from './composer-paragraph-dom.ts'
-import {
-  appendMeasuredTokens,
-  appendTextTokens,
-  graphemes,
-  measuredTokens,
-  measurementStyleKey,
-  type ParagraphToken,
-} from './composer-paragraph-measure.ts'
+import { appendMeasuredTokens, appendTextTokens, graphemes, measuredTokens, measurementStyleKey, type ParagraphToken } from './composer-paragraph-measure.ts'
 import {
   type ComposedParagraph,
-  compositionDefaults,
   composesParagraph,
+  compositionDefaults,
   type ParagraphCompositionFact,
   paragraphBaseDirection,
   paragraphCompositionAction,
@@ -341,8 +334,7 @@ export function composeParagraphs(
     if (source) {
       paragraph.replaceChildren(...Array.from(source.paragraph.childNodes, (node) => node.cloneNode(true)))
       setParagraphVariableValue(paragraph, variableValueAttribute)
-    }
-    else {
+    } else {
       setParagraphVariableValue(paragraph, variableValueAttribute)
       rewriteParagraph(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
     }

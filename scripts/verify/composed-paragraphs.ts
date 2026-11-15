@@ -105,6 +105,6 @@ export function composedNoteParagraphReport(): ComposedNoteParagraphReport {
   })
   return { paragraphs: reports.length, matches: reports.every((report) => report.matches), detail: reports.map((report) => report.detail).join('|') }
 }
+
 import { logicalExtent, verticalWritingMode } from '../../packages/frame/src/composer-axis-policy.ts'
 import { contentInlineSize } from '../../packages/frame/src/composer-paragraph-box.ts'
-

@@ -1,5 +1,4 @@
 import { expect, test } from 'bun:test'
-import { layoutScript } from '@segnavia/layout'
 import type { ParagraphToken } from './composer-paragraph.ts'
 import {
   paragraphBaseDirection,
@@ -275,9 +274,7 @@ test('keeps browser line boxes for leading and consecutive br but not a trailing
     { start: 4, end: 4, wordSpacing: 0, hyphen: false, forced: true, blank: true },
     { start: 5, end: 8, wordSpacing: 0, hyphen: false, forced: false },
   ])
-  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
-  ])
+  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true }])
   const appended: unknown[] = []
   const doc = {
     createDocumentFragment: () => ({ append: (node: unknown) => appended.push(node) }),

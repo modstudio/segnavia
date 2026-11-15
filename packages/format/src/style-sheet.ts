@@ -24,12 +24,10 @@ export type TextStyleKind = 'paragraph' | 'character'
 export type TextStyleTokenGroup = 'colors' | 'dimensions' | 'fontFamilies'
 
 const DimensionValue = z.union([TokenReference, Dimension])
-const WordSpacingPercentage = z
-  .number()
-  .refine((value) => validWordSpacing({ minimum: value, desired: value, maximum: value }), {
-    message:
-      'word spacing percentages must be from 0 to 1000 with no more than two decimal places; use a percentage in that range rounded to two decimal places to clear this refusal',
-  })
+const WordSpacingPercentage = z.number().refine((value) => validWordSpacing({ minimum: value, desired: value, maximum: value }), {
+  message:
+    'word spacing percentages must be from 0 to 1000 with no more than two decimal places; use a percentage in that range rounded to two decimal places to clear this refusal',
+})
 const WordSpacingShape = closedObject({
   minimum: WordSpacingPercentage,
   desired: WordSpacingPercentage,
@@ -43,7 +41,11 @@ export type WordSpacing = z.infer<typeof WordSpacing>
 
 export function validWordSpacing(value: { minimum: number; desired: number; maximum: number }): boolean {
   const percentages = [value.minimum, value.desired, value.maximum]
-  return percentages.every((part) => Number.isFinite(part) && part >= 0 && part <= 1000 && Number(part.toFixed(2)) === part) && value.minimum <= value.desired && value.desired <= value.maximum
+  return (
+    percentages.every((part) => Number.isFinite(part) && part >= 0 && part <= 1000 && Number(part.toFixed(2)) === part) &&
+    value.minimum <= value.desired &&
+    value.desired <= value.maximum
+  )
 }
 
 export function serializeWordSpacing(value: WordSpacing): string {
@@ -88,15 +90,33 @@ export interface CompositionCustomProperties {
   getPropertyValue(name: string): string
 }
 
-export function readCompositionStyle(properties: CompositionCustomProperties): Pick<TextStyle, 'composer' | 'wordSpacing' | 'hyphenate'> {
-  const composerValue = properties.getPropertyValue(COMPOSER_CUSTOM_PROPERTY).trim()
-  const spacingValue = parseWordSpacing(properties.getPropertyValue(WORD_SPACING_CUSTOM_PROPERTY))
-  const hyphenateValue = properties.getPropertyValue(HYPHENATE_CUSTOM_PROPERTY).trim()
+export function readCompositionStyleWith(
+  properties: CompositionCustomProperties,
+  composerProperty: string,
+  composerValues: readonly string[],
+  spacingProperty: string,
+  hyphenateProperty: string,
+  parseSpacing: typeof parseWordSpacing,
+): Pick<TextStyle, 'composer' | 'wordSpacing' | 'hyphenate'> {
+  const composerValue = properties.getPropertyValue(composerProperty).trim()
+  const spacingValue = parseSpacing(properties.getPropertyValue(spacingProperty))
+  const hyphenateValue = properties.getPropertyValue(hyphenateProperty).trim()
   return {
-    ...(COMPOSER_VALUES.some((value) => value === composerValue) ? { composer: composerValue as TextStyle['composer'] } : {}),
+    ...(composerValues.some((value) => value === composerValue) ? { composer: composerValue as TextStyle['composer'] } : {}),
     ...(spacingValue ? { wordSpacing: spacingValue } : {}),
     ...(hyphenateValue === 'true' || hyphenateValue === 'false' ? { hyphenate: hyphenateValue === 'true' } : {}),
   }
+}
+
+export function readCompositionStyle(properties: CompositionCustomProperties): Pick<TextStyle, 'composer' | 'wordSpacing' | 'hyphenate'> {
+  return readCompositionStyleWith(
+    properties,
+    COMPOSER_CUSTOM_PROPERTY,
+    COMPOSER_VALUES,
+    WORD_SPACING_CUSTOM_PROPERTY,
+    HYPHENATE_CUSTOM_PROPERTY,
+    parseWordSpacing,
+  )
 }
 
 type TextStyleProperty = Exclude<keyof typeof TextStyleShape, 'kind' | 'basedOn'>

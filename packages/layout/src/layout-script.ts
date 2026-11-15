@@ -9,10 +9,10 @@ import {
   LIBRARY_VARIABLES,
   metaVariableValue,
   parseWordSpacing,
-  readCompositionStyle,
-  validWordSpacing,
+  readCompositionStyleWith,
   STANDARD_META_FIELD_READERS,
   textVariableValue,
+  validWordSpacing,
   variableValue,
   WORD_SPACING_CUSTOM_PROPERTY,
   withLibraryEntries,
@@ -39,8 +39,9 @@ var WORD_SPACING_CUSTOM_PROPERTY=${JSON.stringify(WORD_SPACING_CUSTOM_PROPERTY)}
 var HYPHENATE_CUSTOM_PROPERTY=${JSON.stringify(HYPHENATE_CUSTOM_PROPERTY)};
 var COMPOSER_VALUES=${JSON.stringify(COMPOSER_VALUES)};
 ${validWordSpacing.toString()}
-${parseWordSpacing.toString()}
-${readCompositionStyle.toString()}
+var parseWordSpacing=${parseWordSpacing.toString()};
+${readCompositionStyleWith.toString()}
+var readCompositionStyle=function(properties){return ${readCompositionStyleWith.name}(properties,COMPOSER_CUSTOM_PROPERTY,COMPOSER_VALUES,WORD_SPACING_CUSTOM_PROPERTY,HYPHENATE_CUSTOM_PROPERTY,parseWordSpacing)};
 ${paginateScript()}
 ${numberLinesScript()}
 ${placeSideNotesScript()}

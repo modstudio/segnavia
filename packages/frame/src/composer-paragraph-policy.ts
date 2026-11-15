@@ -1,5 +1,5 @@
-import type { readCompositionStyle } from '@segnavia/html'
 import { firstStrongDirection } from '@segnavia/format'
+import type { readCompositionStyle } from '@segnavia/html'
 import type { contentInlineSize } from './composer-paragraph-box.ts'
 
 export interface ComposedParagraph {
@@ -28,13 +28,7 @@ export function paragraphCompositionUnchanged(previousInlineSize: number | undef
   return previousInlineSize !== undefined && Math.abs(previousInlineSize - inlineSize) <= 0.5
 }
 
-export function paragraphCompositionAction(
-  previousInlineSize: number | undefined,
-  inlineSize: number,
-  textAlign: string,
-  composer: string,
-  lineCount: number,
-) {
+export function paragraphCompositionAction(previousInlineSize: number | undefined, inlineSize: number, textAlign: string, composer: string, lineCount: number) {
   if (paragraphCompositionUnchanged(previousInlineSize, inlineSize)) return 'skip'
   const shouldCompose = composesParagraph(textAlign, composer) && lineCount > 1
   if (previousInlineSize !== undefined) return shouldCompose ? 'restore-and-compose' : 'restore'

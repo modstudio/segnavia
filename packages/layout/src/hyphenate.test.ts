@@ -9,13 +9,19 @@ test.each([
 })
 
 test('keeps pattern breaks at the 2/3 minimums and suppresses breaks inside them', () => {
-  expect(hyphenationPoints('hyphenation', 'en-US')).toEqual([{ index: 2, hyphen: true }, { index: 6, hyphen: true }])
+  expect(hyphenationPoints('hyphenation', 'en-US')).toEqual([
+    { index: 2, hyphen: true },
+    { index: 6, hyphen: true },
+  ])
   expect(hyphenationPoints('computer', 'en-US')).toEqual([{ index: 3, hyphen: true }])
   expect(hyphenationPoints('abandon', 'en-US')).toEqual([{ index: 4, hyphen: true }])
 })
 
 test('matches English by primary language subtag', () => {
-  expect(hyphenationPoints('Associate', 'en')).toEqual([{ index: 2, hyphen: true }, { index: 4, hyphen: true }])
+  expect(hyphenationPoints('Associate', 'en')).toEqual([
+    { index: 2, hyphen: true },
+    { index: 4, hyphen: true },
+  ])
   expect(hyphenationPoints('table', 'en-GB')).toEqual([{ index: 2, hyphen: true }])
   expect(hyphenationPoints('present', 'en-US')).toEqual([])
 })

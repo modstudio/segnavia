@@ -74,7 +74,7 @@ test('layoutScript embeds the paragraph breaker and English and Hebrew hyphen po
   }
 })
 
-test('layoutScript keeps its planner names after minification', async () => {
+test('layoutScript keeps its planner and composition reader names after minification', async () => {
   const built = await Bun.build({
     entrypoints: ['virtual:layout-script'],
     minify: true,
@@ -99,7 +99,7 @@ test('layoutScript keeps its planner names after minification', async () => {
   expect(bundle).toBeDefined()
   const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
   const embedded = new Function(
-    `${script};return {planBook,planPrintedPages,bookPlanFolios,convergeLayout,lineInWindow,savePlan,replayPlan,selectParent,breakLines,hyphenationPoints}`,
+    `${script};return {planBook,planPrintedPages,bookPlanFolios,convergeLayout,lineInWindow,savePlan,replayPlan,selectParent,breakLines,hyphenationPoints,readCompositionStyle}`,
   )() as {
     planBook: typeof planBook
     planPrintedPages: typeof planPrintedPages
@@ -111,6 +111,7 @@ test('layoutScript keeps its planner names after minification', async () => {
     selectParent: (rules: readonly { parent: string }[], facts: object) => string
     breakLines: typeof breakLines
     hyphenationPoints: typeof hyphenationPoints
+    readCompositionStyle: (properties: { getPropertyValue(name: string): string }) => unknown
   }
   expect(typeof embedded.lineInWindow).toBe('function')
   expect(embedded.selectParent([{ parent: 'body' }], {})).toBe('body')
@@ -134,6 +135,9 @@ test('layoutScript keeps its planner names after minification', async () => {
     ),
   )
   expect(embedded.hyphenationPoints('hyphenation', 'en-US')).toEqual(hyphenationPoints('hyphenation', 'en-US'))
+  expect(embedded.readCompositionStyle({ getPropertyValue: (name) => (name === '--segnavia-composer' ? 'paragraph' : '') })).toEqual({
+    composer: 'paragraph',
+  })
   const measurements = input({
     flows: [flow('front', 'front', [block('text', 'p', 0, 1, 1, 0)], 'Front'), flow('body', 'chapter', [block('text', 'p', 1, 1, 1, 0)], 'Body')],
     settings: { ...settings, direction: 'rtl' },
