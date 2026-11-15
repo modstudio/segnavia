@@ -5,6 +5,7 @@ export { type FitProbe, type FitSearchResult, type FitSearchStrategy, fitSearch,
 export { resolveHeadTemplate } from './head-template.ts'
 export { hyphenationPoints } from './hyphenate.ts'
 export { layoutScript } from './layout-script.ts'
+export { type Box, breakLines, type Glue, type Penalty } from './line-break.ts'
 export {
   type LineKeyedLabelDecision,
   lineKeyedLabels,
