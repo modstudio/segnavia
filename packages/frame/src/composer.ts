@@ -352,7 +352,7 @@ fitResults=fitSourceElements();
 fillSourceRegions();
 // Measured properties run after source-shaping stages and before pagination.
 propertyResults=measureSourceProperties();
-composeParagraphs(document,document,getComputedStyle,NodeFilter.SHOW_TEXT);
+composeParagraphs(document,document,getComputedStyle,NodeFilter.SHOW_TEXT,composedParagraphs,readCompositionStyle,planParagraphLines,breakLines,hyphenationPoints);
 var selectedLayout=document.querySelector('[${LAYOUT_ATTRIBUTE}]');if(selectedLayout&&!window.segnaviaLayout){fail('Layout provider '+JSON.stringify((selectedLayout.getAttribute('${LAYOUT_ATTRIBUTE}')||'').trim().split(/\\s+/)[0]||'selected')+' was selected, but its runtime was not installed; inject the registered provider runtime to clear this refusal');return;}if(window.segnaviaLayout)await window.segnaviaLayout.run('galley');
 var input=measureInput();
 var plan;

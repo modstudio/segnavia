@@ -66,7 +66,8 @@ function breakpoints(items: readonly Item[]): Breakpoint[] {
       points.push({ index, penalty: item.penalty, flagged: item.flagged === true, forced: item.penalty === Number.NEGATIVE_INFINITY })
     }
   }
-  if (!points.at(-1)?.forced) {
+  const last = points.at(-1)
+  if (!last?.forced || last.index < items.length - 1) {
     points.push({ index: items.length, penalty: Number.NEGATIVE_INFINITY, flagged: false, forced: true })
   }
   return points
