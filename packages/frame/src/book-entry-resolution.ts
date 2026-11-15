@@ -1,5 +1,5 @@
 import { type AsOfDay, type Book, type BookItem, isPart, isPlacedSection, type PlacedSection, pageOrPrintedFromDocument } from '@segnavia/format'
-import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, parseDocument, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
+import { PLACED_PDF_SOURCES, PLACEMENT_ATTRIBUTES, type PlacementsOptions, parseDocument, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
 import type { ResolvedAsset } from './board-policy.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
 import { escapeHtml } from './svg.ts'
@@ -48,6 +48,7 @@ async function resolvePlaced(
         width,
         signal,
         day,
+        pdfSources: options[PLACED_PDF_SOURCES],
       }),
     )
   }
@@ -59,6 +60,7 @@ async function resolvePlaced(
     width,
     signal,
     day,
+    pdfSources: options[PLACED_PDF_SOURCES],
   })
   return designed(entry, html)
 }

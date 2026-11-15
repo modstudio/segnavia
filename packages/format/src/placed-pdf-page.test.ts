@@ -8,6 +8,7 @@ const media: Media = {
   pages: [
     { name: 'Cover', boxes: { media: { x: 0, y: 0, width: 600, height: 800 }, crop: { x: 10, y: 20, width: 580, height: 760 } } },
     { boxes: { media: { x: 0, y: 0, width: 400, height: 300 } } },
+    { boxes: { media: { x: 0, y: 0, width: 500, height: 400 }, crop: { x: 10, y: 20, width: 480, height: 360 } } },
   ],
 }
 
@@ -25,6 +26,10 @@ describe('placedPdfPage', () => {
     ['art', 'media'],
   ] as const)('falls an absent %s box back to %s', (requested, expected) => {
     expect(placedPdfPage(media, 2, requested)).toMatchObject({ box: expected })
+  })
+
+  test.each(['trim', 'bleed', 'art'] as const)('falls an absent %s box back to crop before media', (requested) => {
+    expect(placedPdfPage(media, 3, requested)).toMatchObject({ box: 'crop', sourceBounds: { x: 10, y: 20, width: 480, height: 360 } })
   })
 
   test('applies rotation and UserUnit to displayed geometry', () => {

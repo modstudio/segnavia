@@ -88,20 +88,36 @@ test('parsed options materialize one-shot origin approvals', () => {
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
 })
 
-test('placed PDF bytes are validated through received input limits before composition', async () => {
-  const parsed = parseRenderOptions({
-    limits: { input: { bytes: 2 } },
-    placements: {
-      resolve: async () => ({
-        kind: 'media' as const,
-        media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }] },
-        src: 'data:image/png;base64,AA==',
-        bytes: new Uint8Array([1, 2, 3]),
-      }),
+test('placed PDF bytes are validated through received input limits before vector composition', async () => {
+  const parsed = parsePagePdfOptions(
+    {
+      limits: { input: { bytes: 2 } },
+      placements: {
+        resolve: async () => ({
+          kind: 'media' as const,
+          media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }] },
+          src: 'data:image/png;base64,AA==',
+          bytes: new Uint8Array([1, 2, 3]),
+        }),
+      },
     },
-  })
+    'pagePdf',
+  )
   const work = parsed.placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })
   await expect(work).rejects.toEqual(expect.objectContaining({ reason: 'too-large' }))
+})
+
+test('non-draw operations pass placed PDF answers through without loading their bytes', async () => {
+  const answer = {
+    kind: 'media' as const,
+    media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }] },
+    src: 'data:image/png;base64,AA==',
+    bytes: new TextEncoder().encode('%PDF-1.7\nnot a document\n%%EOF'),
+  }
+  const resolve = async () => answer
+  const parsed = parseRenderOptions({ placements: { resolve } })
+  expect(parsed.placements?.resolve).toBe(resolve)
+  expect(await parsed.placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })).toBe(answer)
 })
 
 test('only vector-composing PDF operations create a placed PDF registry', () => {
@@ -157,6 +173,32 @@ test.each([
   )
   const work = parsed.placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })
   await expect(work).rejects.toEqual(expect.objectContaining({ reason }))
+})
+
+test('placed PDF validation refuses a selected page beyond the received source page range', async () => {
+  const document = await PDFDocument.create()
+  document.addPage([10, 10]).drawText('one')
+  const parsed = parsePagePdfOptions(
+    {
+      placements: {
+        resolve: async () => ({
+          kind: 'media' as const,
+          media: {
+            format: 'pdf' as const,
+            pages: [
+              { boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } },
+              { boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } },
+            ],
+          },
+          src: 'data:image/png;base64,AA==',
+          bytes: await document.save(),
+        }),
+      },
+    },
+    'pagePdf',
+  )
+  const work = parsed.placements?.resolve({ kind: 'media', address: 'document', page: 2 }, { purpose: 'print', signal: new AbortController().signal })
+  await expect(work).rejects.toEqual(expect.objectContaining({ reason: 'unreadable' }))
 })
 
 test('progress is normalized to one report function at the option edge', () => {

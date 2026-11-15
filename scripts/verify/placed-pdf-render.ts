@@ -8,10 +8,12 @@ import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
-const marker = (marginLeft: number) => `<img data-segnavia-media="placed" style="display:block;width:120px;height:60px;margin-left:${marginLeft}px">`
+const marker = (marginLeft: number, options: { naturalSize?: boolean; crop?: string } = {}) =>
+  `<img data-segnavia-media="placed" data-segnavia-page="2"${options.crop ? ` data-segnavia-crop="${options.crop}"` : ''} style="display:block;${options.naturalSize ? '' : 'width:120px;height:60px;'}margin-left:${marginLeft}px">`
 
 async function sourcePdf(): Promise<{ bytes: Uint8Array; media: Media }> {
   const document = await PDFDocument.create()
+  document.addPage([120, 80]).drawText('SOURCE_FIRST_PAGE')
   const page = document.addPage([200, 100])
   page.drawText('PLACED_VECTOR', { x: 20, y: 40, size: 18, font: await document.embedFont(StandardFonts.Helvetica) })
   page.node.set(
@@ -21,7 +23,14 @@ async function sourcePdf(): Promise<{ bytes: Uint8Array; media: Media }> {
   document.catalog.set(PDFName.of('OpenAction'), document.context.obj({ S: 'JavaScript', JS: PDFString.of('app.alert("source")') }))
   return {
     bytes: await document.save(),
-    media: { format: 'pdf', size: { width: 200, height: 100 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
+    media: {
+      format: 'pdf',
+      size: { width: 200, height: 100 },
+      pages: [
+        { boxes: { media: { x: 0, y: 0, width: 120, height: 80 } } },
+        { boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } },
+      ],
+    },
   }
 }
 
@@ -126,7 +135,7 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
   const print = { paper: 'a5' as const, orientation: 'portrait' as const, margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }
   const pageBytes = await renderer.pagePdf(screenPage({ html: `<p>PAGE</p>${marker(12)}` }, { print }), options())
   const pagesBytes = await renderer.pagesPdf(
-    [screenPage({ html: '<p>FIRST</p>' }, { print }), screenPage({ html: `<p>SECOND</p>${marker(20)}` }, { print })],
+    [screenPage({ html: '<p>FIRST</p>' }, { print }), screenPage({ html: `<p>SECOND</p>${marker(20, { naturalSize: true })}` }, { print })],
     options(),
   )
   const book: DocumentInput = {
@@ -146,7 +155,7 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
             children: [
               {
                 type: 'flow',
-                html: `<p>BOOK FIRST <a href="https://author.invalid/real">AUTHOR LINK</a></p><div style="break-before:page">BOOK SECOND${marker(28)}</div>`,
+                html: `<p>BOOK FIRST <a href="https://author.invalid/real">AUTHOR LINK</a></p><div style="break-before:page">BOOK SECOND${marker(28, { crop: '0 0 0 20px' })}</div>`,
               },
             ],
           },
@@ -156,19 +165,18 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
   }
   const bookBytes = await renderer.bookPdf(book, options())
   const sourceText = { x: 20, yFromTop: 47.076 }
-  const placedScale = (120 * 0.75) / 200
   const outputs = [
-    { name: 'pagePdf', bytes: pageBytes, expectedPage: 0, contentLeft: 48, markerLeft: 12 * 0.75, markerTop: 79.5 },
-    { name: 'pagesPdf', bytes: pagesBytes, expectedPage: 1, contentLeft: 48, markerLeft: 20 * 0.75, markerTop: 79.5 },
-    { name: 'bookPdf', bytes: bookBytes, expectedPage: 1, contentLeft: 48.75, markerLeft: 28 * 0.75, markerTop: 56.25 },
+    { name: 'pagePdf', bytes: pageBytes, expectedPage: 0, contentLeft: 48, markerLeft: 12 * 0.75, markerTop: 79.5, cropLeft: 0, scaleX: 0.45, scaleY: 0.45 },
+    { name: 'pagesPdf', bytes: pagesBytes, expectedPage: 1, contentLeft: 48, markerLeft: 20 * 0.75, markerTop: 79.5, cropLeft: 0, scaleX: 1, scaleY: 1 },
+    { name: 'bookPdf', bytes: bookBytes, expectedPage: 1, contentLeft: 48.75, markerLeft: 28 * 0.75, markerTop: 56.25, cropLeft: 15, scaleX: 90 / 185, scaleY: 0.45 },
   ]
   for (const output of outputs) {
     const document = await PDFDocument.load(output.bytes)
     const pages = placedPages(document)
     const extracted = extractedText(work, `placed-${output.name}.pdf`, output.bytes)
     const page = pages[0] ?? -1
-    const expectedX = output.contentLeft + output.markerLeft + sourceText.x * placedScale
-    const expectedY = output.markerTop + sourceText.yFromTop * placedScale
+    const expectedX = output.contentLeft + output.markerLeft + (sourceText.x - output.cropLeft) * output.scaleX
+    const expectedY = output.markerTop + sourceText.yFromTop * output.scaleY
     check(
       `${output.name} places a PDF form on the fragmented output page at its margin offset`,
       pages.length === 1 && page === output.expectedPage && Math.abs(extracted.x - expectedX) <= 0.5 && Math.abs(extracted.y - expectedY) <= 0.5,

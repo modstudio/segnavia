@@ -1,7 +1,9 @@
+import { pointsToCssPixels } from '@segnavia/format'
 import { PDFArray, PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFObject, type PDFPage, PDFRef, PDFString } from 'pdf-lib'
+import { RenderRefusedError } from './errors.ts'
 import type { PlacedPdfMeasurement } from './placed-pdf-page.ts'
 
-const MARKER_LINK_PREFIX = 'https://placed-pdf.invalid/'
+export const MARKER_LINK_PREFIX = 'https://placed-pdf.invalid/'
 const key = (value: string) => PDFName.of(value)
 
 function resolved(document: PDFDocument, object: PDFObject | undefined): PDFObject | undefined {
@@ -117,9 +119,18 @@ function collectPageMarkers(
     annotations.remove(index)
     if (!rectangle) continue
     const id = uri.slice(MARKER_LINK_PREFIX.length)
-    const draw = { x: (rectangle.x * 96) / 72, y: (rectangle.y * 96) / 72, width: (rectangle.width * 96) / 72, height: (rectangle.height * 96) / 72 }
+    const draw = {
+      x: pointsToCssPixels(rectangle.x),
+      y: pointsToCssPixels(rectangle.y),
+      width: pointsToCssPixels(rectangle.width),
+      height: pointsToCssPixels(rectangle.height),
+    }
     const prior = found.get(id)
-    if (prior && prior.paper !== paper) throw new Error(`Cannot place PDF at ${addresses.get(id) ?? id}; its placed element was split across pages.`)
+    if (prior && prior.paper !== paper) {
+      throw new RenderRefusedError(
+        `Cannot place PDF at ${addresses.get(id) ?? id}; its placed element was split across pages. Keep the placed element on one page, for example with break-inside: avoid or a smaller height, to clear this refusal.`,
+      )
+    }
     const combined = prior ? union(prior.draw, draw) : draw
     found.set(id, { paper, draw: combined, clip: combined })
   }

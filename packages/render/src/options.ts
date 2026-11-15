@@ -26,12 +26,12 @@ import {
   type PrintedHtmlPage,
   type SlotPrintOptions,
 } from '@segnavia/html'
-import { PDFName, PDFNumber } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { ReceivedPdfError, RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
 import { loadPdf } from './pdf-load.ts'
+import { sourcePdfPageFacts } from './placed-pdf-source.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 import type { RenderProgressOptions } from './progress.ts'
@@ -149,6 +149,7 @@ function placementPdfFailure(error: unknown): PlacementResolutionError {
 }
 
 function checkedPlacements(placements: NonNullable<RenderOptions['placements']>, limits: ReturnType<typeof parseLimits>, drawPlacedPdfs: boolean) {
+  if (!drawPlacedPdfs) return placements
   if (placements[PLACED_PDF_SOURCES]) return placements
   const checked = new Map<string, ReturnType<typeof loadPdf>>()
   return {
@@ -173,8 +174,7 @@ function checkedPlacements(placements: NonNullable<RenderOptions['placements']>,
         }
         if (selected !== 'no-page') {
           const sourcePage = document.getPage(selected.page - 1)
-          const rotate = (((sourcePage.getRotation().angle % 360) + 360) % 360) as 0 | 90 | 180 | 270
-          const userUnit = sourcePage.node.lookupMaybe(PDFName.of('UserUnit'), PDFNumber)?.asNumber() ?? 1
+          const { rotate, userUnit } = sourcePdfPageFacts(sourcePage)
           const pages = answer.media.pages?.map((page, index) => (index === selected.page - 1 ? { ...page, rotate, userUnit } : page))
           return { ...answer, media: { ...answer.media, ...(pages ? { pages } : {}) } }
         }
@@ -184,7 +184,7 @@ function checkedPlacements(placements: NonNullable<RenderOptions['placements']>,
       }
       return answer
     },
-    ...(drawPlacedPdfs ? { [PLACED_PDF_SOURCES]: new Map() } : {}),
+    [PLACED_PDF_SOURCES]: new Map(),
   }
 }
 

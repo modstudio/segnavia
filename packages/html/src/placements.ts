@@ -6,6 +6,7 @@ import {
   Placement,
   type Placement as PlacementValue,
   type PreflightEntry,
+  pointsToCssPixels,
   placedPdfPage,
 } from '@segnavia/format'
 import type { Element } from 'domhandler'
@@ -220,7 +221,7 @@ function applyResolved(
   if (purpose === 'print' && resolved.media.format === 'pdf' && resolved.bytes && pdfSources) {
     const selected = placedPdfPage(resolved.media, entry.placement.page, entry.placement.box)
     if (selected === 'no-page') return selected
-    element.attribs.src = transparentPageSource(selected.bounds.width, selected.bounds.height)
+    element.attribs.src = transparentPageSource(pointsToCssPixels(selected.bounds.width), pointsToCssPixels(selected.bounds.height))
     element.attribs['data-segnavia-placed-pdf'] = String(selected.page)
     pdfSources.set(entry.placement.address, { bytes: resolved.bytes, media: resolved.media })
     if (!('alt' in element.attribs)) element.attribs.alt = ''

@@ -1,11 +1,13 @@
-import { displayedPdfPage, type PageBoxName, placedPdfPage, resolveLimits } from '@segnavia/format'
+import { cssPixelsToPoints, displayedPdfPage, type PageBoxName, placedPdfPage, resolveLimits } from '@segnavia/format'
 import { PLACED_PDF_SOURCES, type PlacedPdfSource, type PlacementsOptions } from '@segnavia/html'
-import { endMarkedContent, PDFName, PDFNumber, PDFOperator, type PDFPage, PDFRawStream } from 'pdf-lib'
+import { endMarkedContent, PDFName, PDFOperator, type PDFPage, PDFRawStream } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import type { RenderOptions } from './options.ts'
 import { drawClippedPage } from './pdf-compose.ts'
+import { RenderRefusedError } from './errors.ts'
 import { loadPdf } from './pdf-load.ts'
-import { markerMeasurements } from './placed-pdf-markers.ts'
+import { MARKER_LINK_PREFIX, markerMeasurements } from './placed-pdf-markers.ts'
+import { sourcePdfPageFacts } from './placed-pdf-source.ts'
 
 export interface PlacedPdfMeasurement {
   id?: string
@@ -18,8 +20,6 @@ export interface PlacedPdfMeasurement {
   draw: { x: number; y: number; width: number; height: number }
   clip: { x: number; y: number; width: number; height: number }
 }
-
-const MARKER_LINK_PREFIX = 'https://placed-pdf.invalid/'
 
 /** Gives Chromium a link rectangle it can place in the fragmented PDF output. */
 export async function preparePlacedPdfPages(tab: Tab): Promise<void> {
@@ -142,12 +142,11 @@ function positionedMeasurement(
   }
 }
 
-const pixelPoints = (value: number) => (value * 72) / 96
 const rectanglePoints = (box: PlacedPdfMeasurement['draw']) => ({
-  x: pixelPoints(box.x),
-  y: pixelPoints(box.y),
-  width: pixelPoints(box.width),
-  height: pixelPoints(box.height),
+  x: cssPixelsToPoints(box.x),
+  y: cssPixelsToPoints(box.y),
+  width: cssPixelsToPoints(box.width),
+  height: cssPixelsToPoints(box.height),
 })
 
 function sources(options: Pick<RenderOptions, 'placements'>): Map<string, PlacedPdfSource> | undefined {
@@ -166,12 +165,13 @@ function transparencyGroup(page: PDFPage, ref: Parameters<typeof page.doc.contex
 
 function cropEdge(value: string, extent: number): number {
   if (value.endsWith('%')) return (Number(value.slice(0, -1)) / 100) * extent
-  return Number(value.replace(/px$/, ''))
+  return cssPixelsToPoints(Number(value.replace(/px$/, '')))
 }
 
 export function placedPdfCrop(
   bounds: { x: number; y: number; width: number; height: number },
   crop: string | undefined,
+  address: string,
 ): { x: number; y: number; width: number; height: number } {
   if (!crop) return bounds
   const values = crop.trim().split(/\s+/)
@@ -184,12 +184,18 @@ export function placedPdfCrop(
     left: cropEdge(left, bounds.width),
   }
   if (Object.values(edges).some((edge) => !Number.isFinite(edge))) return bounds
-  return {
+  const cropped = {
     x: bounds.x + edges.left,
     y: bounds.y + edges.bottom,
     width: bounds.width - edges.left - edges.right,
     height: bounds.height - edges.top - edges.bottom,
   }
+  if (cropped.width <= 0 || cropped.height <= 0) {
+    throw new RenderRefusedError(
+      `Cannot place PDF at ${address}; its crop leaves no area of the page. Use a smaller crop to clear this refusal.`,
+    )
+  }
+  return cropped
 }
 
 function uncroppedDraw(
@@ -234,9 +240,10 @@ export async function drawPlacedPdfPages(
     if (selected === 'no-page') continue
     const sourcePage = document.getPage(selected.page - 1)
     if (!sourcePage) continue
-    const crop = placedPdfCrop(selected.bounds, positioned.crop)
-    const userUnit = sourcePage.node.lookupMaybe(PDFName.of('UserUnit'), PDFNumber)?.asNumber() ?? 1
-    const display = displayedPdfPage(selected.sourceBounds, sourcePage.getRotation().angle, userUnit)
+    const crop = placedPdfCrop(selected.bounds, positioned.crop, placement.address)
+    const { rotate, userUnit } = sourcePdfPageFacts(sourcePage)
+    const display = displayedPdfPage(selected.sourceBounds, rotate, userUnit)
+    if (!sourcePage.node.get(PDFName.of('Contents'))) continue
     const key = `${placement.address}\0${selected.page}\0${selected.box}`
     let form = embedded.get(key)
     if (!form) {

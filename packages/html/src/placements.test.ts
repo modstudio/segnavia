@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { DocumentInput, Media } from '@segnavia/format'
-import { placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
+import { PlacementResolutionError, placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
 
 const signal = new AbortController().signal
 const media = (alt?: Media['alt']): Media => ({ format: 'png', size: { width: 20, height: 10 }, ...(alt ? { alt } : {}) })
@@ -81,7 +81,7 @@ describe('resolvePlacements', () => {
       pdfSources: new Map(),
     })
     expect(printed).toContain('data-segnavia-placed-pdf="1"')
-    expect(printed).toContain('width%3D%22580%22%20height%3D%22760%22')
+    expect(printed).toContain('width%3D%22773.3333333333333%22%20height%3D%221013.3333333333333%22')
     const screen = await resolvePlacements('<img data-segnavia-media="a">', { resolvePlacement: resolve, purpose: 'screen', width: 100, signal })
     expect(screen).toContain(`src="${png}"`)
     expect(screen).not.toContain('data-segnavia-placed-pdf')
@@ -217,6 +217,21 @@ describe('resolvePlacements', () => {
       { address: 'missing', page: undefined, reason: 'missing' },
       { address: 'failed', page: undefined, reason: 'failed', message: 'no renderer' },
     ])
+  })
+
+  test.each(['encrypted', 'too-large'] as const)('draws and reports a resolver %s refusal with its structured reason', async (reason) => {
+    const reports: unknown[] = []
+    const output = await resolvePlacements('<img data-segnavia-media="source">', {
+      resolvePlacement: async () => {
+        throw new PlacementResolutionError(reason, `${reason} source`)
+      },
+      purpose: 'print',
+      width: 100,
+      signal,
+      report: (entry) => reports.push(entry),
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+    expect(reports).toEqual([{ address: 'source', page: undefined, reason, message: `${reason} source` }])
   })
 
   test('rejects on abort', async () => {

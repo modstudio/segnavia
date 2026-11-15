@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { PLACED_PDF_SOURCES } from '@segnavia/html'
 import { degrees, PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, type PDFRef, PDFString, StandardFonts } from 'pdf-lib'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { RenderRefusedError } from './errors.ts'
 import { markerMeasurements } from './placed-pdf-markers.ts'
 import { drawPlacedPdfPages, placedPdfCrop } from './placed-pdf-page.ts'
 
@@ -9,7 +10,14 @@ const key = (value: string) => PDFName.of(value)
 
 test('converts physical crop insets independently of document direction', () => {
   const box = { x: 10, y: 20, width: 200, height: 100 }
-  expect(placedPdfCrop(box, '10% 20px 30% 40px')).toEqual({ x: 50, y: 50, width: 140, height: 60 })
+  expect(placedPdfCrop(box, '10% 20px 30% 40px', 'source')).toEqual({ x: 40, y: 50, width: 155, height: 60 })
+})
+
+test('refuses a crop that leaves no displayed page area', () => {
+  expect(() => placedPdfCrop({ x: 0, y: 0, width: 100, height: 100 }, '0 80px', 'assets/source.pdf')).toThrow(RenderRefusedError)
+  expect(() => placedPdfCrop({ x: 0, y: 0, width: 100, height: 100 }, '0 80px', 'assets/source.pdf')).toThrow(
+    'Cannot place PDF at assets/source.pdf; its crop leaves no area of the page. Use a smaller crop to clear this refusal.',
+  )
 })
 
 test('draws a bounded source page once as an artifact Form XObject', async () => {
@@ -78,7 +86,7 @@ async function transformedPageOutput(rotate: 0 | 90, userUnit: number): Promise<
               media: {
                 format: 'pdf',
                 size: { width: 200, height: 100 },
-                pages: [{ rotate, userUnit, boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }],
+                pages: [{ rotate, userUnit: userUnit > 0 ? userUnit : 1, boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }],
               },
             },
           ],
@@ -91,6 +99,10 @@ async function transformedPageOutput(rotate: 0 | 90, userUnit: number): Promise<
 
 test('maps a UserUnit 2 displayed page exactly into the marker rectangle', async () => {
   expect(await transformedPageOutput(0, 2)).toMatch(/72 144 144 72 re[\s\S]*1 0 0 1 72 144 cm[\s\S]*0\.36 0 0 0\.36 0 0 cm/)
+})
+
+test('treats a nonpositive source UserUnit as the PDF default', async () => {
+  expect(await transformedPageOutput(0, 0)).toMatch(/72 144 144 72 re[\s\S]*1 0 0 1 72 144 cm[\s\S]*0\.72 0 0 0\.72 0 0 cm/)
 })
 
 test('maps a rotated non-square page exactly into the marker rectangle', async () => {
@@ -111,7 +123,17 @@ test('uses and removes Chromium marker annotations for fragmented page placement
   )
   const output = await drawPlacedPdfPages(
     await target.save(),
-    [{ id: 'marker', address: 'source', page: 1, paper: 0, draw: { x: 0, y: 0, width: 192, height: 96 }, clip: { x: 0, y: 0, width: 192, height: 96 } }],
+    [
+      {
+        id: 'marker',
+        anchorOffset: { x: 20, y: 10 },
+        address: 'source',
+        page: 1,
+        paper: 0,
+        draw: { x: 0, y: 0, width: 192, height: 96 },
+        clip: { x: 0, y: 0, width: 192, height: 96 },
+      },
+    ],
     {
       placements: {
         resolve: async () => undefined,
@@ -131,7 +153,33 @@ test('uses and removes Chromium marker annotations for fragmented page placement
   expect(loaded.getPage(0).node.Annots()).toBeUndefined()
   expect(loaded.getPage(1).node.Annots()?.size() ?? 0).toBe(0)
   expect(await pageContent(output, 0)).not.toContain('/EmbeddedPdfPage')
-  expect(await pageContent(output, 1)).toMatch(/72 144 144 72 re[\s\S]*\/EmbeddedPdfPage/)
+  expect(await pageContent(output, 1)).toMatch(/87 151\.5 144 72 re[\s\S]*1 0 0 1 87 151\.5 cm[\s\S]*\/EmbeddedPdfPage/)
+})
+
+test('leaves a transparent marker when the selected source page has no contents', async () => {
+  const source = await PDFDocument.create()
+  source.addPage([200, 100])
+  const target = await PDFDocument.create()
+  target.addPage([600, 800])
+  const output = await drawPlacedPdfPages(
+    await target.save(),
+    [{ address: 'blank', page: 1, paper: 0, draw: { x: 96, y: 192, width: 192, height: 96 }, clip: { x: 96, y: 192, width: 192, height: 96 } }],
+    {
+      placements: {
+        resolve: async () => undefined,
+        [PLACED_PDF_SOURCES]: new Map([
+          [
+            'blank',
+            {
+              bytes: await source.save(),
+              media: { format: 'pdf', pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
+            },
+          ],
+        ]),
+      },
+    },
+  )
+  expect(await pageContent(output)).not.toContain('/EmbeddedPdfPage')
 })
 
 function markerAnnotation(document: PDFDocument, id: string, rectangle: number[], structParent?: number): PDFRef {
@@ -171,7 +219,7 @@ test('refuses a marker whose link rectangles are split across pages and names it
   for (let index = 0; index < 2; index += 1) {
     document.addPage([600, 800]).node.set(key('Annots'), document.context.obj([markerAnnotation(document, 'marker', [40, 140, 160, 180])]))
   }
-  expect(() =>
+  const work = () =>
     markerMeasurements(document, [
       {
         id: 'marker',
@@ -181,8 +229,16 @@ test('refuses a marker whose link rectangles are split across pages and names it
         draw: { x: 0, y: 0, width: 120, height: 60 },
         clip: { x: 0, y: 0, width: 120, height: 60 },
       },
-    ]),
-  ).toThrow('Cannot place PDF at assets/chapter.pdf; its placed element was split across pages.')
+    ])
+  try {
+    work()
+    throw new Error('Expected marker measurement to refuse')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    expect((error as Error).message).toBe(
+      'Cannot place PDF at assets/chapter.pdf; its placed element was split across pages. Keep the placed element on one page, for example with break-inside: avoid or a smaller height, to clear this refusal.',
+    )
+  }
 })
 
 test('removes marker OBJRs, empty structure elements, and annotation ParentTree entries', async () => {

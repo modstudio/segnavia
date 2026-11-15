@@ -1,5 +1,9 @@
 import type { Media, MediaPage, PageBoxName, PageSelector } from './media.ts'
 
+export const CSS_PIXELS_PER_POINT = 96 / 72
+export const cssPixelsToPoints = (value: number): number => value / CSS_PIXELS_PER_POINT
+export const pointsToCssPixels = (value: number): number => value * CSS_PIXELS_PER_POINT
+
 export type PlacedPdfPageFailure = 'no-page'
 
 export interface PlacedPdfPage {
