@@ -74,7 +74,7 @@ export async function verifyComposedBookParagraphs(h: Harness): Promise<void> {
         widths.checked > 0 &&
         widths.failures.length === 0 &&
         widths.optOuts.length === 2 &&
-        widths.optOuts.every((paragraph) => paragraph.lines === 0),
+        widths.optOuts.every((paragraph) => paragraph.lines >= 3 && paragraph.composedLines === 0),
       JSON.stringify(widths),
     )
     const screen = await frame.locator('html').evaluate(composedParagraphLines)

@@ -28,8 +28,7 @@ export function paragraphCompositionUnchanged(previousInlineSize: number | undef
   return previousInlineSize !== undefined && Math.abs(previousInlineSize - inlineSize) <= 0.5
 }
 
-export function paragraphCompositionAction(previousInlineSize: number | undefined, inlineSize: number, textAlign: string, composer: string, lineCount: number) {
-  if (paragraphCompositionUnchanged(previousInlineSize, inlineSize)) return 'skip'
+export function paragraphCompositionAction(previousInlineSize: number | undefined, textAlign: string, composer: string, lineCount: number) {
   const shouldCompose = composesParagraph(textAlign, composer) && lineCount > 1
   if (previousInlineSize !== undefined) return shouldCompose ? 'restore-and-compose' : 'restore'
   return shouldCompose ? 'compose' : 'leave'

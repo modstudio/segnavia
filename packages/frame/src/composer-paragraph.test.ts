@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { ParagraphToken } from './composer-paragraph.ts'
 import {
+  composeParagraphs,
   paragraphBaseDirection,
   paragraphCompositionAction,
   paragraphMeasures,
@@ -126,12 +127,11 @@ test('builds a plain-text line without cloning a DOM range', () => {
 })
 
 test('decides restore and recompose without retaining a stale size', () => {
-  expect(paragraphCompositionAction(undefined, 100, 'justify', 'paragraph', 2)).toBe('compose')
-  expect(paragraphCompositionAction(100, 100, 'justify', 'paragraph', 2)).toBe('skip')
-  expect(paragraphCompositionAction(100, 80, 'justify', 'paragraph', 1)).toBe('restore')
-  expect(paragraphCompositionAction(undefined, 100, 'justify', 'paragraph', 2)).toBe('compose')
-  expect(paragraphCompositionAction(100, 80, 'start', 'paragraph', 2)).toBe('restore')
-  expect(paragraphCompositionAction(undefined, 80, 'justify', 'single-line', 2)).toBe('leave')
+  expect(paragraphCompositionAction(undefined, 'justify', 'paragraph', 2)).toBe('compose')
+  expect(paragraphCompositionAction(100, 'justify', 'paragraph', 1)).toBe('restore')
+  expect(paragraphCompositionAction(100, 'justify', 'paragraph', 2)).toBe('restore-and-compose')
+  expect(paragraphCompositionAction(100, 'start', 'paragraph', 2)).toBe('restore')
+  expect(paragraphCompositionAction(undefined, 'justify', 'single-line', 2)).toBe('leave')
 })
 
 test('resolves one paragraph base direction for all of its lines', () => {
@@ -319,4 +319,68 @@ test('separates horizontal and sideways token widths in the measurement cache', 
   appendTextTokens(node, horizontal, cache, doc, styleFor, 'horizontal-tb')
   appendTextTokens(node, sideways, cache, doc, styleFor, 'sideways-rl')
   expect([horizontal[0]?.width, sideways[0]?.width]).toEqual([3, 7])
+})
+
+test('does not count a zero-width break as adjustable word spacing', () => {
+  const withoutBreak = planParagraphLines(tokens('one two three'), base)
+  const withBreak = planParagraphLines([...tokens('one'), { kind: 'space', text: '\u200b', width: 0 }, ...tokens(' two three')], base)
+  expect(withBreak[0]?.wordSpacing).toBe(withoutBreak[0]?.wordSpacing)
+})
+
+test('builds reuse keys for empty and comment-first paragraphs from the paragraph style', () => {
+  const style = {
+    textAlign: 'justify',
+    unicodeBidi: 'plaintext',
+    direction: 'ltr',
+    textIndent: '0px',
+    writingMode: 'horizontal-tb',
+    font: '16px serif',
+    fontKerning: 'auto',
+    fontFeatureSettings: 'normal',
+    fontVariationSettings: 'normal',
+    letterSpacing: 'normal',
+    textTransform: 'none',
+    getPropertyValue: () => '',
+  } as unknown as CSSStyleDeclaration
+  const doc = {
+    documentElement: { lang: 'en' },
+    createElement: () => ({
+      textContent: '',
+      style: { cssText: '' },
+      getBoundingClientRect: () => ({ width: 1, height: 1 }),
+      remove: () => undefined,
+    }),
+    createComment: () => ({}),
+  } as unknown as Document
+  for (const firstChild of [null, { nodeType: 8 }]) {
+    const paragraph = {
+      nodeType: 1,
+      childElementCount: 0,
+      firstChild,
+      childNodes: firstChild ? [firstChild] : [],
+      textContent: '',
+      getBoundingClientRect: () => ({ width: 100, height: 20 }),
+      getAttribute: () => null,
+      closest: () => null,
+      append: () => undefined,
+      replaceChildren: () => undefined,
+      hasAttribute: () => false,
+    } as unknown as Element
+    expect(() =>
+      composeParagraphs(
+        { querySelectorAll: () => [paragraph] } as unknown as ParentNode,
+        doc,
+        () => style,
+        new WeakMap(),
+        () => ({}),
+        () => [],
+        () => ({ breaks: [], ratios: [], violations: [] }),
+        () => [],
+        () => 100,
+        'data-identity',
+        'data-continuation',
+        'data-variable-value',
+      ),
+    ).not.toThrow()
+  }
 })

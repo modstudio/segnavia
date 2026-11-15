@@ -208,7 +208,8 @@ function plannedLines(
         : settings.spacing.desired + ratio * (settings.spacing.maximum - settings.spacing.desired)
     const fittedEnd = tokens[meta.end - 1]?.kind === 'space' ? meta.end - 1 : meta.end
     const spaces = tokens.slice(start, fittedEnd).filter((token) => token.kind === 'space')
-    const natural = spaces.length ? spaces.reduce((sum, token) => sum + token.width, 0) / spaces.length : 0
+    const wordSpaces = spaces.filter((token) => token.text !== '\u200b')
+    const natural = wordSpaces.length ? wordSpaces.reduce((sum, token) => sum + token.width, 0) / wordSpaces.length : 0
     if (start === tokens.length && meta.end === tokens.length) continue
     lines.push({
       start,
@@ -257,7 +258,7 @@ function paragraphRewriteForFact(
           inlineSize,
           language,
           direction,
-          measurementStyleKey(paragraph.firstChild as Text, styleFor),
+          measurementStyleKey(paragraph, styleFor),
           style.textIndent,
           style.writingMode,
           composition.hyphenate ?? compositionDefaults().hyphenate,
@@ -266,7 +267,7 @@ function paragraphRewriteForFact(
       : ''
   const source = reuseKey ? reusable.get(reuseKey) : undefined
   if (source) {
-    const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, source.lines.length)
+    const action = paragraphCompositionAction(previous?.inlineSize, style.textAlign, composer, source.lines.length)
     if (action === 'leave' || action === 'restore') return undefined
     return {
       paragraph,
@@ -293,7 +294,7 @@ function paragraphRewriteForFact(
     breakForLines,
     pointsForWord,
   )
-  const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length)
+  const action = paragraphCompositionAction(previous?.inlineSize, style.textAlign, composer, lines.length)
   if (action === 'leave' || action === 'restore') return undefined
   const rewrite = { paragraph, original, inlineSize, tokens, lines, direction, marker: doc.createComment('') }
   if (reuseKey) reusable.set(reuseKey, rewrite)

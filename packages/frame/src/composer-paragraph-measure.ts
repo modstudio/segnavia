@@ -22,8 +22,8 @@ export function graphemes(text: string): { text: string; start: number; end: num
   })
 }
 
-export function measurementStyleKey(node: Text, styleFor: typeof getComputedStyle): string {
-  const style = styleFor(node.parentElement ?? (node.parentNode as Element))
+export function measurementStyleKey(node: Node, styleFor: typeof getComputedStyle): string {
+  const style = styleFor(node.nodeType === 1 ? (node as Element) : (node.parentElement ?? (node.parentNode as Element)))
   return [style.font, style.fontKerning, style.fontFeatureSettings, style.fontVariationSettings, style.letterSpacing, style.textTransform].join('|')
 }
 

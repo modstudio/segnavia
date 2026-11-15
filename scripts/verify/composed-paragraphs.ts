@@ -8,7 +8,7 @@ export interface ComposedLineWidthReport {
   maxLines: number
   checked: number
   failures: Array<{ paragraph: number; line: number; width: number; measure: number }>
-  optOuts: Array<{ kind: string; lines: number }>
+  optOuts: Array<{ kind: string; lines: number; composedLines: number; copies: number }>
 }
 
 export interface ComposedNoteParagraphReport {
@@ -27,6 +27,13 @@ export function composedParagraphLines(): ComposedParagraphLines[] {
 }
 
 function composedLineWidthReportImpl(): ComposedLineWidthReport {
+  function browserLineCount(paragraph: HTMLElement): number {
+    const range = document.createRange()
+    range.selectNodeContents(paragraph)
+    const vertical = verticalWritingMode(getComputedStyle(paragraph).writingMode)
+    const starts = Array.from(range.getClientRects(), (rect) => (vertical ? rect.left : rect.top)).sort((a, b) => a - b)
+    return starts.reduce((count, start, index) => (index === 0 || Math.abs(start - (starts[index - 1] ?? start)) > 0.5 ? count + 1 : count), 0)
+  }
   function paragraphReport(paragraph: HTMLElement, paragraphIndex: number) {
     const lines = Array.from(paragraph.querySelectorAll<HTMLElement>(':scope > span[data-segnavia-line]'))
     if (lines.length === 0) return undefined
@@ -52,10 +59,15 @@ function composedLineWidthReportImpl(): ComposedLineWidthReport {
     maxLines: Math.max(0, ...reports.map((report) => report.lines)),
     checked: measured.length,
     failures: measured.filter(({ width, measure }) => Math.abs(width - measure) > 0.5),
-    optOuts: Array.from(document.querySelectorAll<HTMLElement>('p[data-composition-opt-out]')).map((paragraph) => ({
-      kind: paragraph.getAttribute('data-composition-opt-out') ?? '',
-      lines: paragraph.querySelectorAll(':scope > span[data-segnavia-line]').length,
-    })),
+    optOuts: Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-galley-source] p[data-composition-opt-out]')).map((paragraph) => {
+      const kind = paragraph.getAttribute('data-composition-opt-out') ?? ''
+      return {
+        kind,
+        lines: browserLineCount(paragraph),
+        composedLines: paragraph.querySelectorAll(':scope > span[data-segnavia-line]').length,
+        copies: document.querySelectorAll(`p[data-composition-opt-out="${CSS.escape(kind)}"]`).length,
+      }
+    }),
   }
 }
 

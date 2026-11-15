@@ -183,3 +183,33 @@ test('active-node deactivation preserves frozen generated breaks', () => {
   const chunkedBreakLines = new Function(`${breakLinesScript().replace('var CHUNK_ITEMS=2000', 'var CHUNK_ITEMS=20')};return breakLines`)() as typeof breakLines
   expect(chunkedBreakLines(chunked, [18, 20]).breaks).toEqual([9, 19, 29, 39, 49, 59, 61])
 })
+
+test('keeps a shrinkable active node after its natural width passes the measure', () => {
+  const items = [
+    box(9),
+    glue(2, 4, 2),
+    box(2),
+    glue(4, 3, 5),
+    box(9),
+    glue(1, 1, 3),
+    box(2),
+    glue(5, 2, 3),
+    box(8),
+    glue(3, 1, 3),
+    box(2),
+    glue(1, 4, 1),
+    box(9),
+    penalty(Number.POSITIVE_INFINITY),
+    glue(0, 100_000, 0),
+    penalty(Number.NEGATIVE_INFINITY),
+  ]
+
+  const result = breakLines(items, [23])
+
+  // At breakpoint 5 the first line's natural width is 26, but its 7px shrink
+  // keeps the start node viable. Breakpoint 7 then fits 29px into 23px with
+  // 10px available shrink, producing the optimal -0.6 ratio.
+  expect(result.breaks).toEqual([7, 15])
+  expect(result.ratios).toEqual([-0.6, 0])
+  expect(result.violations).toEqual([false, false])
+})
