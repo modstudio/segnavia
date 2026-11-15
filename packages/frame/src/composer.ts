@@ -22,7 +22,6 @@ import {
   PAGE_REFERENCE_SELECTOR,
   pageIndexForTarget,
   parseCssLength,
-  partNumberKey,
   windowPageIndex,
 } from '@segnavia/html'
 import { layoutScript, regionBox } from '@segnavia/layout'
@@ -52,7 +51,7 @@ import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
 import { placeParentRegions } from './composer-regions.ts'
 import { composerTagEntries, embeddedComposerTagFunctions } from './composer-tags.ts'
-import { parsePartValues, partTitleValues, sectionTitleValues } from './composer-title-values.ts'
+import { embeddedTitleValueFunctions } from './composer-title-values.ts'
 import { correctedWindowSpacer, windowContentTop, windowSpacerOffset, windowSpacerProperties } from './composer-window-placement.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
 import { LAYOUT_ATTRIBUTE } from './layout.ts'
@@ -203,10 +202,7 @@ ${embedFunction('decideBookMeasurement', decideBookMeasurement)}
 ${embedFunction('advanceVisibleTime', advanceVisibleTime)}
 ${embedFunction('decideVisibleMeasurement', decideVisibleMeasurement)}
 ${embedFunction('appendMeasuredBlock', appendMeasuredBlock)}
-${embedFunction('partNumberKey', partNumberKey)}
-${embedFunction('partTitleValues', partTitleValues)}
-${embedFunction('parsePartValues', parsePartValues)}
-${embedFunction('sectionTitleValues', sectionTitleValues)}
+${embeddedTitleValueFunctions()}
 ${embeddedComposerMeasureFunctions(lineNotes)}
 ${embeddedComposerMarginFunctions()}
 ${embedFunction('noteFragmentExtent', noteFragmentExtent)}
@@ -284,7 +280,7 @@ var chapterOf=function(element){return Number(element.getAttribute('data-segnavi
 var flowKind=function(element){if(element.getAttribute('data-segnavia-kind')==='fixed')return 'fixed';if(element.getAttribute('data-segnavia-kind')==='templated')return 'templated';if(element.getAttribute('data-segnavia-kind')==='part')return 'part';if(element.classList.contains('segnavia-contents'))return 'contents';if(element.classList.contains('segnavia-front'))return 'front';if(element.classList.contains('segnavia-endnotes'))return 'endnotes';return 'chapter';};
 var parentsOf=function(element){if(!element)return null;var rules=element.getAttribute('data-segnavia-parent-rules');return rules?JSON.parse(rules):null;};
 var withFlowMeta=function(flow,element){var opens=element.getAttribute('data-opens');if(opens)flow.opens=opens;var rules=parentsOf(element);if(rules)flow.parentRules=rules;var sequence=element.getAttribute('data-sequence');if(sequence)flow.sequence=sequence;var numbering=flowSectionNumbering(element);if(numbering)flow.numbering=numbering;var recordIndex=element.getAttribute('data-record-index');var recordCount=element.getAttribute('data-record-count');if(recordIndex&&recordCount)flow.record={index:Number(recordIndex),count:Number(recordCount)};var pageGeometry=element.getAttribute('data-page-geometry');if(pageGeometry)flow.pageGeometry=pageGeometry;var columns=geometryFor(pageGeometry).columnCount||1;for(var i=0;i<(flow.blocks||[]).length;i++)if(flow.blocks[i].columns===undefined&&columns>1)flow.blocks[i].columns=columns;return flow;};
-var measureVariables=function(block,lines,origin){var nodes=[];if(block.hasAttribute('data-variable'))nodes.push(block);var inner=block.querySelectorAll('[data-variable]');for(var i=0;i<inner.length;i++)nodes.push(inner[i]);var values=[];for(var n=0;n<nodes.length;n++){var name=nodes[n].getAttribute('data-variable');if(!name)continue;var declaration=(config.variables||[]).find(function(variable){return variable.kind==='text'&&variable.from==='content'&&variable.name===name;});if(!declaration)continue;var top=nodes[n].getBoundingClientRect().top-origin;values.push({name:name,value:(nodes[n].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(top,lines)});}var titleNodes=[];if(block.hasAttribute('data-segnavia-section-title'))titleNodes.push(block);var titles=block.querySelectorAll('[data-segnavia-section-title]');for(var t=0;t<titles.length;t++)titleNodes.push(titles[t]);return values.concat(sectionTitleValues(titleNodes,lines,origin));};
+var measureVariables=function(block,lines,origin){var nodes=[];if(block.hasAttribute('data-variable'))nodes.push(block);var inner=block.querySelectorAll('[data-variable]');for(var i=0;i<inner.length;i++)nodes.push(inner[i]);var values=[];for(var n=0;n<nodes.length;n++){var name=nodes[n].getAttribute('data-variable');if(!name)continue;var declaration=(config.variables||[]).find(function(variable){return variable.kind==='text'&&variable.from==='content'&&variable.name===name;});if(!declaration)continue;var top=nodes[n].getBoundingClientRect().top-origin;values.push({name:name,value:(nodes[n].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(top,lines)});}var titleNodes=[];if(block.hasAttribute('data-segnavia-section-title'))titleNodes.push(block);var titles=block.querySelectorAll('[data-segnavia-section-title]');for(var t=0;t<titles.length;t++)titleNodes.push(titles[t]);return values.concat(sectionTitleValues(config.variables||[],titleNodes,lines,origin,lineIndex));};
 var measuredSectionTitleValues=sectionTitleValues;
 var measureRefs=function(block,lines,origin){var nodes=block.querySelectorAll('.segnavia-note-ref > a,[data-segnavia-line-note]');var refs=[];for(var i=0;i<nodes.length;i++){if(insideSideNote(nodes[i]))continue;if(nodes[i].parentElement&&nodes[i].parentElement.hasAttribute('data-segnavia-note-repeat'))continue;var href=nodes[i].getAttribute('href')||'';if(href.charAt(0)!=='#')continue;var note=elementWithAttr(document,'data-segnavia-note',href.slice(1));if(!note||!note.closest('[data-segnavia-notes-galley]'))continue;var top=nodes[i].getBoundingClientRect().top-origin;refs.push({note:href.slice(1),line:lineIndex(top,lines)});}return refs;};
 var keepSignalValues=function(style,keepWith){return {breakInside:style.breakInside,pageBreakInside:style.pageBreakInside,breakAfter:style.breakAfter,pageBreakAfter:style.pageBreakAfter,breakBefore:style.breakBefore,pageBreakBefore:style.pageBreakBefore,keepWith:keepWith};};

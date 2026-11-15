@@ -1,6 +1,31 @@
 import { expect, test } from 'bun:test'
 import { bookDocument, parseBookFixture } from '@segnavia/html'
-import { parsePartValues, partTitleValues, sectionTitleValues } from './composer-title-values.ts'
+import { embeddedTitleValueFunctions, parsePartValues, partTitleValues, sectionTitleValues } from './composer-title-values.ts'
+
+test('the embedded title value script runs on its own in a fresh scope', () => {
+  const embedded = new Function(`${embeddedTitleValueFunctions()}\nreturn sectionTitleValues`)() as typeof sectionTitleValues
+  const parts = '{"#gate":"II"}'
+  expect(
+    embedded(
+      [
+        { name: 'title', kind: 'text', from: 'section-title', pick: 'first' },
+        { name: 'part', kind: 'text', from: 'part-number', part: 'gate', pick: 'first' },
+      ],
+      [
+        {
+          getAttribute: (name) => ({ 'data-segnavia-section-title': 'Opening', 'data-segnavia-parts': parts })[name] ?? null,
+          getBoundingClientRect: () => ({ top: 0 }),
+        },
+      ],
+      [],
+      0,
+      () => 0,
+    ),
+  ).toEqual([
+    { name: 'title', value: 'Opening', line: 0, scope: 'flow' },
+    { name: 'part', value: 'II', line: 0, scope: 'flow' },
+  ])
+})
 
 test('resolves a top-level chapter number once from its section attribute', () => {
   const variables = [

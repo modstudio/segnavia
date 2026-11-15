@@ -1,5 +1,5 @@
 import type { PaginateVariable, Variable } from '@segnavia/format'
-import { partNumberKey } from '@segnavia/html'
+import { embedFunction, partNumberKey } from '@segnavia/html'
 import type { MeasuredLineBox } from './composer-measure.ts'
 
 export function partTitleValues(variables: readonly Variable[], parts: Record<string, string>): PaginateVariable[] {
@@ -63,4 +63,16 @@ export function sectionTitleValues(
     }
   }
   return values
+}
+
+// The composer runs in the page, so every helper these values call is embedded beside them.
+export function embeddedTitleValueFunctions(): string {
+  return [
+    embedFunction('partNumberKey', partNumberKey),
+    embedFunction('partTitleValues', partTitleValues),
+    embedFunction('parsePartValues', parsePartValues),
+    embedFunction('isSectionTitleVariable', isSectionTitleVariable),
+    embedFunction('sectionTitleValue', sectionTitleValue),
+    embedFunction('sectionTitleValues', sectionTitleValues),
+  ].join('\n')
 }
