@@ -103,6 +103,7 @@ function adjustment(
   current: Breakpoint,
   target: number,
   emergencyStretch: number,
+  infiniteBadness: number,
 ): { ratio: number; badness: number } {
   const start = lineStart(items, previous)
   const end = current.index
@@ -113,15 +114,15 @@ function adjustment(
   if (difference > 0) {
     const stretch = (sums.stretch[end] ?? 0) - (sums.stretch[start] ?? 0) + emergencyStretch
     if (stretch > 0) return adjustmentForRatio(difference / stretch)
-    return { ratio: Number.POSITIVE_INFINITY, badness: overflowBadness(difference, target) }
+    return { ratio: Number.POSITIVE_INFINITY, badness: overflowBadness(difference, target, infiniteBadness) }
   }
   const shrink = (sums.shrink[end] ?? 0) - (sums.shrink[start] ?? 0)
   if (shrink > 0) return adjustmentForRatio(difference / shrink)
-  return { ratio: Number.NEGATIVE_INFINITY, badness: overflowBadness(difference, target) }
+  return { ratio: Number.NEGATIVE_INFINITY, badness: overflowBadness(difference, target, infiniteBadness) }
 }
 
-function overflowBadness(difference: number, target: number): number {
-  return INFINITE_BADNESS * (1 + Math.abs(difference) / Math.max(1, Math.abs(target)))
+function overflowBadness(difference: number, target: number, infiniteBadness: number): number {
+  return infiniteBadness * (1 + Math.abs(difference) / Math.max(1, Math.abs(target)))
 }
 
 function fitnessClass(ratio: number): number {
@@ -157,11 +158,12 @@ function candidateNode(
   enforceLimits: boolean,
   previous: Node,
   point: Breakpoint,
+  infiniteBadness: number,
 ): Node | undefined {
   if (hasSkippedForced(sums, items, previous.breakpoint, point)) return undefined
   const widthIndex = widthOffset + previous.line
   const target = widths[widthIndex] ?? widths.at(-1) ?? 0
-  const measured = adjustment(items, sums, previous.breakpoint, point, target, settings.emergencyStretch)
+  const measured = adjustment(items, sums, previous.breakpoint, point, target, settings.emergencyStretch, infiniteBadness)
   if (enforceLimits && (measured.ratio < settings.minRatio || measured.ratio > settings.maxRatio)) return undefined
   const fitness = fitnessClass(measured.ratio)
   return {
@@ -184,10 +186,11 @@ function candidatesAtPoint(
   singleMeasure: boolean,
   nodes: readonly Node[],
   point: Breakpoint,
+  infiniteBadness: number,
 ): Node[] {
   const best = new Map<string, Node>()
   for (const previous of nodes) {
-    const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point)
+    const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point, infiniteBadness)
     if (!candidate) continue
     const lineKey = singleMeasure ? '' : candidate.line
     const key = `${lineKey}:${candidate.fitness}:${point.flagged ? 1 : 0}`
@@ -203,6 +206,7 @@ function solve(
   widthOffset: number,
   pass: Pass,
   initial: { flagged: boolean; fitness: number },
+  infiniteBadness: number,
 ): Node | undefined {
   const sums = prefixes(items)
   const points = breakpoints(items)
@@ -214,20 +218,20 @@ function solve(
 
   for (const point of points) {
     if (point.flagged && !pass.hyphens && !point.forced) continue
-    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, nodes, point)
+    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, nodes, point, infiniteBadness)
     nodes.push(...atPoint)
     if (point.index === terminalIndex) endings = atPoint
   }
   return endings.reduce<Node | undefined>((best, node) => (!best || node.demerits < best.demerits ? node : best), undefined)
 }
 
-function chunkEnds(items: readonly Item[]): number[] {
-  if (items.length <= CHUNK_ITEMS) return [items.length - 1]
+function chunkEnds(items: readonly Item[], chunkItems: number): number[] {
+  if (items.length <= chunkItems) return [items.length - 1]
   const candidates = breakpoints(items).map((point) => point.index)
   const ends: number[] = []
   let start = 0
-  while (items.length - start > CHUNK_ITEMS) {
-    const limit = start + CHUNK_ITEMS
+  while (items.length - start > chunkItems) {
+    const limit = start + chunkItems
     const before = candidates.filter((index) => index > start && index <= limit).at(-1)
     const after = candidates.find((index) => index > limit)
     const end = Math.min(before ?? after ?? items.length - 1, items.length - 1)
@@ -254,10 +258,12 @@ function chosenNodes(end: Node): Node[] {
  * When no ratio-limited pass succeeds, a least-bad pass returns and flags the
  * best set without ratio limits.
  */
-export function breakLines(
+function breakLinesWith(
   items: readonly Item[],
   widths: readonly number[],
-  options: Options = {},
+  options: Options,
+  chunkItems: number,
+  infiniteBadness: number,
 ): { breaks: number[]; ratios: number[]; violations: boolean[] } {
   if (items.length === 0) return { breaks: [], ratios: [], violations: [] }
   const settings: Settings = {
@@ -281,19 +287,27 @@ export function breakLines(
   let widthOffset = 0
   let prior = { flagged: false, fitness: 1 }
 
-  for (const chunkEnd of chunkEnds(items)) {
+  for (const chunkEnd of chunkEnds(items, chunkItems)) {
     const chunk = items.slice(itemOffset, chunkEnd + 1)
     if (chunkEnd < items.length - 1) {
       const boundary = chunk.at(-1)
       chunk[chunk.length - 1] = penaltyBoundary(boundary)
     }
-    const end = passes.map((pass) => solve(chunk, widths, widthOffset, pass, prior)).find(Boolean)
+    const end = passes.map((pass) => solve(chunk, widths, widthOffset, pass, prior, infiniteBadness)).find(Boolean)
     if (!end) break
     const lines = chosenNodes(end)
     const sums = prefixes(chunk)
     for (const [index, line] of lines.entries()) {
       const target = widths[widthOffset + index] ?? widths.at(-1) ?? 0
-      const measured = adjustment(chunk, sums, line.previous?.breakpoint ?? { index: -1, penalty: 0, flagged: false, forced: true }, line.breakpoint, target, 0)
+      const measured = adjustment(
+        chunk,
+        sums,
+        line.previous?.breakpoint ?? { index: -1, penalty: 0, flagged: false, forced: true },
+        line.breakpoint,
+        target,
+        0,
+        infiniteBadness,
+      )
       breaks.push(itemOffset + line.breakpoint.index)
       ratios.push(measured.ratio)
       violations.push(measured.ratio < base.minRatio || measured.ratio > base.maxRatio)
@@ -304,6 +318,14 @@ export function breakLines(
     itemOffset = chunkEnd + 1
   }
   return { breaks, ratios, violations }
+}
+
+export function breakLines(
+  items: readonly Item[],
+  widths: readonly number[],
+  options: Options = {},
+): { breaks: number[]; ratios: number[]; violations: boolean[] } {
+  return breakLinesWith(items, widths, options, CHUNK_ITEMS, INFINITE_BADNESS)
 }
 
 function penaltyBoundary(item: Item | undefined): Penalty {
@@ -333,6 +355,6 @@ ${solve.toString()}
 ${chunkEnds.toString()}
 ${chosenNodes.toString()}
 ${penaltyBoundary.toString()}
-${breakLines.toString()}
-var breakLines=${breakLines.name};`
+${breakLinesWith.toString()}
+var breakLines=function(items,widths,options){return ${breakLinesWith.name}(items,widths,options||{},CHUNK_ITEMS,INFINITE_BADNESS)};`
 }

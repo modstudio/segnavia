@@ -26,28 +26,28 @@ export function lineFragment(tokens: readonly ParagraphToken[], line: ParagraphL
   return fragment
 }
 
-export function markCompositionIdentities(paragraph: Element): () => void {
+export function markCompositionIdentities(paragraph: Element, identityAttribute: string, variableValueAttribute: string): () => void {
   const elements = paragraph.querySelectorAll('[data-variable],.segnavia-note-ref > a,[data-segnavia-line-note]')
   for (let index = 0; index < elements.length; index++) {
     const element = elements[index]
-    element?.setAttribute(COMPOSITION_IDENTITY_ATTRIBUTE, String(index))
-    if (element?.hasAttribute('data-variable')) element.setAttribute(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE, element.textContent ?? '')
+    element?.setAttribute(identityAttribute, String(index))
+    if (element?.hasAttribute('data-variable')) element.setAttribute(variableValueAttribute, element.textContent ?? '')
   }
   return () => {
     for (const element of elements) {
-      element.removeAttribute(COMPOSITION_IDENTITY_ATTRIBUTE)
-      element.removeAttribute(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)
+      element.removeAttribute(identityAttribute)
+      element.removeAttribute(variableValueAttribute)
     }
   }
 }
 
-export function markCompositionContinuations(fragments: readonly ParentNode[]): void {
+export function markCompositionContinuations(fragments: readonly ParentNode[], identityAttribute: string, continuationAttribute: string): void {
   const seen = new Set<string>()
   for (const fragment of fragments) {
-    for (const element of fragment.querySelectorAll(`[${COMPOSITION_IDENTITY_ATTRIBUTE}]`)) {
-      const identity = element.getAttribute(COMPOSITION_IDENTITY_ATTRIBUTE) ?? ''
-      element.removeAttribute(COMPOSITION_IDENTITY_ATTRIBUTE)
-      if (seen.has(identity)) element.setAttribute(COMPOSITION_CONTINUATION_ATTRIBUTE, '')
+    for (const element of fragment.querySelectorAll(`[${identityAttribute}]`)) {
+      const identity = element.getAttribute(identityAttribute) ?? ''
+      element.removeAttribute(identityAttribute)
+      if (seen.has(identity)) element.setAttribute(continuationAttribute, '')
       else seen.add(identity)
     }
   }
@@ -70,12 +70,15 @@ export function rewriteParagraph(
   lines: readonly ParagraphLine[],
   doc: Document,
   direction: string,
+  identityAttribute: string,
+  continuationAttribute: string,
+  variableValueAttribute: string,
 ): void {
-  const clearIdentities = markCompositionIdentities(paragraph)
+  const clearIdentities = markCompositionIdentities(paragraph, identityAttribute, variableValueAttribute)
   const fragments = lines.map((line) => lineFragment(tokens, line, doc))
   clearIdentities()
   removeContinuationIds(fragments)
-  markCompositionContinuations(fragments)
+  markCompositionContinuations(fragments, identityAttribute, continuationAttribute)
   const output = lines.map((line, index) => {
     const span = doc.createElement('span')
     span.setAttribute('data-segnavia-line', '')

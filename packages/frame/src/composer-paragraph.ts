@@ -195,7 +195,8 @@ function plannedLines(
       ratio < 0
         ? settings.spacing.desired + ratio * (settings.spacing.desired - settings.spacing.minimum)
         : settings.spacing.desired + ratio * (settings.spacing.maximum - settings.spacing.desired)
-    const spaces = tokens.slice(start, meta.end).filter((token) => token.kind === 'space')
+    const fittedEnd = tokens[meta.end - 1]?.kind === 'space' ? meta.end - 1 : meta.end
+    const spaces = tokens.slice(start, fittedEnd).filter((token) => token.kind === 'space')
     const natural = spaces.length ? spaces.reduce((sum, token) => sum + token.width, 0) / spaces.length : 0
     lines.push({
       start,
@@ -242,10 +243,11 @@ function restoreParagraph(
   paragraph: Element,
   previous: { children: Node[]; inlineSize: number } | undefined,
   composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
+  variableValueAttribute: string,
 ): void {
   if (!previous) return
   paragraph.replaceChildren(...previous.children)
-  paragraph.removeAttribute(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)
+  paragraph.removeAttribute(variableValueAttribute)
   composedParagraphs.delete(paragraph)
 }
 
@@ -259,6 +261,9 @@ export function composeParagraphs(
   breakForLines: typeof breakLines,
   pointsForWord: typeof hyphenationPoints,
   measureContent: typeof contentInlineSize,
+  identityAttribute: string,
+  continuationAttribute: string,
+  variableValueAttribute: string,
 ): void {
   const cache = new Map<string, number>()
   const profile = paragraphProfile(doc)
@@ -273,7 +278,7 @@ export function composeParagraphs(
     const inlineSize = measureContent(rect, style)
     const previous = composedParagraphs.get(paragraph)
     if (previous && Math.abs(previous.inlineSize - inlineSize) <= 0.5) continue
-    restoreParagraph(paragraph, previous, composedParagraphs)
+    restoreParagraph(paragraph, previous, composedParagraphs, variableValueAttribute)
     if (style.textAlign !== 'justify') continue
     const composition = readStyle(style)
     const composer = composition.composer ?? 'paragraph'
@@ -303,7 +308,7 @@ export function composeParagraphs(
     if (action === 'leave' || action === 'restore') continue
     composedParagraphs.set(paragraph, { children: original, inlineSize })
     pass.recomposed += 1
-    if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE, paragraph.textContent ?? '')
+    if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(variableValueAttribute, paragraph.textContent ?? '')
     const rewriteStarted = now()
     rewriteParagraph(
       paragraph,
@@ -311,6 +316,9 @@ export function composeParagraphs(
       lines,
       doc,
       paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction),
+      identityAttribute,
+      continuationAttribute,
+      variableValueAttribute,
     )
     profile.rewriteMs += now() - rewriteStarted
   }

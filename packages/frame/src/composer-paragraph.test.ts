@@ -4,7 +4,12 @@ import { layoutScript } from '@segnavia/layout'
 import type { ParagraphToken } from './composer-paragraph.ts'
 import { paragraphBaseDirection, paragraphCompositionAction, paragraphMeasures, planParagraphLines } from './composer-paragraph.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
-import { markCompositionContinuations, removeContinuationIds } from './composer-paragraph-dom.ts'
+import {
+  COMPOSITION_CONTINUATION_ATTRIBUTE,
+  COMPOSITION_IDENTITY_ATTRIBUTE,
+  markCompositionContinuations,
+  removeContinuationIds,
+} from './composer-paragraph-dom.ts'
 
 function tokens(text: string, width = 5): ParagraphToken[] {
   return Array.from(text, (part) => ({ kind: /^\s$/u.test(part) ? 'space' : 'text', text: part, width }))
@@ -141,7 +146,7 @@ test('marks continuation identities while keeping the first clone authoritative'
       },
     ],
   })) as unknown as ParentNode[]
-  markCompositionContinuations(fragments)
+  markCompositionContinuations(fragments, COMPOSITION_IDENTITY_ATTRIBUTE, COMPOSITION_CONTINUATION_ATTRIBUTE)
   expect(attributes[0]?.get('data-segnavia-composition-variable-value')).toBe('whole value')
   expect(attributes[0]?.has('data-segnavia-composition-continuation')).toBe(false)
   expect(attributes[1]?.has('data-segnavia-composition-continuation')).toBe(true)

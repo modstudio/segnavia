@@ -75,10 +75,7 @@ export function composedNoteParagraphReport(): ComposedNoteParagraphReport {
     if (sourceLines === 0) return undefined
     const flow = source.closest<HTMLElement>('[data-segnavia-flow]')
     const flowId = flow?.getAttribute('data-segnavia-flow') ?? ''
-    const blocks = flow
-      ? Array.from(flow.children).filter((child) => child.tagName !== 'STYLE' && child.tagName !== 'SCRIPT' && !child.hasAttribute('data-side-note'))
-      : []
-    const blockIndex = blocks.indexOf(source)
+    const blockIndex = flow ? Array.from(flow.children).indexOf(source) : -1
     const windows = Array.from(document.querySelectorAll<HTMLElement>(`[data-segnavia-window][data-flow="${CSS.escape(flowId)}"]`))
     const clones = windows.flatMap((window) => {
       const clone = window.querySelector<HTMLElement>(`[data-segnavia-block="${blockIndex}"]`)

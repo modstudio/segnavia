@@ -46,8 +46,6 @@ export async function buildBookPdfs(site: string, bookPdf: DemoBookPdf, bookPlan
     )
   }
   await buildNumberedBookPdfs(site, bookPdf)
-  await buildLargeBookPdfs(site, (book) => bookPdf(book))
-  await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
   for (const fixture of await bookFixtures()) {
     let lines: ComposedParagraphLines[] = []
     writeFileSync(
@@ -60,4 +58,6 @@ export async function buildBookPdfs(site: string, bookPdf: DemoBookPdf, bookPlan
     )
     writeFileSync(path.join(site, `${fixture.id}-composition-lines.json`), JSON.stringify(lines))
   }
+  await buildLargeBookPdfs(site, (book) => bookPdf(book))
+  await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
 }
