@@ -682,6 +682,8 @@ A render host supplies both the `playwright-core` client, any version in the
 render package's peer range, and the Chromium binary it launches through
 `executablePath`.
 
+The `segnavia-render` executable is the process boundary for hosts that render one PDF from one JSON request. The request selects `pagePdf`, `pagesPdf`, `bookPdf` or `deckPdf`; it carries the document, JSON-safe method options and an optional `FontCatalog`. `SEGNAVIA_CHROMIUM` supplies the browser executable, `SEGNAVIA_CHROMIUM_CONTAINER=1` selects the container launch arguments, and `SEGNAVIA_FONTS` roots a catalog-backed `directoryFontSource`. The executable keeps rendering offline and offers no assets or other function seam. It writes only the PDF to standard output; typed refusals use exit 2 and one JSON standard-error line, while other failures use exit 1 and a distinct JSON shape. Standard input is bounded at 100 MiB.
+
 `Board` is the portable value for an unbounded collection of referenced
 assets, labels and sections. It stores each item's width but not its height.
 A label's authored `width` is its wrap width: absent, its lines remain

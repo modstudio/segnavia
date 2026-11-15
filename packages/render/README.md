@@ -4,6 +4,18 @@
 
 The host implements `assets` to answer approved document requests; `limits.assets` bounds each answer and their combined bytes.
 
+## Command line
+
+The package installs `segnavia-render` for a host that needs one offline PDF render per process. It reads one JSON request from standard input and writes only PDF bytes to standard output:
+
+```sh
+env -i SEGNAVIA_CHROMIUM=/path/to/chromium segnavia-render < request.json > output.pdf
+```
+
+The request is `{ "render": "page" | "pages" | "book" | "deck", "document": ..., "options": ..., "fonts"?: ... }`; `pages` takes an array document. `options` are the corresponding renderer method's JSON-safe options. A `fonts` catalog also requires `SEGNAVIA_FONTS` to name the directory beneath which its face paths resolve. Set `SEGNAVIA_CHROMIUM_CONTAINER=1` to add the package's Chromium container arguments.
+
+Success exits 0 with an empty standard error. A refusal exits 2 with one JSON line on standard error under `refusal`; another failure exits 1 with one line under `failure`. The command accepts at most 100 MiB on standard input. Function seams such as assets, brands, reports and hooks are unavailable, and rendering remains offline.
+
 Use `renderer.stampPdf(bytes, { watermark, protection })` to apply the same watermark and PDF protection model to a PDF supplied by the host. Its image watermark uses the same offline `origins`, `assets` and `assetBudget` seam as the render methods. A text watermark uses `watermark.font`, then the first family in `fonts`, then `sans-serif`. Received files and decoded object streams are bounded by host-only `limits.input.bytes` and `limits.input.streamBytes`. The renderer stays offline and never follows external references in the PDF. Stamping changes the file, so an original digital signature no longer validates.
 
 ## Folder fonts

@@ -19,6 +19,7 @@ function entries(name: string): Record<string, string> {
     const output = conditions.default.replace(/^\.\/dist\//, '').replace(/\.js$/, '')
     result[output] = source.replace(/^\.\//, '')
   }
+  if (name === 'render') result.bin = 'src/cli/bin.ts'
   return result
 }
 
@@ -34,6 +35,7 @@ export default defineConfig(
       dts: true,
       unbundle: true,
       root: 'src',
+      banner: name === 'render' ? ({ fileName }) => (fileName === 'bin.js' ? '#!/usr/bin/env node' : undefined) : undefined,
       deps: { neverBundle: true, dts: { neverBundle: true } },
       exports: false,
     }),
