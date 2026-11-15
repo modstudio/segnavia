@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { ParagraphToken } from './composer-paragraph.ts'
-import { contentInlineSize, paragraphComposerScript, paragraphMeasures, planParagraphLines, removeContinuationIds } from './composer-paragraph.ts'
+import { paragraphComposerScript, paragraphMeasures, planParagraphLines, removeContinuationIds } from './composer-paragraph.ts'
+import { contentInlineSize } from './composer-paragraph-box.ts'
 
 function tokens(text: string, width = 5): ParagraphToken[] {
   return Array.from(text, (part) => ({ kind: /^\s$/u.test(part) ? 'space' : 'text', text: part, width }))
@@ -67,7 +68,9 @@ test('plans br as a forced start-aligned break and counts an atomic inline box',
     { start: 4, end: 7, wordSpacing: 0, hyphen: false, forced: false },
   ])
   const withAtomic: ParagraphToken[] = [...tokens('one '), { kind: 'atomic', text: '', width: 30 }, ...tokens(' two')]
-  expect(planParagraphLines(withAtomic, { ...base, measure: 35 }).length).toBeGreaterThan(planParagraphLines(tokens('one  two'), { ...base, measure: 35 }).length)
+  expect(planParagraphLines(withAtomic, { ...base, measure: 35 }).length).toBeGreaterThan(
+    planParagraphLines(tokens('one  two'), { ...base, measure: 35 }).length,
+  )
 })
 
 test('removes an id from continuation clones only', () => {
@@ -120,5 +123,18 @@ test('keeps embedded paragraph function names after minification', async () => {
   expect(typeof compose).toBe('function')
   const paragraph = { getBoundingClientRect: () => ({ width: 100, height: 20 }) }
   const style = { textAlign: 'start', writingMode: 'horizontal-tb', getPropertyValue: () => '' }
-  expect(() => compose({ querySelectorAll: () => [paragraph] }, {}, () => style, 4, new WeakMap())).not.toThrow()
+  expect(() =>
+    compose(
+      { querySelectorAll: () => [paragraph] },
+      {},
+      () => style,
+      4,
+      new WeakMap(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (rect: { width: number }) => rect.width,
+    ),
+  ).not.toThrow()
 })

@@ -1,5 +1,6 @@
-import { embedFunction, readCompositionStyle } from '@segnavia/html'
+import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
+import { contentInlineSize } from './composer-paragraph-box.ts'
 
 export interface ParagraphToken {
   kind: 'text' | 'space' | 'atomic' | 'forced'
@@ -9,7 +10,6 @@ export interface ParagraphToken {
   start?: number
   end?: number
 }
-
 export interface ParagraphLine {
   start: number
   end: number
@@ -17,7 +17,6 @@ export interface ParagraphLine {
   hyphen: boolean
   forced: boolean
 }
-
 interface CompositionSettings {
   measure: number
   language: string
@@ -25,19 +24,16 @@ interface CompositionSettings {
   indent?: number
   spacing: { minimum: number; desired: number; maximum: number }
 }
-
 interface BreakMeta {
   end: number
   next: number
   hyphen: boolean
   forced: boolean
 }
-
 type ParagraphItem =
   | { type: 'box'; width: number }
   | { type: 'glue'; width: number; stretch: number; shrink: number }
   | { type: 'penalty'; width: number; penalty: number; flagged: boolean }
-
 function graphemes(text: string): { text: string; start: number; end: number }[] {
   if (typeof Intl.Segmenter === 'function') {
     const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
@@ -50,18 +46,22 @@ function graphemes(text: string): { text: string; start: number; end: number }[]
     return held
   })
 }
-
 function inlineExtent(range: Range, writingMode: string): number {
   const rect = range.getBoundingClientRect()
   return writingMode.startsWith('vertical') ? rect.height : rect.width
 }
-
 function measurementStyleKey(node: Text, styleFor: typeof getComputedStyle): string {
   const style = styleFor(node.parentElement ?? (node.parentNode as Element))
   return [style.font, style.fontKerning, style.fontFeatureSettings, style.fontVariationSettings, style.letterSpacing, style.textTransform].join('|')
 }
-
-function appendTextTokens(node: Text, tokens: ParagraphToken[], cache: Map<string, number>, doc: Document, styleFor: typeof getComputedStyle, writingMode: string): void {
+function appendTextTokens(
+  node: Text,
+  tokens: ParagraphToken[],
+  cache: Map<string, number>,
+  doc: Document,
+  styleFor: typeof getComputedStyle,
+  writingMode: string,
+): void {
   const styleKey = measurementStyleKey(node, styleFor)
   for (const part of graphemes(node.data)) {
     const range = doc.createRange()
@@ -76,31 +76,35 @@ function appendTextTokens(node: Text, tokens: ParagraphToken[], cache: Map<strin
     tokens.push({ kind: /^\s+$/u.test(part.text) ? 'space' : 'text', text: part.text, width, node, start: part.start, end: part.end })
   }
 }
-
+function appendMeasuredTokens(
+  parent: ParentNode,
+  tokens: ParagraphToken[],
+  cache: Map<string, number>,
+  doc: Document,
+  styleFor: typeof getComputedStyle,
+  writingMode: string,
+): void {
+  for (const node of parent.childNodes) {
+    if (node.nodeType === 3) {
+      appendTextTokens(node as Text, tokens, cache, doc, styleFor, writingMode)
+      continue
+    }
+    if (node.nodeType !== 1) continue
+    const element = node as Element
+    if (element.matches('script,style,template,[data-segnavia-line]')) continue
+    if (element.tagName === 'BR') tokens.push({ kind: 'forced', text: '', width: 0, node: element })
+    else if (!element.textContent) {
+      const rect = element.getBoundingClientRect()
+      tokens.push({ kind: 'atomic', text: '', width: writingMode.startsWith('vertical') ? rect.height : rect.width, node: element })
+    } else appendMeasuredTokens(element, tokens, cache, doc, styleFor, writingMode)
+  }
+}
 function measuredTokens(paragraph: Element, cache: Map<string, number>, doc: Document, styleFor: typeof getComputedStyle, _showText: number): ParagraphToken[] {
   const writingMode = styleFor(paragraph).writingMode
   const tokens: ParagraphToken[] = []
-  const visit = (parent: ParentNode): void => {
-    for (const node of parent.childNodes) {
-      if (node.nodeType === 3) {
-        appendTextTokens(node as Text, tokens, cache, doc, styleFor, writingMode)
-        continue
-      }
-      if (node.nodeType !== 1) continue
-      const element = node as Element
-      if (element.matches('script,style,template,[data-segnavia-line]')) continue
-      if (element.tagName === 'BR') {
-        tokens.push({ kind: 'forced', text: '', width: 0, node: element })
-      } else if (!element.textContent) {
-        const rect = element.getBoundingClientRect()
-        tokens.push({ kind: 'atomic', text: '', width: writingMode.startsWith('vertical') ? rect.height : rect.width, node: element })
-      } else visit(element)
-    }
-  }
-  visit(paragraph)
+  appendMeasuredTokens(paragraph, tokens, cache, doc, styleFor, writingMode)
   return tokens
 }
-
 function hyphenWidth(paragraph: Element, doc: Document, styleFor: typeof getComputedStyle): number {
   const marker = doc.createElement('span')
   marker.textContent = '-'
@@ -111,7 +115,6 @@ function hyphenWidth(paragraph: Element, doc: Document, styleFor: typeof getComp
   marker.remove()
   return writingMode.startsWith('vertical') ? rect.height : rect.width
 }
-
 function wordRanges(tokens: readonly ParagraphToken[]): { start: number; end: number; text: string }[] {
   const words: { start: number; end: number; text: string }[] = []
   let start = 0
@@ -134,7 +137,6 @@ function wordRanges(tokens: readonly ParagraphToken[]): { start: number; end: nu
   }
   return words
 }
-
 function tokenForOffset(tokens: readonly ParagraphToken[], start: number, point: number): number | undefined {
   let offset = 0
   for (let index = start; index < tokens.length && tokens[index]?.kind === 'text'; index++) {
@@ -144,11 +146,9 @@ function tokenForOffset(tokens: readonly ParagraphToken[], start: number, point:
   }
   return undefined
 }
-
 export function planParagraphLines(tokens: readonly ParagraphToken[], settings: CompositionSettings, markerWidth = 0): ParagraphLine[] {
   return planParagraphLinesWith(tokens, settings, markerWidth, breakLines, hyphenationPoints)
 }
-
 function planParagraphLinesWith(
   tokens: readonly ParagraphToken[],
   settings: CompositionSettings,
@@ -160,7 +160,6 @@ function planParagraphLinesWith(
   addHyphenationItems(items, metadata, tokens, settings, markerWidth, pointsForWord)
   return plannedLines(tokens, settings, items, metadata, breakForLines)
 }
-
 function paragraphItems(tokens: readonly ParagraphToken[], settings: CompositionSettings): { items: ParagraphItem[]; metadata: Map<number, BreakMeta> } {
   const items: ParagraphItem[] = []
   const metadata = new Map<number, BreakMeta>()
@@ -184,7 +183,6 @@ function paragraphItems(tokens: readonly ParagraphToken[], settings: Composition
   }
   return { items, metadata }
 }
-
 function addHyphenationItems(
   items: ParagraphItem[],
   metadata: Map<number, BreakMeta>,
@@ -199,7 +197,6 @@ function addHyphenationItems(
     }
   }
 }
-
 function addHyphenationPoint(
   items: ParagraphItem[],
   metadata: Map<number, BreakMeta>,
@@ -225,7 +222,6 @@ function addHyphenationPoint(
   shiftMetadata(metadata, itemIndex)
   metadata.set(itemIndex, { end: tokenIndex + 1, next: tokenIndex + 1, hyphen: !maqaf, forced: false })
 }
-
 function shiftMetadata(metadata: Map<number, BreakMeta>, itemIndex: number): void {
   for (const [key, value] of [...metadata.entries()].sort(([a], [b]) => b - a)) {
     if (key < itemIndex) continue
@@ -233,7 +229,6 @@ function shiftMetadata(metadata: Map<number, BreakMeta>, itemIndex: number): voi
     metadata.set(key + 1, value)
   }
 }
-
 function plannedLines(
   tokens: readonly ParagraphToken[],
   settings: CompositionSettings,
@@ -254,16 +249,20 @@ function plannedLines(
         : settings.spacing.desired + ratio * (settings.spacing.maximum - settings.spacing.desired)
     const spaces = tokens.slice(start, meta.end).filter((token) => token.kind === 'space')
     const natural = spaces.length ? spaces.reduce((sum, token) => sum + token.width, 0) / spaces.length : 0
-    lines.push({ start, end: meta.end, wordSpacing: natural === 0 || !Number.isFinite(percent) ? 0 : natural * (percent / 100 - 1), hyphen: meta.hyphen, forced: meta.forced })
+    lines.push({
+      start,
+      end: meta.end,
+      wordSpacing: natural === 0 || !Number.isFinite(percent) ? 0 : natural * (percent / 100 - 1),
+      hyphen: meta.hyphen,
+      forced: meta.forced,
+    })
     start = meta.next
   }
   return lines
 }
-
 export function paragraphMeasures(measure: number, indent: number): number[] {
   return [measure - indent, measure]
 }
-
 function setRangeStart(range: Range, token: ParagraphToken): void {
   if (token.node?.nodeType === 3 && token.start !== undefined) range.setStart(token.node, token.start)
   else if (token.node) range.setStartBefore(token.node)
@@ -321,15 +320,6 @@ function rewriteParagraph(paragraph: Element, tokens: readonly ParagraphToken[],
   paragraph.replaceChildren(...output)
 }
 
-export function contentInlineSize(rect: { width: number; height: number }, style: Pick<CSSStyleDeclaration, 'writingMode' | 'paddingLeft' | 'paddingRight' | 'paddingTop' | 'paddingBottom' | 'borderLeftWidth' | 'borderRightWidth' | 'borderTopWidth' | 'borderBottomWidth'>): number {
-  const vertical = style.writingMode.startsWith('vertical')
-  const start = Number.parseFloat(vertical ? style.paddingTop : style.paddingLeft) || 0
-  const end = Number.parseFloat(vertical ? style.paddingBottom : style.paddingRight) || 0
-  const startBorder = Number.parseFloat(vertical ? style.borderTopWidth : style.borderLeftWidth) || 0
-  const endBorder = Number.parseFloat(vertical ? style.borderBottomWidth : style.borderRightWidth) || 0
-  return Math.max(0, (vertical ? rect.height : rect.width) - start - end - startBorder - endBorder)
-}
-
 function paragraphLanguage(paragraph: Element, doc: Document): string {
   return paragraph.closest('[lang]')?.getAttribute('lang') ?? doc.documentElement.lang
 }
@@ -344,12 +334,13 @@ export function composeParagraphs(
   planLines: typeof planParagraphLinesWith,
   breakForLines: typeof breakLines,
   pointsForWord: typeof hyphenationPoints,
+  measureContent: typeof contentInlineSize,
 ): void {
   const cache = new Map<string, number>()
   for (const paragraph of root.querySelectorAll('p')) {
     const rect = paragraph.getBoundingClientRect()
     const style = styleFor(paragraph)
-    const inlineSize = contentInlineSize(rect, style)
+    const inlineSize = measureContent(rect, style)
     const previous = composedParagraphs.get(paragraph)
     if (previous && Math.abs(previous.inlineSize - inlineSize) <= 0.5) continue
     if (previous) paragraph.replaceChildren(...previous.children)
@@ -384,6 +375,7 @@ ${embedFunction('graphemes', graphemes)}
 ${embedFunction('inlineExtent', inlineExtent)}
 ${embedFunction('measurementStyleKey', measurementStyleKey)}
 ${embedFunction('appendTextTokens', appendTextTokens)}
+${embedFunction('appendMeasuredTokens', appendMeasuredTokens)}
 ${embedFunction('measuredTokens', measuredTokens)}
 ${embedFunction('hyphenWidth', hyphenWidth)}
 ${embedFunction('wordRanges', wordRanges)}

@@ -29,6 +29,10 @@ test('uses a forced penalty even when the resulting lines need emergency stretch
   expect(result.violations).toEqual([true, true])
 })
 
+test('adds the terminal break after a forced penalty in the middle', () => {
+  expect(breakLines([box(3), penalty(Number.NEGATIVE_INFINITY), box(3)], [10]).breaks).toEqual([1, 3])
+})
+
 test('returns and flags the least-bad set when no feasible set exists', () => {
   const result = breakLines([box(15), penalty(Number.NEGATIVE_INFINITY)], [10])
 
