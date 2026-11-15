@@ -9,6 +9,18 @@ function issues(result: ReturnType<typeof Document.safeParse>): z.core.$ZodIssue
   return result.error.issues
 }
 
+test('refuses a chapter number on a printed section with the printed remedy', () => {
+  expect(() =>
+    Document.parse({
+      type: 'document',
+      kind: 'printed',
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      parentRules: [{ parent: 'body' }],
+      children: [{ type: 'section', number: 3, children: [{ type: 'flow', html: '<p>Text</p>' }] }],
+    }),
+  ).toThrow('section field number is not allowed in a printed document; remove it because a printed document has no chapters')
+})
+
 test('carries structure numbering fields into book entries', () => {
   const document = Document.parse({
     type: 'document',
