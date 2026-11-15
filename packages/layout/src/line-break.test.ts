@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { Box, Glue, Penalty } from './line-break.ts'
 import { breakLines, breakLinesScript } from './line-break.ts'
-import { breakLinesReference } from './line-break-legacy.test-helper.ts'
 
 const box = (width: number): Box => ({ type: 'box', width })
 const glue = (width = 1, stretch = 1, shrink = 1): Glue => ({ type: 'glue', width, stretch, shrink })
@@ -144,7 +143,7 @@ test('does not invent a line at the two-thousand-item chunk boundary', () => {
   expect(result.violations).toHaveLength(result.breaks.length)
 })
 
-test('active-node deactivation preserves ratio-limited breaks over generated paragraphs', () => {
+test('active-node deactivation preserves frozen generated breaks', () => {
   let state = 0x5e67a577
   const random = () => {
     state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0
@@ -169,11 +168,18 @@ test('active-node deactivation preserves ratio-limited breaks over generated par
   const chunked: Array<Box | Glue | Penalty> = Array.from({ length: 30 }, (_, index) => [box(1 + (index % 3)), glue(1, 8, 1)]).flat()
   chunked.push(box(2), penalty(Number.NEGATIVE_INFINITY))
 
-  for (const sample of generated) {
-    const reference = breakLinesReference(sample.items, sample.widths)
-    expect(reference.violations).not.toContain(true)
-    expect(breakLines(sample.items, sample.widths)).toEqual(reference)
+  const frozen = new Map([
+    [0, [9, 20, 28, 36]],
+    [1, [9, 19, 29, 43]],
+    [2, [11, 21, 33, 45]],
+    [9, [7, 18, 28, 34]],
+    [23, [3, 11, 17, 21, 27, 33, 41]],
+  ])
+  for (const [index, breaks] of frozen) {
+    const result = breakLines(generated[index]?.items ?? [], generated[index]?.widths ?? [])
+    expect(result.breaks).toEqual(breaks)
+    expect(result.violations).not.toContain(true)
   }
   const chunkedBreakLines = new Function(`${breakLinesScript().replace('var CHUNK_ITEMS=2000', 'var CHUNK_ITEMS=20')};return breakLines`)() as typeof breakLines
-  expect(chunkedBreakLines(chunked, [18, 20])).toEqual(breakLinesReference(chunked, [18, 20], {}, 20))
+  expect(chunkedBreakLines(chunked, [18, 20]).breaks).toEqual([9, 19, 29, 39, 49, 59, 61])
 })

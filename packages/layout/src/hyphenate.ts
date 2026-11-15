@@ -103,11 +103,11 @@ function pointsForSegment(
   cache: Map<string, Hyphenator>,
   leftMinimum: number,
   rightMinimum: number,
-): number[] {
+): HyphenationPoint[] {
   const built = hyphenator(language, dataByLanguage, cache)
   if (!built || word.length < leftMinimum + rightMinimum) return []
   const normalized = word.toLowerCase()
-  return built.exceptions.get(normalized) ?? patternPoints(normalized, built.root, leftMinimum, rightMinimum)
+  return (built.exceptions.get(normalized) ?? patternPoints(normalized, built.root, leftMinimum, rightMinimum)).map((index) => ({ index, hyphen: true }))
 }
 
 function isMaqafBreak(word: string, index: number, letter: RegExp): boolean {
@@ -118,6 +118,11 @@ function isMaqafBreak(word: string, index: number, letter: RegExp): boolean {
  * Returns indices at which a word may be broken, without changing the word.
  * A break following U+05BE maqaf inserts no hyphen; every other break does.
  */
+export interface HyphenationPoint {
+  index: number
+  hyphen: boolean
+}
+
 function hyphenationPointsWith(
   word: string,
   language: string,
@@ -126,21 +131,24 @@ function hyphenationPointsWith(
   leftMinimum: number,
   rightMinimum: number,
   letter: RegExp,
-): number[] {
-  const points: number[] = []
+): HyphenationPoint[] {
+  const points: HyphenationPoint[] = []
   let segmentStart = 0
   for (let index = 0; index <= word.length; index += 1) {
     if (word[index] !== '\u05be' && index !== word.length) continue
     points.push(
-      ...pointsForSegment(word.slice(segmentStart, index), language, dataByLanguage, cache, leftMinimum, rightMinimum).map((point) => segmentStart + point),
+      ...pointsForSegment(word.slice(segmentStart, index), language, dataByLanguage, cache, leftMinimum, rightMinimum).map((point) => ({
+        index: segmentStart + point.index,
+        hyphen: point.hyphen,
+      })),
     )
-    if (isMaqafBreak(word, index, letter)) points.push(index + 1)
+    if (isMaqafBreak(word, index, letter)) points.push({ index: index + 1, hyphen: false })
     segmentStart = index + 1
   }
   return points
 }
 
-export function hyphenationPoints(word: string, language: string): number[] {
+export function hyphenationPoints(word: string, language: string): HyphenationPoint[] {
   return hyphenationPointsWith(word, language, languageData, hyphenators, LEFT_MINIMUM, RIGHT_MINIMUM, LETTER)
 }
 

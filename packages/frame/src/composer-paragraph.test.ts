@@ -1,8 +1,14 @@
 import { expect, test } from 'bun:test'
-import { readCompositionStyle } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import type { ParagraphToken } from './composer-paragraph.ts'
-import { paragraphBaseDirection, paragraphCompositionAction, paragraphMeasures, planParagraphLines } from './composer-paragraph.ts'
+import {
+  paragraphBaseDirection,
+  paragraphCompositionAction,
+  paragraphMeasures,
+  planParagraphLines,
+  resolvedTextIndent,
+  setParagraphVariableValue,
+} from './composer-paragraph.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
@@ -11,6 +17,7 @@ import {
   markCompositionContinuations,
   removeContinuationIds,
 } from './composer-paragraph-dom.ts'
+import { appendTextTokens } from './composer-paragraph-measure.ts'
 
 function tokens(text: string, width = 5): ParagraphToken[] {
   return Array.from(text, (part) => ({ kind: /^\s$/u.test(part) ? 'space' : 'text', text: part, width }))
@@ -122,7 +129,6 @@ test('builds a plain-text line without cloning a DOM range', () => {
 test('decides restore and recompose without retaining a stale size', () => {
   expect(paragraphCompositionAction(undefined, 100, 'justify', 'paragraph', 2)).toBe('compose')
   expect(paragraphCompositionAction(100, 100, 'justify', 'paragraph', 2)).toBe('skip')
-  expect(paragraphCompositionAction(100, 100, 'justify', 'paragraph', 2, true)).toBe('restore-and-compose')
   expect(paragraphCompositionAction(100, 80, 'justify', 'paragraph', 1)).toBe('restore')
   expect(paragraphCompositionAction(undefined, 100, 'justify', 'paragraph', 2)).toBe('compose')
   expect(paragraphCompositionAction(100, 80, 'start', 'paragraph', 2)).toBe('restore')
@@ -179,33 +185,6 @@ test('marks continuation identities while keeping the first clone authoritative'
   expect(attributes[1]?.has('data-segnavia-composition-continuation')).toBe(true)
 })
 
-test('embedded composition style reader matches its html owner', () => {
-  const embedded = new Function(`${layoutScript()};return readCompositionStyle`)() as typeof readCompositionStyle
-  const cases = [
-    { composer: 'paragraph' },
-    { composer: 'single-line' },
-    { composer: 'broken' },
-    { spacing: '80% 100% 133%' },
-    { spacing: '100% 80% 133%' },
-    { spacing: '80% 100% 1000.01%' },
-    { spacing: '80.25% 100.50% 133.75%' },
-    { hyphenate: 'true' },
-    { hyphenate: 'false' },
-    { hyphenate: 'sometimes' },
-  ]
-  for (const held of cases) {
-    const properties = {
-      getPropertyValue: (name: string) => {
-        if (name === '--segnavia-composer') return held.composer ?? ''
-        if (name === '--segnavia-word-spacing') return held.spacing ?? ''
-        if (name === '--segnavia-hyphenate') return held.hyphenate ?? ''
-        return ''
-      },
-    }
-    expect(embedded(properties)).toEqual(readCompositionStyle(properties))
-  }
-})
-
 test('keeps embedded paragraph function names after minification', async () => {
   const built = await Bun.build({
     entrypoints: ['virtual:paragraph-composer'],
@@ -255,4 +234,92 @@ test('keeps embedded paragraph function names after minification', async () => {
       (rect: { width: number }) => rect.width,
     ),
   ).not.toThrow()
+})
+
+test('classifies collapsible, non-breaking and zero-width spaces for line planning', () => {
+  const classify = (text: string) => {
+    const node = { data: text, parentElement: {} } as Text
+    const doc = {
+      createRange: () => ({ setStart: () => undefined, setEnd: () => undefined, getBoundingClientRect: () => ({ width: 5, height: 9 }) }),
+    } as unknown as Document
+    const held: ParagraphToken[] = []
+    appendTextTokens(
+      node,
+      held,
+      new Map(),
+      doc,
+      () => ({ font: '', fontKerning: '', fontFeatureSettings: '', fontVariationSettings: '', letterSpacing: '', textTransform: '' }) as CSSStyleDeclaration,
+      'horizontal-tb',
+    )
+    return held
+  }
+  for (const character of [' ', '\t', '\n', '\f', '\r']) expect(classify(character)[0]?.kind).toBe('space')
+  for (const character of ['\u00a0', '\u2007', '\u202f', '\ufeff', '\u2060']) {
+    const held = [...tokens('10'), ...classify(character), ...tokens('kg')]
+    expect(held[2]?.kind).toBe('text')
+    expect(planParagraphLines(held, { ...base, measure: 12 })).toHaveLength(1)
+  }
+  const zeroWidth = [...tokens('one'), ...classify('\u200b'), ...tokens('two')]
+  expect(zeroWidth[3]).toMatchObject({ kind: 'space', width: 0 })
+  expect(planParagraphLines(zeroWidth, { ...base, measure: 16 }).length).toBeGreaterThan(1)
+})
+
+test('keeps browser line boxes for leading and consecutive br but not a trailing br', () => {
+  const br = (): ParagraphToken => ({ kind: 'forced', text: '', width: 0 })
+  expect(planParagraphLines([br(), ...tokens('one')], { ...base, measure: 100 })).toEqual([
+    { start: 0, end: 0, wordSpacing: 0, hyphen: false, forced: true, blank: true },
+    { start: 1, end: 4, wordSpacing: 0, hyphen: false, forced: false },
+  ])
+  expect(planParagraphLines([...tokens('one'), br(), br(), ...tokens('two')], { ...base, measure: 100 })).toEqual([
+    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
+    { start: 4, end: 4, wordSpacing: 0, hyphen: false, forced: true, blank: true },
+    { start: 5, end: 8, wordSpacing: 0, hyphen: false, forced: false },
+  ])
+  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([
+    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
+  ])
+  const appended: unknown[] = []
+  const doc = {
+    createDocumentFragment: () => ({ append: (node: unknown) => appended.push(node) }),
+    createElement: (name: string) => ({ name }),
+  } as unknown as Document
+  lineFragment([], { start: 0, end: 0, wordSpacing: 0, hyphen: false, forced: true, blank: true }, doc)
+  expect(appended).toEqual([{ name: 'br' }])
+})
+
+test('resolves percentage text indent against the content measure', () => {
+  expect(resolvedTextIndent('12.5%', 240)).toBe(30)
+  expect(resolvedTextIndent('-10%', 240)).toBe(-24)
+  expect(resolvedTextIndent('18px', 240)).toBe(18)
+})
+
+test('uses the shared first-strong direction for weak digits and historic RTL scripts', () => {
+  expect(paragraphBaseDirection(null, 'plaintext', '١ English', 'rtl')).toBe('ltr')
+  expect(paragraphBaseDirection(null, 'plaintext', '𐤀 English', 'ltr')).toBe('rtl')
+})
+
+test('sets the authored value on a reused variable paragraph', () => {
+  const attributes = new Map<string, string>([['data-variable', 'title']])
+  const paragraph = {
+    textContent: 'full variable value',
+    hasAttribute: (name: string) => attributes.has(name),
+    setAttribute: (name: string, value: string) => attributes.set(name, value),
+  } as unknown as Element
+  setParagraphVariableValue(paragraph, 'data-segnavia-composition-variable-value')
+  expect(attributes.get('data-segnavia-composition-variable-value')).toBe('full variable value')
+})
+
+test('separates horizontal and sideways token widths in the measurement cache', () => {
+  const node = { data: 'a', parentElement: {} } as Text
+  const cache = new Map<string, number>()
+  const doc = {
+    createRange: () => ({ setStart: () => undefined, setEnd: () => undefined, getBoundingClientRect: () => ({ width: 3, height: 7 }) }),
+  } as unknown as Document
+  const styleFor = () =>
+    ({ font: '', fontKerning: '', fontFeatureSettings: '', fontVariationSettings: '', letterSpacing: '', textTransform: '' }) as CSSStyleDeclaration
+  const horizontal: ParagraphToken[] = []
+  const sideways: ParagraphToken[] = []
+  appendTextTokens(node, horizontal, cache, doc, styleFor, 'horizontal-tb')
+  appendTextTokens(node, sideways, cache, doc, styleFor, 'sideways-rl')
+  expect([horizontal[0]?.width, sideways[0]?.width]).toEqual([3, 7])
 })

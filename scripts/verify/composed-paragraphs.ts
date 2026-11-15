@@ -8,6 +8,7 @@ export interface ComposedLineWidthReport {
   maxLines: number
   checked: number
   failures: Array<{ paragraph: number; line: number; width: number; measure: number }>
+  optOuts: Array<{ kind: string; lines: number }>
 }
 
 export interface ComposedNoteParagraphReport {
@@ -25,30 +26,19 @@ export function composedParagraphLines(): ComposedParagraphLines[] {
     .filter((paragraph) => paragraph.lines.length > 0)
 }
 
-export function composedLineWidthReport(): ComposedLineWidthReport {
+function composedLineWidthReportImpl(): ComposedLineWidthReport {
   function paragraphReport(paragraph: HTMLElement, paragraphIndex: number) {
     const lines = Array.from(paragraph.querySelectorAll<HTMLElement>(':scope > span[data-segnavia-line]'))
     if (lines.length === 0) return undefined
     const style = getComputedStyle(paragraph)
-    const vertical = style.writingMode.startsWith('vertical')
     const box = paragraph.getBoundingClientRect()
-    const measure = vertical
-      ? box.height -
-        (Number.parseFloat(style.paddingBlockStart) || 0) -
-        (Number.parseFloat(style.paddingBlockEnd) || 0) -
-        (Number.parseFloat(style.borderBlockStartWidth) || 0) -
-        (Number.parseFloat(style.borderBlockEndWidth) || 0)
-      : box.width -
-        (Number.parseFloat(style.paddingInlineStart) || 0) -
-        (Number.parseFloat(style.paddingInlineEnd) || 0) -
-        (Number.parseFloat(style.borderInlineStartWidth) || 0) -
-        (Number.parseFloat(style.borderInlineEndWidth) || 0)
+    const measure = contentInlineSize(box, style)
     const measured = lines.flatMap((line, lineIndex) => {
       if (lineIndex === lines.length - 1 || line.style.textAlign === 'start') return []
       const range = document.createRange()
       range.selectNodeContents(line)
       const rect = range.getBoundingClientRect()
-      return [{ paragraph: paragraphIndex, line: lineIndex, width: vertical ? rect.height : rect.width, measure }]
+      return [{ paragraph: paragraphIndex, line: lineIndex, width: logicalExtent(rect, style.writingMode, 'inline'), measure }]
     })
     return { lines: lines.length, measured }
   }
@@ -62,8 +52,16 @@ export function composedLineWidthReport(): ComposedLineWidthReport {
     maxLines: Math.max(0, ...reports.map((report) => report.lines)),
     checked: measured.length,
     failures: measured.filter(({ width, measure }) => Math.abs(width - measure) > 0.5),
+    optOuts: Array.from(document.querySelectorAll<HTMLElement>('p[data-composition-opt-out]')).map((paragraph) => ({
+      kind: paragraph.getAttribute('data-composition-opt-out') ?? '',
+      lines: paragraph.querySelectorAll(':scope > span[data-segnavia-line]').length,
+    })),
   }
 }
+
+export const composedLineWidthReport = new Function(
+  `return function composedLineWidthReport(){${verticalWritingMode.toString()}${logicalExtent.toString()}${contentInlineSize.toString()}return (${composedLineWidthReportImpl.toString()})();}`,
+)() as typeof composedLineWidthReportImpl
 
 export function composedNoteParagraphReport(): ComposedNoteParagraphReport {
   function visible(element: HTMLElement, clip: DOMRect): boolean {
@@ -107,3 +105,6 @@ export function composedNoteParagraphReport(): ComposedNoteParagraphReport {
   })
   return { paragraphs: reports.length, matches: reports.every((report) => report.matches), detail: reports.map((report) => report.detail).join('|') }
 }
+import { logicalExtent, verticalWritingMode } from '../../packages/frame/src/composer-axis-policy.ts'
+import { contentInlineSize } from '../../packages/frame/src/composer-paragraph-box.ts'
+

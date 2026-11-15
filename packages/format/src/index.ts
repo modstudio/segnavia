@@ -353,6 +353,7 @@ export {
   KEEP_WITH_CUSTOM_PROPERTY,
   PageGeometry,
   parseWordSpacing,
+  readCompositionStyle,
   STYLE_NAME,
   StyleSheet,
   serializeWordSpacing,
@@ -362,8 +363,7 @@ export {
   type TextStyleTokenGroup,
   TokenReference,
   WORD_SPACING_CUSTOM_PROPERTY,
-  WORD_SPACING_MAXIMUM,
-  WORD_SPACING_PATTERN,
+  validWordSpacing,
   WordSpacing,
 } from './style-sheet.ts'
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'

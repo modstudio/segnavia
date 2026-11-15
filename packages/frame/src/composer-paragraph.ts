@@ -1,5 +1,7 @@
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
+import { firstStrongDirection } from '@segnavia/format'
+import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
@@ -17,19 +19,19 @@ import {
   appendMeasuredTokens,
   appendTextTokens,
   graphemes,
-  inlineExtent,
   measuredTokens,
   measurementStyleKey,
   type ParagraphToken,
 } from './composer-paragraph-measure.ts'
 import {
   type ComposedParagraph,
-  firstStrongDirection,
-  originalContentSignature,
+  compositionDefaults,
+  composesParagraph,
   type ParagraphCompositionFact,
   paragraphBaseDirection,
   paragraphCompositionAction,
   paragraphCompositionFacts,
+  paragraphCompositionUnchanged,
   paragraphLanguage,
   restoreParagraph,
 } from './composer-paragraph-policy.ts'
@@ -42,6 +44,7 @@ export interface ParagraphLine {
   wordSpacing: number
   hyphen: boolean
   forced: boolean
+  blank?: boolean
 }
 interface CompositionSettings {
   measure: number
@@ -59,7 +62,6 @@ interface BreakMeta {
 interface ParagraphRewrite {
   paragraph: Element
   original: Node[]
-  contentSignature: string
   inlineSize: number
   tokens: ParagraphToken[]
   lines: ParagraphLine[]
@@ -79,7 +81,7 @@ function hyphenWidth(paragraph: Element, doc: Document, styleFor: typeof getComp
   const writingMode = styleFor(paragraph).writingMode
   const rect = marker.getBoundingClientRect()
   marker.remove()
-  return writingMode.startsWith('vertical') ? rect.height : rect.width
+  return logicalExtent(rect, writingMode, 'inline')
 }
 function wordRanges(tokens: readonly ParagraphToken[]): { start: number; end: number; text: string }[] {
   const words: { start: number; end: number; text: string }[] = []
@@ -169,22 +171,21 @@ function addHyphenationItems(
   markerWidth: number,
   pointsForWord: typeof hyphenationPoints,
 ): void {
-  const breaks: { itemIndex: number; tokenIndex: number; maqaf: boolean }[] = []
+  const breaks: { itemIndex: number; tokenIndex: number; hyphen: boolean }[] = []
   for (const word of wordRanges(tokens)) {
     for (const point of pointsForWord(word.text, settings.language)) {
-      const tokenIndex = tokenForOffset(tokens, word.start, point)
+      const tokenIndex = tokenForOffset(tokens, word.start, point.index)
       if (tokenIndex === undefined) continue
-      const maqaf = word.text[point - 1] === '\u05be'
-      if (!maqaf && !settings.hyphenate) continue
+      if (point.hyphen && !settings.hyphenate) continue
       const itemIndex = tokenItems[tokenIndex]
       if (itemIndex === undefined) continue
-      breaks.push({ itemIndex: itemIndex + 1, tokenIndex, maqaf })
+      breaks.push({ itemIndex: itemIndex + 1, tokenIndex, hyphen: point.hyphen })
     }
   }
   for (const point of breaks.sort((a, b) => b.itemIndex - a.itemIndex)) {
-    items.splice(point.itemIndex, 0, { type: 'penalty', width: point.maqaf ? 0 : markerWidth, penalty: 50, flagged: !point.maqaf })
+    items.splice(point.itemIndex, 0, { type: 'penalty', width: point.hyphen ? markerWidth : 0, penalty: 50, flagged: point.hyphen })
     shiftMetadata(metadata, point.itemIndex)
-    metadata.set(point.itemIndex, { end: point.tokenIndex + 1, next: point.tokenIndex + 1, hyphen: !point.maqaf, forced: false })
+    metadata.set(point.itemIndex, { end: point.tokenIndex + 1, next: point.tokenIndex + 1, hyphen: point.hyphen, forced: false })
   }
 }
 function shiftMetadata(metadata: Map<number, BreakMeta>, itemIndex: number): void {
@@ -215,12 +216,14 @@ function plannedLines(
     const fittedEnd = tokens[meta.end - 1]?.kind === 'space' ? meta.end - 1 : meta.end
     const spaces = tokens.slice(start, fittedEnd).filter((token) => token.kind === 'space')
     const natural = spaces.length ? spaces.reduce((sum, token) => sum + token.width, 0) / spaces.length : 0
+    if (start === tokens.length && meta.end === tokens.length) continue
     lines.push({
       start,
       end: meta.end,
       wordSpacing: natural === 0 || !Number.isFinite(percent) ? 0 : natural * (percent / 100 - 1),
       hyphen: meta.hyphen,
       forced: meta.forced,
+      ...(start === meta.end && meta.forced ? { blank: true } : {}),
     })
     start = meta.next
   }
@@ -228,6 +231,15 @@ function plannedLines(
 }
 export function paragraphMeasures(measure: number, indent: number): number[] {
   return [measure - indent, measure]
+}
+
+export function resolvedTextIndent(value: string, measure: number): number {
+  const parsed = Number.parseFloat(value) || 0
+  return value.trim().endsWith('%') ? (parsed / 100) * measure : parsed
+}
+
+export function setParagraphVariableValue(paragraph: Element, variableValueAttribute: string): void {
+  if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(variableValueAttribute, paragraph.textContent ?? '')
 }
 
 function paragraphRewriteForFact(
@@ -240,39 +252,32 @@ function paragraphRewriteForFact(
   breakForLines: typeof breakLines,
   pointsForWord: typeof hyphenationPoints,
 ): ParagraphRewrite | undefined {
-  const { paragraph, previous, inlineSize, style, composition, composer, contentChanged } = fact
-  if (style.textAlign !== 'justify' || composer !== 'paragraph') return undefined
+  const { paragraph, previous, inlineSize, style, composition, composer } = fact
+  if (!composesParagraph(style.textAlign, composer)) return undefined
   const original = Array.from(paragraph.childNodes)
-  const contentSignature = originalContentSignature(original)
   const language = paragraphLanguage(paragraph, doc)
   const direction = paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction)
   const reuseKey =
     paragraph.childElementCount === 0
       ? JSON.stringify([
-          contentSignature,
+          paragraph.textContent ?? '',
           inlineSize,
           language,
           direction,
-          style.font,
-          style.fontKerning,
-          style.fontFeatureSettings,
-          style.fontVariationSettings,
-          style.letterSpacing,
-          style.textTransform,
+          measurementStyleKey(paragraph.firstChild as Text, styleFor),
           style.textIndent,
           style.writingMode,
-          composition.hyphenate ?? true,
-          composition.wordSpacing ?? { minimum: 80, desired: 100, maximum: 133 },
+          composition.hyphenate ?? compositionDefaults().hyphenate,
+          composition.wordSpacing ?? compositionDefaults().wordSpacing,
         ])
       : ''
   const source = reuseKey ? reusable.get(reuseKey) : undefined
   if (source) {
-    const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, source.lines.length, contentChanged)
+    const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, source.lines.length)
     if (action === 'leave' || action === 'restore') return undefined
     return {
       paragraph,
       original,
-      contentSignature,
       inlineSize,
       tokens: [],
       lines: source.lines,
@@ -287,17 +292,17 @@ function paragraphRewriteForFact(
     {
       measure: inlineSize,
       language,
-      hyphenate: composition.hyphenate ?? true,
-      indent: Number.parseFloat(style.textIndent) || 0,
-      spacing: composition.wordSpacing ?? { minimum: 80, desired: 100, maximum: 133 },
+      hyphenate: composition.hyphenate ?? compositionDefaults().hyphenate,
+      indent: resolvedTextIndent(style.textIndent, inlineSize),
+      spacing: composition.wordSpacing ?? compositionDefaults().wordSpacing,
     },
     hyphenWidth(paragraph, doc, styleFor),
     breakForLines,
     pointsForWord,
   )
-  const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length, contentChanged)
+  const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length)
   if (action === 'leave' || action === 'restore') return undefined
-  const rewrite = { paragraph, original, contentSignature, inlineSize, tokens, lines, direction, marker: doc.createComment('') }
+  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction, marker: doc.createComment('') }
   if (reuseKey) reusable.set(reuseKey, rewrite)
   return rewrite
 }
@@ -319,31 +324,40 @@ export function composeParagraphs(
   const cache = new Map<string, number>()
   const paragraphs = root.querySelectorAll('p')
   const facts = paragraphCompositionFacts(paragraphs, styleFor, composedParagraphs, readStyle, measureContent)
-  for (const fact of facts) restoreParagraph(fact.paragraph, fact.previous, composedParagraphs, variableValueAttribute)
+  const changedFacts: ParagraphCompositionFact[] = []
+  for (const fact of facts) {
+    if (paragraphCompositionUnchanged(fact.previous?.inlineSize, fact.inlineSize)) continue
+    restoreParagraph(fact.paragraph, fact.previous, composedParagraphs, variableValueAttribute)
+    changedFacts.push(fact)
+  }
   const rewrites: ParagraphRewrite[] = []
   const reusable = new Map<string, ParagraphRewrite>()
-  for (const fact of facts) {
+  for (const fact of changedFacts) {
     const rewrite = paragraphRewriteForFact(fact, doc, cache, reusable, styleFor, planLines, breakForLines, pointsForWord)
     if (rewrite) rewrites.push(rewrite)
   }
   for (const rewrite of rewrites) rewrite.paragraph.replaceWith(rewrite.marker)
   for (const { paragraph, tokens, lines, direction, source } of rewrites) {
-    if (source) paragraph.replaceChildren(...Array.from(source.paragraph.childNodes, (node) => node.cloneNode(true)))
+    if (source) {
+      paragraph.replaceChildren(...Array.from(source.paragraph.childNodes, (node) => node.cloneNode(true)))
+      setParagraphVariableValue(paragraph, variableValueAttribute)
+    }
     else {
-      if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(variableValueAttribute, paragraph.textContent ?? '')
+      setParagraphVariableValue(paragraph, variableValueAttribute)
       rewriteParagraph(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
     }
   }
-  for (const { paragraph, original, contentSignature, inlineSize, marker } of rewrites) {
+  for (const { paragraph, original, inlineSize, marker } of rewrites) {
     marker.replaceWith(paragraph)
-    composedParagraphs.set(paragraph, { children: original, inlineSize, contentSignature })
+    composedParagraphs.set(paragraph, { children: original, inlineSize })
   }
 }
 
 export function paragraphComposerScript(): string {
   return `var composedParagraphs=new WeakMap();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
 ${embedFunction('graphemes', graphemes)}
-${embedFunction('inlineExtent', inlineExtent)}
+${embedFunction('verticalWritingMode', verticalWritingMode)}
+${embedFunction('logicalExtent', logicalExtent)}
 ${embedFunction('measurementStyleKey', measurementStyleKey)}
 ${embedFunction('appendTextTokens', appendTextTokens)}
 ${embedFunction('appendMeasuredTokens', appendMeasuredTokens)}
@@ -357,10 +371,14 @@ ${embedFunction('addHyphenationItems', addHyphenationItems)}
 ${embedFunction('plannedLines', plannedLines)}
 ${embedFunction('planParagraphLinesWith', planParagraphLinesWith)}
 ${embedFunction('paragraphMeasures', paragraphMeasures)}
+${embedFunction('resolvedTextIndent', resolvedTextIndent)}
+${embedFunction('setParagraphVariableValue', setParagraphVariableValue)}
+${embedFunction('compositionDefaults', compositionDefaults)}
 ${embedFunction('paragraphCompositionAction', paragraphCompositionAction)}
+${embedFunction('paragraphCompositionUnchanged', paragraphCompositionUnchanged)}
 ${embedFunction('firstStrongDirection', firstStrongDirection)}
+${embedFunction('composesParagraph', composesParagraph)}
 ${embedFunction('paragraphBaseDirection', paragraphBaseDirection)}
-${embedFunction('originalContentSignature', originalContentSignature)}
 ${embedFunction('paragraphCompositionFacts', paragraphCompositionFacts)}
 ${embedFunction('setRangeStart', setRangeStart)}
 ${embedFunction('setRangeEnd', setRangeEnd)}

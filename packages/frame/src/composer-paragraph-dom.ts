@@ -18,6 +18,10 @@ export function lineFragment(tokens: readonly ParagraphToken[], line: ParagraphL
   const first = tokens[line.start]
   const last = tokens[line.end - 1]
   const fragment = doc.createDocumentFragment()
+  if (line.blank) {
+    fragment.append(doc.createElement('br'))
+    return fragment
+  }
   if (!first?.node || !last?.node) return fragment
   if (first.node === last.node && first.node.nodeType === 3 && first.start !== undefined && last.end !== undefined) {
     fragment.append(doc.createTextNode((first.node as Text).data.slice(first.start, last.end)))

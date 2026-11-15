@@ -4,4 +4,4 @@
 '@segnavia/layout': minor
 ---
 
-Compose justified paragraphs into explicit total-fit lines in paginated books and printed pages. `@segnavia/format` now exports `WORD_SPACING_PATTERN` and `WORD_SPACING_MAXIMUM`, the word-spacing grammar and its largest percentage.
+Compose justified paragraphs into explicit total-fit lines in paginated books and printed pages. `@segnavia/format` now exports the plain composition-style reader and word-spacing validation used by embedded layout scripts.

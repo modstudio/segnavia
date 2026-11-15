@@ -1,3 +1,5 @@
+import { logicalExtent } from './composer-axis-policy.ts'
+
 export interface ParagraphToken {
   kind: 'text' | 'space' | 'atomic' | 'forced'
   text: string
@@ -20,11 +22,6 @@ export function graphemes(text: string): { text: string; start: number; end: num
   })
 }
 
-export function inlineExtent(range: Range, writingMode: string): number {
-  const rect = range.getBoundingClientRect()
-  return writingMode.startsWith('vertical') ? rect.height : rect.width
-}
-
 export function measurementStyleKey(node: Text, styleFor: typeof getComputedStyle): string {
   const style = styleFor(node.parentElement ?? (node.parentNode as Element))
   return [style.font, style.fontKerning, style.fontFeatureSettings, style.fontVariationSettings, style.letterSpacing, style.textTransform].join('|')
@@ -43,13 +40,14 @@ export function appendTextTokens(
     const range = doc.createRange()
     range.setStart(node, part.start)
     range.setEnd(node, part.end)
-    const key = `${styleKey}|${part.text}`
+    const key = `${writingMode}|${styleKey}|${part.text}`
     let width = cache.get(key)
     if (width === undefined) {
-      width = inlineExtent(range, writingMode)
+      width = logicalExtent(range.getBoundingClientRect(), writingMode, 'inline')
       cache.set(key, width)
     }
-    tokens.push({ kind: /^\s+$/u.test(part.text) ? 'space' : 'text', text: part.text, width, node, start: part.start, end: part.end })
+    const breakable = /^[ \t\n\f\r\u200b]+$/u.test(part.text)
+    tokens.push({ kind: breakable ? 'space' : 'text', text: part.text, width: part.text === '\u200b' ? 0 : width, node, start: part.start, end: part.end })
   }
 }
 
@@ -71,8 +69,7 @@ export function appendMeasuredTokens(
     if (element.matches('script,style,template,[data-segnavia-line]')) continue
     if (element.tagName === 'BR') tokens.push({ kind: 'forced', text: '', width: 0, node: element })
     else if (!element.textContent) {
-      const rect = element.getBoundingClientRect()
-      tokens.push({ kind: 'atomic', text: '', width: writingMode.startsWith('vertical') ? rect.height : rect.width, node: element })
+      tokens.push({ kind: 'atomic', text: '', width: logicalExtent(element.getBoundingClientRect(), writingMode, 'inline'), node: element })
     } else appendMeasuredTokens(element, tokens, cache, doc, styleFor, writingMode)
   }
 }

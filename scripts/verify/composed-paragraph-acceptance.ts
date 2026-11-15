@@ -69,7 +69,12 @@ export async function verifyComposedBookParagraphs(h: Harness): Promise<void> {
     const widths = await frame.locator('html').evaluate(composedLineWidthReport)
     h.check(
       `${id} composed non-final line content fills the paragraph measure within 0.5px`,
-      widths.paragraphs > 0 && widths.maxLines >= 3 && widths.checked > 0 && widths.failures.length === 0,
+      widths.paragraphs > 0 &&
+        widths.maxLines >= 3 &&
+        widths.checked > 0 &&
+        widths.failures.length === 0 &&
+        widths.optOuts.length === 2 &&
+        widths.optOuts.every((paragraph) => paragraph.lines === 0),
       JSON.stringify(widths),
     )
     const screen = await frame.locator('html').evaluate(composedParagraphLines)
