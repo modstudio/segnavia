@@ -43,9 +43,7 @@ test('names continuing part refusals as parts', () => {
   const part = section({ subject: 'Part' })
   expect(sectionOpensIssues([part])[0]?.message).toContain('Part "Two"')
   expect(sectionOpensIssues([section({ id: 'one', opens: 'any', flowing: false }), part])[0]?.message).toContain('no flow to join')
-  expect(sectionOpensIssues([section({ id: 'one', opens: 'any' }), { ...part, parentRules: [{ parent: 'chapter' }] }])[0]?.path.at(-1)).toBe(
-    'parentRules',
-  )
+  expect(sectionOpensIssues([section({ id: 'one', opens: 'any' }), { ...part, parentRules: [{ parent: 'chapter' }] }])[0]?.path.at(-1)).toBe('parentRules')
   const geometry = (name: string, width: number): ResolvedBookPageGeometry => ({
     name,
     paper: { width, height: 200 },
@@ -54,10 +52,7 @@ test('names continuing part refusals as parts', () => {
     parents: [],
   })
   expect(
-    sectionOpensIssues([
-      section({ id: 'one', opens: 'any', geometry: geometry('one', 100) }),
-      { ...part, geometry: geometry('two', 120) },
-    ])[0]?.message,
+    sectionOpensIssues([section({ id: 'one', opens: 'any', geometry: geometry('one', 100) }), { ...part, geometry: geometry('two', 120) }])[0]?.message,
   ).toContain('differs from the preceding section')
 })
 

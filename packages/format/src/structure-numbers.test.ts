@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { bookSections, type BookDivisions } from './book-section.ts'
+import { type BookDivisions, bookSections } from './book-section.ts'
 import { structureNumbers } from './structure-numbers.ts'
 
 const chapter = (id: string, number?: string | number | false) => ({ id, title: id, html: '', ...(number === undefined ? {} : { number }) })
@@ -12,7 +12,7 @@ describe('structureNumbers', () => {
       chapter('one'),
       { id: 'designed', kind: 'designed', contents: true, pages: [{ html: '' }] },
       { id: 'contents', kind: 'contents', contents: true },
-      { ...chapter('record'), record: { index: 0, values: {} }, contents: false },
+      { ...chapter('record'), record: { index: 1, count: 1 }, contents: false },
       chapter('skip', false),
     ])
     expect([...held.values()]).toEqual([

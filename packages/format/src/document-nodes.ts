@@ -1,8 +1,8 @@
 import { z } from 'zod'
+import { ContentsLabel, PartNumbering, StructureNumber } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { discriminatedNodeUnion } from './document-node-discriminator.ts'
 import { ContentsNode, SectionFields } from './document-nodes-book.ts'
-import { ContentsLabel, PartNumbering, StructureNumber } from './book-section.ts'
 import {
   BoardItemNode,
   BoardSectionNode,

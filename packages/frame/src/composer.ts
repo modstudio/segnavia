@@ -91,20 +91,6 @@ export function partTitleValues(variables: readonly Variable[], parts: Record<st
   return values
 }
 
-export function structureTextValues(
-  variables: readonly Variable[],
-  from: 'chapter-number' | 'part-number',
-  values: Record<string, string>,
-): PaginateVariable[] {
-  const result: PaginateVariable[] = []
-  for (const variable of variables) {
-    if (variable.kind !== 'text' || variable.from !== from) continue
-    const value = from === 'chapter-number' ? values.chapter : Object.hasOwn(values, variable.part) ? values[variable.part] : undefined
-    result.push({ name: variable.name, value: value ?? '', line: 0, scope: 'flow' })
-  }
-  return result
-}
-
 export interface FlowMeasurementFacts {
   id: string
   sourceBlocks: number
@@ -233,7 +219,6 @@ ${embedFunction('advanceVisibleTime', advanceVisibleTime)}
 ${embedFunction('decideVisibleMeasurement', decideVisibleMeasurement)}
 ${embedFunction('appendMeasuredBlock', appendMeasuredBlock)}
 ${embedFunction('partTitleValues', partTitleValues)}
-${embedFunction('structureTextValues', structureTextValues)}
 ${embeddedComposerMeasureFunctions(lineNotes)}
 ${embeddedComposerMarginFunctions()}
 ${embedFunction('noteFragmentExtent', noteFragmentExtent)}

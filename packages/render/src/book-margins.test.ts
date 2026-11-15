@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, bookParentPages } from '@segnavia/format'
 import { type BookPrintedPagePlan, parseBookFixture } from '@segnavia/html'
-import { marginCss, marginDocument } from './book-margins.ts'
 import { marginFactsFor } from './book-margin-facts.ts'
+import { marginCss, marginDocument } from './book-margins.ts'
 
 test('fills catalogued furniture by its parsed motif key and uses its resolved parent margin', () => {
   const book = parseBookFixture({

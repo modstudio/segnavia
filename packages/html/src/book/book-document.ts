@@ -12,8 +12,8 @@ import {
   MAX_HEADING_LEVEL,
   noteMarkerIssues,
   resolveDirection,
-  structureNumbers,
   type StructureNumberValue,
+  structureNumbers,
   type TemplatedSection,
 } from '@segnavia/format'
 import type { Document } from 'domhandler'
@@ -164,7 +164,7 @@ export interface DocumentBuild {
 }
 
 function attachSectionNumber(build: DocumentBuild, id: string): void {
-  const heading = build.headings.findLast((candidate) => candidate.id === id)
+  const heading = [...build.headings].reverse().find((candidate) => candidate.id === id)
   const number = build.structureNumbers.get(id)?.text
   if (heading && number !== undefined) heading.number = number
 }

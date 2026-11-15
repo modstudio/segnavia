@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { bookDocument } from './book-document.ts'
 import { bookOutlineSource } from '../document-outline.ts'
+import { bookDocument } from './book-document.ts'
 import { parseBookFixture } from './book-test-fixture.ts'
 
 test('uses a section contents label and independently resolves its subtitle direction', () => {
