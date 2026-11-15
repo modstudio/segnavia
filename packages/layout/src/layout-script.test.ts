@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { layoutScript } from './layout-script.ts'
 import { hyphenationPoints } from './hyphenate.ts'
+import { layoutScript } from './layout-script.ts'
 import { breakLines } from './line-break.ts'
 import { block, flow, input, settings } from './paginate-book.test-helper.ts'
 import { paginateScript } from './paginate-book.ts'
@@ -66,7 +66,10 @@ test('layoutScript embeds the paragraph breaker and English and Hebrew hyphen po
     { type: 'box' as const, width: 30 },
   ]
   expect(embedded.breakLines(items, [40])).toEqual(breakLines(items, [40]))
-  for (const [word, language] of [['hyphenation', 'en-US'], ['שלום־עליכם', 'he']] as const) {
+  for (const [word, language] of [
+    ['hyphenation', 'en-US'],
+    ['שלום־עליכם', 'he'],
+  ] as const) {
     expect(embedded.hyphenationPoints(word, language)).toEqual(hyphenationPoints(word, language))
   }
 })

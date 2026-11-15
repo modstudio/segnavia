@@ -32,5 +32,31 @@ test('keeps mixed-direction token order and embeds inline cloning and idempotenc
   expect(script).toContain('style.textAlign !== "justify"')
   expect(script).toContain('composition.composer ?? "paragraph"')
   expect(script).toContain('lines.length <= 1')
-  expect(script).toContain("data-segnavia-hyphen")
+  expect(script).toContain('data-segnavia-hyphen')
+})
+
+test('keeps embedded paragraph function names after minification', async () => {
+  const built = await Bun.build({
+    entrypoints: ['virtual:paragraph-composer'],
+    minify: true,
+    target: 'browser',
+    conditions: ['@segnavia/source'],
+    format: 'cjs',
+    plugins: [
+      {
+        name: 'paragraph-composer',
+        setup(builder) {
+          builder.onResolve({ filter: /^virtual:paragraph-composer$/ }, () => ({ path: 'paragraph-composer', namespace: 'virtual' }))
+          builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
+            contents: `import { paragraphComposerScript } from ${JSON.stringify(`${import.meta.dir}/composer-paragraph.ts`)}; export const script=paragraphComposerScript();`,
+            loader: 'ts',
+          }))
+        },
+      },
+    ],
+  })
+  expect(built.success).toBe(true)
+  const bundle = await built.outputs[0]?.text()
+  const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
+  expect(new Function(`${script};return typeof composeParagraphs`)()).toBe('function')
 })
