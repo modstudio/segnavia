@@ -3,6 +3,7 @@ export type { MotifsOptions } from '@segnavia/frame/motifs'
 export type { PreparedSlots, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export { captureImage } from './capture-image.ts'
 export { COVER_IMAGE_OMITTED, type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
+export { type DirectoryFontSourceOptions, directoryFontSource } from './directory-font-source.ts'
 export type { EffectsReport } from './effects/types.ts'
 export {
   type ColorProfileUse,

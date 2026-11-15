@@ -13,6 +13,13 @@ export {
 export * from './board-exports.ts'
 export * from './book-exports.ts'
 export { type BrandSource, resolveBrand } from './brand.ts'
+export {
+  type CatalogFontLoad,
+  type CatalogFontLoadOptions,
+  catalogFontSource,
+  type FontSourceLimits,
+  fontSources,
+} from './catalog-font-source.ts'
 export { closedObject, renderIssuePath } from './closed-object.ts'
 export { boundComposeProgress, COMPOSE_PROGRESS_PAGES_LIMIT, type ComposeProgress } from './compose-progress.ts'
 export {
@@ -121,6 +128,7 @@ export {
   SectionNumbering,
   sequenceFolios,
 } from './folio.ts'
+export { type CatalogFontFace, FontCatalog } from './font-catalog.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
 export {
   type FontCoverageDeclaration,
@@ -356,6 +364,7 @@ export {
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
+export { type FontFetch, type UrlFontSourceOptions, urlFontSource } from './url-font-source.ts'
 export { LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
 export {
   bookVariableDocumentFacts,
