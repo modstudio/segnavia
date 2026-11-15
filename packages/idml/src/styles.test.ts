@@ -223,6 +223,27 @@ test('maps partial line keeps to orphans and widows', () => {
   expect(report.data().unsupportedStyleProperties).toMatchObject({ 'StartParagraph:NextColumn': 1 })
 })
 
+test('maps paragraph composition settings to Segnavia custom properties', () => {
+  const report = new ReportCollector()
+  const mapper = new StyleMapper(
+    [
+      style('body', 'Body', {
+        Composer: '$ID/HL Single Optyca',
+        MinimumWordSpacing: '85',
+        DesiredWordSpacing: '100',
+        MaximumWordSpacing: '120',
+        Hyphenation: 'false',
+      }),
+    ],
+    [],
+    report,
+    'ltr',
+  )
+  mapper.styleClass('body', 'paragraph')
+  expect(mapper.css()).toBe('.idml-p-body{--segnavia-composer:single-line;--segnavia-word-spacing:85% 100% 120%;--segnavia-hyphenate:false}')
+  expect(report.data().unsupportedStyleProperties).toEqual({})
+})
+
 test('reports only active root gaps, non-root formatting gaps, and no style metadata', () => {
   const report = new ReportCollector()
   const mapper = new StyleMapper(
@@ -261,7 +282,6 @@ test('reports only active root gaps, non-root formatting gaps, and no style meta
   mapper.css()
   expect(report.data().unsupportedStyleProperties).toEqual({
     BaselineShift: 1,
-    Composer: 1,
     DropCapLines: 1,
     FillTint: 1,
     ParagraphBorderOn: 1,

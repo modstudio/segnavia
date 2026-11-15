@@ -89,5 +89,5 @@ test('reports enabled rules and groups active hyphenation and justification sett
     TabList: 'tab-stop',
     AllGREPStyles: 'grep-style',
   }
-  expect(reportableStyleProperties(values, values)).toEqual(['Hyphenation', 'JustificationSettings', 'RuleAbove', 'TabList', 'AllGREPStyles'])
+  expect(reportableStyleProperties(values, values)).toEqual(['HyphenationSettings', 'RuleAbove', 'TabList', 'AllGREPStyles'])
 })

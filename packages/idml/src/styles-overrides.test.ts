@@ -128,3 +128,9 @@ test('records the resolved family when only a font style is overridden', () => {
   mapper.overrideClass({ FontStyle: 'Bold' }, { AppliedFont: 'Book Face', FontStyle: 'Regular' }, 'ltr', 'Story#run')
   expect(report.data().fonts).toMatchObject([{ appliedFont: 'Book Face', fontStyle: 'Bold' }])
 })
+
+test('completes a partial word-spacing override from the resolved style chain', () => {
+  const mapper = new StyleMapper([], [], new ReportCollector(), 'ltr')
+  const override = mapper.overrideClass({ DesiredWordSpacing: '90' }, { MinimumWordSpacing: '85' }, 'ltr', 'Story#paragraph')
+  expect(mapper.css()).toContain(`.${override}{--segnavia-word-spacing:85% 90% 133%}`)
+})

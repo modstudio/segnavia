@@ -24,6 +24,35 @@ export type TextStyleKind = 'paragraph' | 'character'
 export type TextStyleTokenGroup = 'colors' | 'dimensions' | 'fontFamilies'
 
 const DimensionValue = z.union([TokenReference, Dimension])
+const WordSpacingPercentage = z.number().refine((value) => Number.isFinite(value) && value >= 0 && value <= 1000 && Number(value.toFixed(2)) === value, {
+  message:
+    'word spacing percentages must be from 0 to 1000 with no more than two decimal places; use a percentage in that range rounded to two decimal places to clear this refusal',
+})
+export const WordSpacing = closedObject({
+  minimum: WordSpacingPercentage,
+  desired: WordSpacingPercentage,
+  maximum: WordSpacingPercentage,
+}).refine((value) => value.minimum <= value.desired && value.desired <= value.maximum, {
+  message:
+    'wordSpacing must have minimum less than or equal to desired and desired less than or equal to maximum; put the three percentages in order from minimum to maximum to clear this refusal',
+})
+export type WordSpacing = z.infer<typeof WordSpacing>
+
+const WORD_SPACING_PATTERN = /^(\d+(?:\.\d{1,2})?)%\s+(\d+(?:\.\d{1,2})?)%\s+(\d+(?:\.\d{1,2})?)%$/
+
+export function serializeWordSpacing(value: WordSpacing): string {
+  return `${value.minimum}% ${value.desired}% ${value.maximum}%`
+}
+
+export function parseWordSpacing(value: string): WordSpacing | undefined {
+  const match = value.trim().match(WORD_SPACING_PATTERN)
+  if (!match) return undefined
+  const parsed = WordSpacing.safeParse({ minimum: Number(match[1]), desired: Number(match[2]), maximum: Number(match[3]) })
+  return parsed.success ? parsed.data : undefined
+}
+
+export const COMPOSER_VALUES = ['paragraph', 'single-line'] as const
+
 const TextStyleShape = {
   kind: z.enum(['paragraph', 'character']),
   basedOn: StyleName.optional(),
@@ -39,9 +68,15 @@ const TextStyleShape = {
   spaceAfter: DimensionValue.optional(),
   indent: DimensionValue.optional(),
   keepWithNext: z.boolean().optional(),
+  composer: z.enum(COMPOSER_VALUES).optional(),
+  wordSpacing: WordSpacing.optional(),
+  hyphenate: z.boolean().optional(),
 } as const
 
 export const KEEP_WITH_CUSTOM_PROPERTY = '--segnavia-keep-with'
+export const COMPOSER_CUSTOM_PROPERTY = '--segnavia-composer'
+export const WORD_SPACING_CUSTOM_PROPERTY = '--segnavia-word-spacing'
+export const HYPHENATE_CUSTOM_PROPERTY = '--segnavia-hyphenate'
 
 type TextStyleProperty = Exclude<keyof typeof TextStyleShape, 'kind' | 'basedOn'>
 type TextStylePropertyFact = { kinds: readonly TextStyleKind[]; tokenGroup?: TextStyleTokenGroup; cssProperty: string }
@@ -59,6 +94,9 @@ export const TEXT_STYLE_PROPERTIES = {
   spaceAfter: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'margin-block-end' },
   indent: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'text-indent' },
   keepWithNext: { kinds: ['paragraph'], cssProperty: KEEP_WITH_CUSTOM_PROPERTY },
+  composer: { kinds: ['paragraph'], cssProperty: COMPOSER_CUSTOM_PROPERTY },
+  wordSpacing: { kinds: ['paragraph'], cssProperty: WORD_SPACING_CUSTOM_PROPERTY },
+  hyphenate: { kinds: ['paragraph'], cssProperty: HYPHENATE_CUSTOM_PROPERTY },
 } as const satisfies Record<TextStyleProperty, TextStylePropertyFact>
 
 export const TextStyle = closedObject(TextStyleShape).superRefine((style, ctx) => {

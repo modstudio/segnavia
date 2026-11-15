@@ -334,17 +334,24 @@ export {
 } from './style-merge.ts'
 export {
   Brand,
+  COMPOSER_CUSTOM_PROPERTY,
+  COMPOSER_VALUES,
   Dimension,
   HexColor,
+  HYPHENATE_CUSTOM_PROPERTY,
   KEEP_WITH_CUSTOM_PROPERTY,
   PageGeometry,
+  parseWordSpacing,
   STYLE_NAME,
   StyleSheet,
+  serializeWordSpacing,
   TEXT_STYLE_PROPERTIES,
   TextStyle,
   type TextStyleKind,
   type TextStyleTokenGroup,
   TokenReference,
+  WORD_SPACING_CUSTOM_PROPERTY,
+  WordSpacing,
 } from './style-sheet.ts'
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'

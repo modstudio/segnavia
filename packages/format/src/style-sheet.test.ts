@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { StyleSheet } from './style-sheet.ts'
+import { parseWordSpacing, StyleSheet, serializeWordSpacing } from './style-sheet.ts'
 
 function refusal(input: unknown): string {
   const result = StyleSheet.safeParse(input)
@@ -25,6 +25,55 @@ describe('StyleSheet', () => {
     const message = refusal({ textStyles: { emphasis: { kind: 'character', spaceBefore: { value: 2, unit: 'pt' } } } })
     expect(message).toMatch(/"textStyles"[\s\S]*"emphasis"[\s\S]*"spaceBefore"/)
     expect(message).toContain('remove spaceBefore or change kind to paragraph to clear this refusal')
+  })
+
+  test('accepts paragraph composition settings and refuses malformed values with their style paths', () => {
+    expect(
+      StyleSheet.safeParse({
+        textStyles: {
+          body: {
+            kind: 'paragraph',
+            composer: 'single-line',
+            wordSpacing: { minimum: 0.29, desired: 80.15, maximum: 120 },
+            hyphenate: false,
+          },
+        },
+      }).success,
+    ).toBe(true)
+
+    for (const [property, value] of [
+      ['composer', 'unknown'],
+      ['wordSpacing', { minimum: 101, desired: 100, maximum: 120 }],
+      ['wordSpacing', { minimum: -1, desired: 100, maximum: 120 }],
+      ['wordSpacing', { minimum: 80, desired: Number.POSITIVE_INFINITY, maximum: 120 }],
+      ['wordSpacing', { minimum: 80, desired: 100.001, maximum: 120 }],
+      ['wordSpacing', { minimum: 80, desired: 100, maximum: 1000.01 }],
+      ['hyphenate', 'true'],
+    ] as const) {
+      const message = refusal({ textStyles: { body: { kind: 'paragraph', [property]: value } } })
+      expect(message).toMatch(new RegExp(`"textStyles"[\\s\\S]*"body"[\\s\\S]*"${property}"`))
+    }
+
+    for (const property of ['composer', 'wordSpacing', 'hyphenate'] as const) {
+      const values = {
+        composer: 'paragraph',
+        wordSpacing: { minimum: 80, desired: 100, maximum: 133 },
+        hyphenate: true,
+      }
+      const message = refusal({ textStyles: { emphasis: { kind: 'character', [property]: values[property] } } })
+      expect(message).toMatch(new RegExp(`"emphasis"[\\s\\S]*"${property}"`))
+      expect(message).toContain(`remove ${property} or change kind to paragraph to clear this refusal`)
+    }
+  })
+
+  test('round trips word spacing at the supported bounds with one shared grammar', () => {
+    for (const spacing of [
+      { minimum: 0, desired: 0, maximum: 0 },
+      { minimum: 0.29, desired: 80.15, maximum: 133 },
+      { minimum: 0.01, desired: 100.25, maximum: 1000 },
+    ]) {
+      expect(parseWordSpacing(serializeWordSpacing(spacing))).toEqual(spacing)
+    }
   })
 
   test('accepts page geometry columns and refuses duplicate motif keys', () => {
