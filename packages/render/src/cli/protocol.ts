@@ -69,7 +69,12 @@ export function parseRenderRequest(input: Uint8Array, limit = RENDER_REQUEST_BYT
   const render = parseRender(source.render)
   if (render === 'pages' && !Array.isArray(source.document))
     throw new RenderRequestRefusal('The pages render document must be an array; send an array of pages to clear this refusal.', 'document')
-  return { render, document: source.document, options: parseOptions(source.options), ...(source.fonts === undefined ? {} : { fonts: parseFonts(source.fonts) }) }
+  return {
+    render,
+    document: source.document,
+    options: parseOptions(source.options),
+    ...(source.fonts === undefined ? {} : { fonts: parseFonts(source.fonts) }),
+  }
 }
 
 function errorRecord(error: unknown): { name: string; message: string } {

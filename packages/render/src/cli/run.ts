@@ -1,9 +1,9 @@
-import { CONTAINER_ARGS, type Renderer } from '../renderer.ts'
-import { directoryFontSource } from '../directory-font-source.ts'
 import { parseBookPdfOptions } from '../book-options.ts'
+import { directoryFontSource } from '../directory-font-source.ts'
 import { parseDeckPdfOptions } from '../entry-options.ts'
 import { RenderRefusedError } from '../errors.ts'
 import { parsePagePdfOptions } from '../page-render-options.ts'
+import { CONTAINER_ARGS, type Renderer } from '../renderer.ts'
 import { outcomeFromError, parseRenderRequest, type RenderOutcome, type RenderRequest } from './protocol.ts'
 
 export interface RenderEnvironment {
@@ -57,12 +57,7 @@ function renderRequest(renderer: Renderer, request: RenderRequest, options: Reco
   }
 }
 
-export async function runRenderRequest(
-  input: Uint8Array,
-  environment: RenderEnvironment,
-  open: OpenRenderer,
-  inputLimit?: number,
-): Promise<RenderOutcome> {
+export async function runRenderRequest(input: Uint8Array, environment: RenderEnvironment, open: OpenRenderer, inputLimit?: number): Promise<RenderOutcome> {
   try {
     const request = parseRenderRequest(input, inputLimit)
     if (!environment.SEGNAVIA_CHROMIUM)

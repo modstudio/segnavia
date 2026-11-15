@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { Refusal } from '@segnavia/format'
 import { RendererUnavailableError } from '../errors.ts'
 import type { Renderer } from '../renderer.ts'
-import { runRenderRequest, type OpenRenderer, type RenderEnvironment } from './run.ts'
+import { type OpenRenderer, type RenderEnvironment, runRenderRequest } from './run.ts'
 
 const encoder = new TextEncoder()
 const environment = { SEGNAVIA_CHROMIUM: '/chromium' }
@@ -27,11 +27,14 @@ function opened(calls: unknown[][] = [], failure?: Error): { open: OpenRenderer;
   return {
     open: async (options) => {
       calls.push(['open', options])
-      return rendererFor(async (...args) => {
-        if (failure) throw failure
-        calls.push(args)
-        return new Uint8Array([37, 80, 68, 70])
-      }, () => closes++)
+      return rendererFor(
+        async (...args) => {
+          if (failure) throw failure
+          calls.push(args)
+          return new Uint8Array([37, 80, 68, 70])
+        },
+        () => closes++,
+      )
     },
     closed: () => closes,
   }
