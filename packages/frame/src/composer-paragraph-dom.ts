@@ -72,7 +72,7 @@ export function removeContinuationIds(fragments: readonly ParentNode[]): void {
   }
 }
 
-export function rewriteParagraph(
+export function paragraphLineNodes(
   paragraph: Element,
   tokens: readonly ParagraphToken[],
   lines: readonly ParagraphLine[],
@@ -81,22 +81,24 @@ export function rewriteParagraph(
   identityAttribute: string,
   continuationAttribute: string,
   variableValueAttribute: string,
-): void {
+): HTMLElement[] {
   const clearIdentities = markCompositionIdentities(paragraph, identityAttribute, variableValueAttribute)
   const fragments = lines.map((line) => lineFragment(tokens, line, doc))
   clearIdentities()
   removeContinuationIds(fragments)
   markCompositionContinuations(fragments, identityAttribute, continuationAttribute)
-  const output = lines.map((line, index) => {
+  return lines.map((line, index) => {
     const span = doc.createElement('span')
     span.setAttribute('data-segnavia-line', '')
     span.dir = direction
-    span.style.display = 'block'
-    span.style.setProperty('text-wrap-mode', 'nowrap')
-    span.style.textAlign = index === lines.length - 1 || line.forced ? 'start' : 'justify'
-    if (index < lines.length - 1 && !line.forced) span.style.textAlignLast = 'justify'
-    if (index > 0) span.style.textIndent = '0'
-    if (index < lines.length - 1 && !line.forced) span.style.wordSpacing = `${line.wordSpacing}px`
+    const fillsMeasure = index < lines.length - 1 && !line.forced
+    span.style.cssText = [
+      'display:block',
+      'text-wrap-mode:nowrap',
+      `text-align:${fillsMeasure ? 'justify' : 'start'}`,
+      ...(fillsMeasure ? ['text-align-last:justify', `word-spacing:${line.wordSpacing}px`] : []),
+      ...(index > 0 ? ['text-indent:0'] : []),
+    ].join(';')
     span.append(fragments[index] as DocumentFragment)
     if (line.hyphen) {
       const marker = doc.createElement('span')
@@ -107,5 +109,18 @@ export function rewriteParagraph(
     }
     return span
   })
+}
+
+export function rewriteParagraph(
+  paragraph: Element,
+  tokens: readonly ParagraphToken[],
+  lines: readonly ParagraphLine[],
+  doc: Document,
+  direction: string,
+  identityAttribute: string,
+  continuationAttribute: string,
+  variableValueAttribute: string,
+): void {
+  const output = paragraphLineNodes(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
   paragraph.replaceChildren(...output)
 }

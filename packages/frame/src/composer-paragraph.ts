@@ -10,6 +10,7 @@ import {
   lineFragment,
   markCompositionContinuations,
   markCompositionIdentities,
+  paragraphLineNodes,
   removeContinuationIds,
   rewriteParagraph,
   setRangeEnd,
@@ -59,22 +60,27 @@ interface ParagraphRewrite {
   tokens: ParagraphToken[]
   lines: ParagraphLine[]
   direction: string
-  marker: Comment
   source?: ParagraphRewrite
+  output?: Node[]
 }
 type ParagraphItem =
   | { type: 'box'; width: number }
   | { type: 'glue'; width: number; stretch: number; shrink: number }
   | { type: 'penalty'; width: number; penalty: number; flagged: boolean }
-function hyphenWidth(paragraph: Element, doc: Document, styleFor: typeof getComputedStyle): number {
+function hyphenWidth(paragraph: Element, doc: Document, styleFor: typeof getComputedStyle, widths: Map<string, number>): number {
+  const style = styleFor(paragraph)
+  const key = `${style.writingMode}|${measurementStyleKey(paragraph, styleFor)}`
+  const cached = widths.get(key)
+  if (cached !== undefined) return cached
   const marker = doc.createElement('span')
   marker.textContent = '-'
   marker.style.cssText = 'position:absolute;visibility:hidden;white-space:pre'
   paragraph.append(marker)
-  const writingMode = styleFor(paragraph).writingMode
   const rect = marker.getBoundingClientRect()
   marker.remove()
-  return logicalExtent(rect, writingMode, 'inline')
+  const width = logicalExtent(rect, style.writingMode, 'inline')
+  widths.set(key, width)
+  return width
 }
 function wordRanges(tokens: readonly ParagraphToken[]): { start: number; end: number; text: string }[] {
   const words: { start: number; end: number; text: string }[] = []
@@ -240,6 +246,7 @@ function paragraphRewriteForFact(
   fact: ParagraphCompositionFact,
   doc: Document,
   cache: Map<string, number>,
+  hyphenWidths: Map<string, number>,
   reusable: Map<string, ParagraphRewrite>,
   styleFor: typeof getComputedStyle,
   planLines: typeof planParagraphLinesWith,
@@ -276,7 +283,6 @@ function paragraphRewriteForFact(
       tokens: [],
       lines: source.lines,
       direction,
-      marker: doc.createComment(''),
       source,
     }
   }
@@ -290,13 +296,13 @@ function paragraphRewriteForFact(
       indent: resolvedTextIndent(style.textIndent, inlineSize),
       spacing: composition.wordSpacing ?? compositionDefaults().wordSpacing,
     },
-    hyphenWidth(paragraph, doc, styleFor),
+    hyphenWidth(paragraph, doc, styleFor, hyphenWidths),
     breakForLines,
     pointsForWord,
   )
   const action = paragraphCompositionAction(previous?.inlineSize, style.textAlign, composer, lines.length)
   if (action === 'leave' || action === 'restore') return undefined
-  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction, marker: doc.createComment('') }
+  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction }
   if (reuseKey) reusable.set(reuseKey, rewrite)
   return rewrite
 }
@@ -316,6 +322,7 @@ export function composeParagraphs(
   variableValueAttribute: string,
 ): void {
   const cache = new Map<string, number>()
+  const hyphenWidths = new Map<string, number>()
   const paragraphs = root.querySelectorAll('p')
   const facts = paragraphCompositionFacts(paragraphs, styleFor, composedParagraphs, readStyle, measureContent)
   const changedFacts: ParagraphCompositionFact[] = []
@@ -327,21 +334,21 @@ export function composeParagraphs(
   const rewrites: ParagraphRewrite[] = []
   const reusable = new Map<string, ParagraphRewrite>()
   for (const fact of changedFacts) {
-    const rewrite = paragraphRewriteForFact(fact, doc, cache, reusable, styleFor, planLines, breakForLines, pointsForWord)
+    const rewrite = paragraphRewriteForFact(fact, doc, cache, hyphenWidths, reusable, styleFor, planLines, breakForLines, pointsForWord)
     if (rewrite) rewrites.push(rewrite)
   }
-  for (const rewrite of rewrites) rewrite.paragraph.replaceWith(rewrite.marker)
-  for (const { paragraph, tokens, lines, direction, source } of rewrites) {
+  for (const rewrite of rewrites) {
+    const { paragraph, tokens, lines, direction, source } = rewrite
     if (source) {
-      paragraph.replaceChildren(...Array.from(source.paragraph.childNodes, (node) => node.cloneNode(true)))
+      rewrite.output = source.output?.map((node) => node.cloneNode(true)) ?? []
       setParagraphVariableValue(paragraph, variableValueAttribute)
     } else {
       setParagraphVariableValue(paragraph, variableValueAttribute)
-      rewriteParagraph(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
+      rewrite.output = paragraphLineNodes(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
     }
   }
-  for (const { paragraph, original, inlineSize, marker } of rewrites) {
-    marker.replaceWith(paragraph)
+  for (const { paragraph, original, inlineSize, output } of rewrites) {
+    paragraph.replaceChildren(...(output ?? []))
     composedParagraphs.set(paragraph, { children: original, inlineSize })
   }
 }
@@ -379,6 +386,7 @@ ${embedFunction('lineFragment', lineFragment)}
 ${embedFunction('markCompositionIdentities', markCompositionIdentities)}
 ${embedFunction('markCompositionContinuations', markCompositionContinuations)}
 ${embedFunction('removeContinuationIds', removeContinuationIds)}
+${embedFunction('paragraphLineNodes', paragraphLineNodes)}
 ${embedFunction('rewriteParagraph', rewriteParagraph)}
 ${embedFunction('contentInlineSize', contentInlineSize)}
 ${embedFunction('paragraphLanguage', paragraphLanguage)}
