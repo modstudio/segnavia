@@ -234,6 +234,11 @@ ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }
 
+export function selectedPageRefusal(only: number | null | undefined, pageCount: number): string | undefined {
+  if (only === null || only === undefined || only <= pageCount) return undefined
+  return `page ${only} is beyond the composed run's ${pageCount} pages; pass a page from 1 through ${pageCount} to clear this refusal`
+}
+
 export function composerScript(configJson: string): string {
   const parsedConfig = JSON.parse(configJson) as { presentation?: ScreenPresentation; lineNoteSeries?: unknown[]; outline?: OutlineSource }
   const presentationConfig = parsedConfig.presentation
@@ -264,6 +269,7 @@ ${embedFunction('parseCssLength', parseCssLength)}
 ${embedFunction('lengthPx', lengthPx)}
 ${embedFunction('pageNotPrintedRefusal', pageNotPrintedRefusal)}
 ${embedFunction('pageReferenceFolio', pageReferenceFolio)}
+${embedFunction('selectedPageRefusal', selectedPageRefusal)}
 tagComposerHeadings(document,outlineEntries);
 var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
@@ -362,7 +368,7 @@ var saved;
 if(config.plan){planFolios=config.plan;fillPageReferences(config.plan.pages);${lineNotes ? "var replayLabels=applyLineLabels(input,config.plan,config.lineNumbers,config.lineNoteSeries,document);if(replayLabels.refusals.length){fail(replayLabels.refusals[0]);return;}if(replayLabels.missing.length){fail('line-keyed note labels for '+replayLabels.missing.join(', ')+' could not be matched to their note bodies and series; keep each generated line label and its declared series to clear this refusal');return;}" : ''}input=measureInput();var replayContinuation=measurementContinuation(input,config.plan.pages.length);if(replayContinuation)return replayContinuation===true?undefined:replayContinuation;var replayed=replayPlan(input,config.plan,config.numbering);if(!replayed.ok){fail(replayed.refusal);return;}plan=replayed.plan;planFolios=plan;}
 else{plan=planConverged();if(!plan)return;var saveContinuation=measurementContinuation(input,plan.pages.length);if(saveContinuation)return saveContinuation===true?undefined:saveContinuation;}
 var setComposedHeight=function(pages){var height=0;for(var i=0;i<pages.length;i++)height+=geometryFor(pages[i].pageGeometry).paperHeight;var value=height+'px';document.documentElement.style.blockSize=value;document.body.style.blockSize=value;};
-var preparePlan=function(source){var prepared=applyPrintedRules(source);planFolios=prepared;if(prepared.pages.length>config.limit){fail(config.limitRefusal.template.split(config.limitRefusal.placeholder).join(String(prepared.pages.length)));if(config.measure){setComposedHeight(prepared.pages);document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');}return null;}if(config.expectedCount!==null&&config.expectedCount!==undefined&&prepared.pages.length!==config.expectedCount){fail('the composed page count changed from '+config.expectedCount+' to '+prepared.pages.length+' between measurement and paper composition; wait for the page layout to settle or shorten the content to clear this refusal');return null;}return prepared;};
+var preparePlan=function(source){var prepared=applyPrintedRules(source);planFolios=prepared;if(prepared.pages.length>config.limit){fail(config.limitRefusal.template.split(config.limitRefusal.placeholder).join(String(prepared.pages.length)));if(config.measure){setComposedHeight(prepared.pages);document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');}return null;}var selectionRefusal=selectedPageRefusal(config.only,prepared.pages.length);if(selectionRefusal){fail(selectionRefusal);return null;}if(config.expectedCount!==null&&config.expectedCount!==undefined&&prepared.pages.length!==config.expectedCount){fail('the composed page count changed from '+config.expectedCount+' to '+prepared.pages.length+' between measurement and paper composition; wait for the page layout to settle or shorten the content to clear this refusal');return null;}return prepared;};
 var prepared=preparePlan(plan);if(!prepared)return;
 if(config.measure){setComposedHeight(prepared.pages);document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');return;}
 var composed=await compose(prepared,input.geometry.noteSeries||[]);

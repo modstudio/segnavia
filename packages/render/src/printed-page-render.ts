@@ -19,6 +19,7 @@ export function renderedPageDocument(
   fontCss = '',
   fontFailures: FontFailure[] = [],
   layoutScripts?: readonly LoadedLayoutScript[],
+  only?: number,
 ): string {
   try {
     if (!isPrintedHtmlPage(page) && !page.printedPages) {
@@ -36,6 +37,7 @@ export function renderedPageDocument(
       profile: options.preflight?.profile,
       preflightSeed: options.preflight?.seed,
       ...renderProgressDocumentOptions(options.progress),
+      ...(only === undefined ? {} : { only }),
     })
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)

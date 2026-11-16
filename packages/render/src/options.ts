@@ -268,6 +268,7 @@ export interface ImageOptions extends RenderOptions {
 }
 
 export interface PageImageOptions extends ImageOptions, AsOfInputs {
+  page?: number
   preflight?: RenderPreflightOptions
 }
 

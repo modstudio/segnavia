@@ -80,6 +80,7 @@ export const PAGES_PDF_OPTION_KEYS = {
 export const PAGE_IMAGE_OPTION_KEYS = {
   ...RENDER_KEYS,
   ...IMAGE_KEYS,
+  page: true,
   preflight: true,
   ...AS_OF_KEYS,
 } as const satisfies Record<keyof PageImageOptions, true>

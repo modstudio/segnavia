@@ -46,3 +46,26 @@ test('a growing page uses its measured height for the watermark media', async ()
   expect(viewport.height).toBe(measuredHeight)
   expect(watermarkMarkup).toContain('height:900pt')
 })
+
+test('a plain page refuses a selection above its one page before opening a tab', async () => {
+  const page = resolvePageHtml(Page.parse({ html: '<p>One page</p>' }))
+  let opened = false
+  const rendered = renderPreparedPageImage(
+    {
+      page,
+      options: { format: 'png', page: 2 },
+      fontCss: '',
+      fontFailures: [],
+      established: { day: undefined, slots: undefined },
+    } as never,
+    { format: 'png', page: 2 },
+    { signal: AbortSignal.any([]), remaining: () => 1_000 },
+    async <Value>(): Promise<Value> => {
+      opened = true
+      throw new Error('opened a tab')
+    },
+  )
+
+  await expect(rendered).rejects.toThrow("pageImage page 2 is beyond this page's 1 page")
+  expect(opened).toBeFalse()
+})

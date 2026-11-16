@@ -13,6 +13,7 @@ import {
   noteSettlementOverlapsBody,
   noteStackTops,
   partTitleValues,
+  selectedPageRefusal,
   unmeasuredFlows,
 } from './composer.ts'
 import { mergeRegionFact } from './composer-fill-policy.ts'
@@ -140,6 +141,12 @@ test('keeps one progress high-water across the note-overlap repair composition',
   expect(compose).toBeGreaterThan(highWater)
   expect(script.indexOf('dressPlanPages(plan,config.only,reportComposeProgress', compose)).toBeGreaterThan(compose)
   expect(repair).toBeGreaterThan(compose)
+})
+
+test('refuses a selected page beyond the composed plan before dressing it', () => {
+  expect(selectedPageRefusal(4, 3)).toBe("page 4 is beyond the composed run's 3 pages; pass a page from 1 through 3 to clear this refusal")
+  expect(selectedPageRefusal(2, 3)).toBeUndefined()
+  expect(composerScript('{}')).toContain('var selectionRefusal=selectedPageRefusal(config.only,prepared.pages.length)')
 })
 
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {
