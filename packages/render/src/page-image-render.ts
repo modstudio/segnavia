@@ -1,6 +1,7 @@
 import { fillPageAsOfBindings, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
+import { RenderRefusedError } from './errors.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { imageWatermarkPage, injectImageWatermark, printedImageTrim, selectedImageWatermarkMarkup } from './image-watermark.ts'
 import { assetSetup, type ParsedPageImageOptions } from './options.ts'
@@ -26,10 +27,14 @@ export async function renderPreparedPageImage(
 ): Promise<Uint8Array> {
   const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
   const { value: page, slots } = await filledPage(pageWithDay, prepared.established.slots, deadline.signal)
+  if (!page.printedPages && opts.page !== undefined && opts.page > 1) {
+    throw new RenderRefusedError(`pageImage page ${opts.page} is beyond this page's 1 page; pass page 1 or omit page to clear this refusal.`)
+  }
   const plainPagePreflight = page.printedPages ? undefined : surfacePreflight
   const pageHtml = printedPageAuthorHtml(page)
   const resolvedLayoutScripts = await resolveRenderLayoutScripts(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
+  const imagePage = opts.page ?? 1
   return withTab(
     {
       viewport,
@@ -43,6 +48,7 @@ export async function renderPreparedPageImage(
         prepared.fontCss,
         prepared.fontFailures,
         resolvedLayoutScripts,
+        opts.page,
       ),
       readiness: renderReadiness(page.scripts, opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
       boundMs: opts.boundMs,
@@ -60,7 +66,7 @@ export async function renderPreparedPageImage(
       const fontFamily = opts.watermark ? (await pageFontFacts(tab, Boolean(page.printedPages))).fontFamily : undefined
       const watermark = selectedImageWatermarkMarkup(
         opts.watermark,
-        1,
+        imagePage,
         imageWatermarkPage({
           viewport: captureViewport,
           direction: printedPageDirection(page),

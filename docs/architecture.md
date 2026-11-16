@@ -1269,6 +1269,14 @@ one-cell identity imposition; `pagesPdf` applies the same rule. Plain pages in
 a mixed call retain their ordinary placements and paper order. The print-only
 frame bridge carries a propagated root or body background onto a full-page
 element, so root colors reach paper without changing the on-screen page.
+`pageImage` may select one 1-based `page` from a composed printed-page run;
+the selected paper keeps its planned folio, and a selection that is not a
+whole number from 1 through the run's length refuses with its page count. An absent selector retains the first-paper image
+behavior, while a plain page has only page 1. `pageImage`, `slideImage` and
+`coverImage` accept `omitBackground: true` for transparent PNG or WebP output.
+The browser canvas and the library's unpainted paper become transparent, while
+authored backgrounds, motifs, watermarks and proof conversion remain content.
+JPEG refuses this option because it has no alpha channel.
 Every ordinary page frame, including browser print and render output, resolves
 its root direction from the page's declared `dir`, then its `lang`, then the
 first strong letter in its visible HTML text, with left to right as the
