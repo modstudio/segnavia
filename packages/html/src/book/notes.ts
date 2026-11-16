@@ -2,6 +2,7 @@ import { type Book, type BookDivision, noteMarker, type ResolvedNoteSeries } fro
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import { append, element, insertAfter, replace, text } from './dom.ts'
+import { noteBody } from './note-body.ts'
 
 const BLOCKS = new Set(['p', 'li', 'blockquote', 'dd', 'dt', 'figcaption', 'td', 'th', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article'])
 const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
@@ -62,7 +63,7 @@ function markerLink(id: string, href: string, marker: string): Element {
 }
 
 function noteParagraph(className: string, noteId: string, refId: string, marker: string, content: ChildNode[]): Element {
-  return element('p', { class: className, id: noteId }, [element('a', { href: `#${refId}` }, [element('bdi', {}, [text(marker)])]), text(' '), ...content])
+  return noteBody(className, noteId, [element('a', { href: `#${refId}` }, [element('bdi', {}, [text(marker)])]), text(' ')], content)
 }
 
 function nodeText(node: ChildNode): string {
@@ -90,7 +91,7 @@ function lineLabel(noteId: string, series: string, lemma: string | undefined, se
 }
 
 function lineNoteParagraph(series: ResolvedNoteSeries, noteId: string, content: ChildNode[], lemma: string | undefined): Element {
-  return element('p', { class: series.bodyClass, id: noteId }, [lineLabel(noteId, series.name, lemma, series.lemmaSeparator), ...content])
+  return noteBody(series.bodyClass, noteId, [lineLabel(noteId, series.name, lemma, series.lemmaSeparator)], content)
 }
 
 function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, refId: string, marker: string, lemma: Element | undefined): Element {

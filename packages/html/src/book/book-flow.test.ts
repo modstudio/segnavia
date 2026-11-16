@@ -92,4 +92,16 @@ describe('book flow', () => {
       'a continuous book cannot use the flow build; request the print build, or make the book paginated with a page to clear this',
     )
   })
+
+  test('gives a block-bodied collected note one block position', () => {
+    const book = parseBookFixture({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      chapters: [{ title: 'One', html: '<p>Text<span data-note="endnote"><p>First</p><p>Second</p></span></p>' }],
+    })
+    const flow = bookDocument(book, { build: 'flow' }).html
+    expect(flow).toMatch(/<div class="segnavia-endnote" id="segnavia-en-1" data-segnavia-position="segnavia-endnotes:2">/)
+    expect(flow.match(/data-segnavia-position="segnavia-endnotes:\d+"/g)).toHaveLength(2)
+  })
 })

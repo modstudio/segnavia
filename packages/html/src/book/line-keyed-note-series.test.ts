@@ -63,6 +63,26 @@ describe('line-keyed note series document', () => {
     expect(result.html).toContain('<bdi data-segnavia-line-label-number></bdi> </span>הערה')
   })
 
+  test('runs a line label into the first paragraph of a block note body', () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          lineNumbers: {},
+          notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: 'book', marker: 'arabic' }],
+          body: [
+            {
+              id: 'one',
+              ...chapter('One', '<p data-line-numbers>Text <span data-note="sources"><p>First</p><p>Second</p></span></p>'),
+            },
+          ],
+        }),
+      ),
+    )
+    expect(result.html).toContain(
+      '<div class="segnavia-note-sources" id="segnavia-note-sources-1"><p><span data-segnavia-line-label="segnavia-note-sources-1" data-segnavia-line-series="sources"><bdi data-segnavia-line-label-number></bdi> </span>First</p><p>Second</p></div>',
+    )
+  })
+
   test('refuses an unnumbered anchor and a repeat reference', () => {
     const result = bookDocument(
       parseBookFixture(
