@@ -8,8 +8,8 @@ import { Page, type Page as PageValue } from './page.ts'
 import type { PrintedPages } from './printed-pages.ts'
 import { recordExpansion } from './record-expansion.ts'
 import type { Brand } from './style-sheet.ts'
-import { plainText } from './text-run.ts'
 import type { RunText } from './text-run.ts'
+import { plainText } from './text-run.ts'
 
 type ParsedNode = DocumentValue['children'][number]
 type ShapeNode = DocumentShapeValue['children'][number]

@@ -12,7 +12,7 @@ import {
   type SectionNumbering,
   type TemplatedSection,
 } from '@segnavia/format'
-import { type ChildNode, cloneNode, type Element, isTag, isText } from 'domhandler'
+import { type ChildNode, type Element, isText } from 'domhandler'
 import { fillAttributeIssues } from '../fill-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
 import { headingListing } from '../heading-listing.ts'
@@ -20,6 +20,7 @@ import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
 import { sourceAttributeIssues } from '../source-attributes.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
+import { headingContent } from './book-heading-content.ts'
 import { encodedPartNumbers } from './book-part-values.ts'
 import { element, headingText, linkChildren } from './dom.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
@@ -163,21 +164,6 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
         ...(content.some((node) => !isText(node)) ? { content } : {}),
       },
     ]
-  })
-}
-
-const HIDDEN_HEADING_CONTENT = new Set(['script', 'style', 'template'])
-
-function headingContent(nodes: ChildNode[]): ChildNode[] {
-  return nodes.flatMap((node): ChildNode[] => {
-    if (isText(node)) return [cloneNode(node, true)]
-    if (!isTag(node)) return []
-    if (HIDDEN_HEADING_CONTENT.has(node.name)) return []
-    if (node.name === 'span' && node.attribs['data-note'] !== undefined) return []
-    const children = headingContent(node.children)
-    if (node.name === 'a') return children
-    const attribs = Object.fromEntries(Object.entries(node.attribs).filter(([name]) => name !== 'id' && !name.startsWith('data-segnavia-')))
-    return [element(node.name, attribs, children)]
   })
 }
 

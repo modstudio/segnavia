@@ -77,10 +77,8 @@ export {
 } from './book-section.ts'
 export { type StructureNumberSettings, type StructureNumberValue, structureNumbers } from './structure-numbers.ts'
 export type { PageGeometry } from './style-sheet.ts'
-
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
-
 const BookPrinted = closedObject({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
 
 export const BookPage = closedObject({
@@ -145,7 +143,6 @@ export const BookShape = closedObject({
 
 export const LineNoteSeries = closedObject({ name: z.string(), system: NumberSystem })
 export type LineNoteSeries = z.infer<typeof LineNoteSeries>
-
 export const BookViewPagination = closedObject({
   paper: closedObject({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
