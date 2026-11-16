@@ -5,10 +5,10 @@ import { MEDIA_FORMATS, type Media, MediaText, PAGE_BOXES, PageBoxName, PageSele
 import { PlacementRefusedError } from './placement-refusal.ts'
 
 export const PLACEMENT_ACCEPTS = {
-  board: ['deck', 'page', 'paper', 'book', 'media', 'shot'],
+  board: ['deck', 'page', 'paper', 'book', 'media', 'sound', 'shot'],
   book: ['media', 'page'],
-  page: ['media'],
-  deck: ['media'],
+  page: ['media', 'sound'],
+  deck: ['media', 'sound'],
   paper: ['media'],
 } as const
 

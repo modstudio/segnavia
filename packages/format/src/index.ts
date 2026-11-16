@@ -336,6 +336,7 @@ export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export * from './slot-values.ts'
 export * from './slots.ts'
+export { SOUND_FORMATS, Sound, SoundFormat, type SoundInput } from './sound.ts'
 export {
   type MergedStyleSheet,
   type MergeStyleSheetsResult,
