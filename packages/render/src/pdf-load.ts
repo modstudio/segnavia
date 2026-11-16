@@ -251,6 +251,32 @@ export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDo
   }
 }
 
+export type PdfRewritePhase = 'read' | 'rewrite'
+
+export function classifyPdfRewriteFailure(phase: PdfRewritePhase, error: unknown, step: string): RenderRefusedError {
+  if (error instanceof RenderRefusedError) return error
+  if (phase === 'rewrite') {
+    const message = error instanceof Error ? error.message : String(error)
+    return new RenderRefusedError(`The ${step} failed after the PDF was read: ${message}`, { cause: error })
+  }
+  return new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')
+}
+
+export async function rewritePdf<T>(bytes: Uint8Array, step: string, rewrite: (document: PDFDocument) => T | Promise<T>): Promise<T> {
+  let document: PDFDocument
+  try {
+    document = await loadPdf(bytes)
+    document.getPages()
+  } catch (error) {
+    throw classifyPdfRewriteFailure('read', error, step)
+  }
+  try {
+    return await rewrite(document)
+  } catch (error) {
+    throw classifyPdfRewriteFailure('rewrite', error, step)
+  }
+}
+
 export function createPdf(): Promise<PDFDocument> {
   return PDFDocument.create({ updateMetadata: false })
 }

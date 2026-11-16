@@ -4,7 +4,7 @@ import { readProfile } from '../color/profile.ts'
 import type { Color, Color3, Profile } from '../color/types.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
 import { colorProfileRefusal, RenderColorProfileError, RenderRefusedError } from '../errors.ts'
-import { loadPdf } from '../pdf-load.ts'
+import { rewritePdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { type ContentColorSpaces, emptyContentColorSpaces, rewriteContent } from './content.ts'
 import { convertGeneratedRasterImages, convertSuppliedImages, streamDictionary } from './document-images.ts'
@@ -369,11 +369,15 @@ export async function rewritePressPdf(
   imageEncoding: PressImageEncoding = DEFAULT_IMAGE_ENCODING,
   imageQuality = DEFAULT_IMAGE_QUALITY,
 ): Promise<{ bytes: Uint8Array; report: PressReport }> {
+  let profile: Profile
   try {
-    const profile = readProfile(profileBytes)
+    profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY')
       throw new RenderColorProfileError('press', `color space ${profile.colorSpace.trim()}`, 'CMYK or GRAY')
-    const document = await loadPdf(bytes)
+  } catch (error) {
+    throw colorProfileRefusal('press', error) ?? error
+  }
+  return rewritePdf(bytes, 'press conversion', async (document) => {
     const destination = pressDestination(profile)
     const counts = rewritePressDocument(document, profile, tolerance, destination === 'gray' || images === 'convert')
     let convertedImages = 0
@@ -386,10 +390,5 @@ export async function rewritePressPdf(
     report.neutralColors = counts.neutralColors
     report.convertedImages = convertedImages
     return { bytes: output, report }
-  } catch (error) {
-    throw (
-      colorProfileRefusal('press', error) ??
-      new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')
-    )
-  }
+  })
 }

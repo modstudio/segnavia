@@ -1,6 +1,5 @@
 import { PDFArray, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
-import { RenderRefusedError } from '../errors.ts'
-import { loadPdf } from '../pdf-load.ts'
+import { rewritePdf } from '../pdf-load.ts'
 import { IDENTITY_MATRIX, multiplyAffine } from '../press/affine.ts'
 import { type ContentOperation, visitContentOperations } from '../press/content.ts'
 import { type ContentBudget, decodeContent, dictionaryOf, nameOf, resolvedColorSpace } from '../press/pdf-objects.ts'
@@ -385,12 +384,8 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
 }
 
 export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; report: EffectsReport }> {
-  try {
-    const document = await loadPdf(bytes)
+  return rewritePdf(bytes, 'effects rewrite', async (document) => {
     const { changed, report } = rewriteEffects(document)
     return { bytes: !changed && report.rule1 === 0 && report.ruleC === 0 ? bytes : await document.save(), report }
-  } catch (error) {
-    if (error instanceof RenderRefusedError) throw error
-    throw new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')
-  }
+  })
 }
