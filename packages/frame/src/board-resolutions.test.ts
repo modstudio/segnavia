@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { type BoardItem, Document } from '@segnavia/format'
+import { BoardNames } from './board-names.ts'
 import { BoardResolutions } from './board-resolutions.ts'
 
 const item = (id: string, address = id, kind: BoardItem['kind'] = 'media'): BoardItem => ({ id, address, kind, x: 0, y: 0, width: 100 })
@@ -75,6 +76,44 @@ test('reports an unavailable outcome without routing it through failure', async 
   expect(resolutions.outcome('withheld')).toEqual({ status: 'unavailable', value: unavailable })
   expect(resolutions.value('withheld')).toBeUndefined()
   expect(failures).toEqual([])
+})
+
+test('keeps an unavailable label while re-resolution is pending and restores the host name when resolved', async () => {
+  const resolutions = new BoardResolutions()
+  const names = new BoardNames(
+    () => {},
+    () => {},
+  )
+  const restricted = item('restricted')
+  names.update([restricted], async () => ({ restricted: 'Secret' }))
+  resolutions.resolver = async () => ({ kind: 'image', state: 'withheld', label: 'Restricted' })
+  resolutions.request(
+    restricted,
+    () => {},
+    () => {},
+  )
+  await settle()
+
+  resolutions.drop([restricted.address])
+  names.drop([restricted.address])
+  names.update([restricted], async () => ({ restricted: 'Secret' }))
+  let finish: ((value: typeof image) => void) | undefined
+  resolutions.resolver = () =>
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  resolutions.request(
+    restricted,
+    () => {},
+    () => {},
+  )
+  await settle()
+  expect(resolutions.outcome(restricted.address)).toEqual({ status: 'pending' })
+  expect(names.name(restricted, resolutions.namingOutcome(restricted.address))).toBe('Restricted')
+
+  finish?.(image)
+  await settle()
+  expect(names.name(restricted, resolutions.namingOutcome(restricted.address))).toBe('Secret')
 })
 
 test('drops only named resolved, unavailable and failed outcomes so they can resolve again', async () => {

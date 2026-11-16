@@ -18,13 +18,8 @@ export class BoardNames {
 
   update(items: BoardItem[], provider: BoardItemNames | undefined) {
     if (provider !== this.provider) {
-      const hadNames = this.names.size > 0
       this.provider = provider
-      this.generation += 1
-      this.names.clear()
-      this.inFlight.clear()
-      this.failedAddresses.clear()
-      if (hadNames) this.changed()
+      if (this.forget()) this.changed()
     }
     const addresses = new Set(items.map((item) => item.address))
     this.activeAddresses = addresses
@@ -57,21 +52,27 @@ export class BoardNames {
   }
 
   drop(addresses?: readonly string[]) {
-    this.generation += 1
-    this.inFlight.clear()
     if (!addresses) {
-      const hadNames = this.names.size > 0
-      this.names.clear()
-      this.failedAddresses.clear()
-      if (hadNames) this.changed()
+      if (this.forget()) this.changed()
       return
     }
+    this.generation += 1
+    this.inFlight.clear()
     let hadNames = false
     for (const address of addresses) {
       hadNames = this.names.delete(address) || hadNames
       this.failedAddresses.delete(address)
     }
     if (hadNames) this.changed()
+  }
+
+  private forget(): boolean {
+    const hadNames = this.names.size > 0
+    this.generation += 1
+    this.inFlight.clear()
+    this.names.clear()
+    this.failedAddresses.clear()
+    return hadNames
   }
 
   name(item: BoardItem | undefined, outcome: BoardResolutionOutcome): string {

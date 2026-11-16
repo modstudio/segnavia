@@ -114,6 +114,9 @@ test('paints unavailable items as labeled placeholders with their state', async 
     expect(label?.dir).toBe('auto')
     expect(node.dataset.boardItemState).toBe('withheld')
 
+    painter.paint(node as unknown as HTMLElement, item, { status: 'pending' }, 'cover', () => {}, { origins: [] })
+    expect(node.dataset.boardItemState).toBeUndefined()
+
     const fallback = new TestElement()
     painter.paint(
       fallback as unknown as HTMLElement,

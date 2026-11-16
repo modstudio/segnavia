@@ -1,6 +1,7 @@
 import { type BoardItem, type Brand, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
 import {
+  type BoardResolutionOutcome,
   type CheckedResolvedBoardItem,
   checkResolved,
   checkUnavailable,
@@ -8,14 +9,12 @@ import {
   type ResolvedBoardItem,
   type UnavailableBoardItem,
 } from './board-policy.ts'
+
+export type { BoardResolutionOutcome } from './board-policy.ts'
+
 import type { BrandsOptions } from './brands.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem | UnavailableBoardItem>
-export type BoardResolutionOutcome =
-  | { status: 'pending' }
-  | { status: 'resolved'; value: CheckedResolvedBoardItem }
-  | { status: 'unavailable'; value: UnavailableBoardItem }
-  | { status: 'failed' }
 type BoardBrandResolution = { brand: Brand | undefined } | { error: unknown }
 
 export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?: AbortSignal): ResolveBoardItem {
@@ -57,6 +56,7 @@ export class BoardResolutions {
   private controller = new AbortController()
   private boardBrand: Promise<BoardBrandResolution> = Promise.resolve({ brand: undefined })
   private readonly entries = new Map<string, BoardResolutionEntry>()
+  private readonly lastUnavailable = new Map<string, { kind: BoardItem['kind']; value: UnavailableBoardItem }>()
 
   constructor(private readonly boardBrandFailed: (error: unknown) => void = () => {}) {}
 
@@ -78,11 +78,13 @@ export class BoardResolutions {
       if (controller === this.controller && 'error' in result) this.boardBrandFailed(result.error)
     })
     this.entries.clear()
+    this.lastUnavailable.clear()
   }
 
   keep(items: readonly BoardItem[]) {
     const kinds = new Map(items.map((item) => [item.address, item.kind]))
     for (const [address, entry] of this.entries) if (kinds.get(address) !== entry.kind) this.entries.delete(address)
+    for (const [address, remembered] of this.lastUnavailable) if (kinds.get(address) !== remembered.kind) this.lastUnavailable.delete(address)
   }
 
   value(address: string): CheckedResolvedBoardItem | undefined {
@@ -99,6 +101,13 @@ export class BoardResolutions {
     return PENDING
   }
 
+  namingOutcome(address: string): BoardResolutionOutcome {
+    const outcome = this.outcome(address)
+    if (outcome.status === 'resolved' || outcome.status === 'unavailable') return outcome
+    const remembered = this.lastUnavailable.get(address)
+    return remembered ? { status: 'unavailable', value: remembered.value } : outcome
+  }
+
   drop(addresses?: readonly string[]) {
     if (!addresses) {
       this.entries.clear()
@@ -107,11 +116,7 @@ export class BoardResolutions {
     for (const address of addresses) this.entries.delete(address)
   }
 
-  request(
-    item: BoardItem,
-    resolved: (item: BoardItem, value: CheckedResolvedBoardItem | UnavailableBoardItem) => void,
-    failed: (item: BoardItem, error: unknown) => void,
-  ) {
+  request(item: BoardItem, resolved: (item: BoardItem, outcome: BoardResolutionOutcome) => void, failed: (item: BoardItem, error: unknown) => void) {
     if (!this.resolver || this.entries.has(item.address)) return
     const entry: BoardResolutionEntry = { kind: item.kind }
     this.entries.set(item.address, entry)
@@ -121,7 +126,8 @@ export class BoardResolutions {
         if (this.entries.get(item.address) !== entry) return
         if ('state' in value) {
           entry.unavailable = checkUnavailable(item, value)
-          resolved(item, entry.unavailable)
+          this.lastUnavailable.set(item.address, { kind: item.kind, value: entry.unavailable })
+          resolved(item, { status: 'unavailable', value: entry.unavailable })
           return
         }
         const fallbackBrand = async () => {
@@ -134,7 +140,8 @@ export class BoardResolutions {
         )
         if (this.entries.get(item.address) !== entry) return
         entry.value = checked
-        resolved(item, checked)
+        this.lastUnavailable.delete(item.address)
+        resolved(item, { status: 'resolved', value: checked })
       })
       .catch((error) => {
         if (this.entries.get(item.address) === entry) failed(item, error)

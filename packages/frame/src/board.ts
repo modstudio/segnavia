@@ -216,7 +216,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   }
   itemName(id: string): string {
     const item = this.items.get(id)
-    return this.names.name(item, this.resolutions.outcome(item?.address ?? ''))
+    return this.names.name(item, this.resolutions.namingOutcome(item?.address ?? ''))
   }
   invalidateItems(addresses?: readonly string[]): void {
     this.resolutions.drop(addresses)
@@ -358,7 +358,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
 
   private paintItem(node: HTMLElement, item: BoardItem) {
     const outcome = this.resolutions.outcome(item.address)
-    const name = this.names.name(item, outcome)
+    const name = this.names.name(item, this.resolutions.namingOutcome(item.address))
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
@@ -367,12 +367,12 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   private resolve(item: BoardItem) {
     this.resolutions.request(
       item,
-      (resolvedItem, resolved) => this.resolutionSettled(resolvedItem, resolved),
+      (resolvedItem, outcome) => this.resolutionSettled(resolvedItem, outcome),
       (failedItem, error) => this.fail(failedItem, error),
     )
   }
-  private resolutionSettled(resolvedItem: BoardItem, resolved: boardPolicy.CheckedResolvedBoardItem | boardPolicy.UnavailableBoardItem) {
-    const fact = 'state' in resolved ? boardPolicy.unavailableBoardItemFact(resolved) : boardPolicy.boardItemFact(resolved)
+  private resolutionSettled(resolvedItem: BoardItem, outcome: boardPolicy.BoardResolutionOutcome) {
+    const fact = boardPolicy.boardItemFact(outcome)
     const shape = fact ? resolvedShape(fact) : undefined
     const pendingItem = this.pendingReveal ? this.items.get(this.pendingReveal.id) : undefined
     const resolvedId = pendingItem?.address === resolvedItem.address ? pendingItem.id : undefined
@@ -387,7 +387,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       if (this.value) this.shapeCache.update(this.value, (address) => this.resolutions.outcome(address), this.currentView.zoom)
       this.revealItem(resolvedId, false, maxZoom)
     } else this.render()
-    if ('state' in resolved || resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
+    if (outcome.status === 'unavailable' || (outcome.status === 'resolved' && outcome.value.title)) this.dispatchEvent(boardEvent('segnavia-board-names'))
   }
   private fail(item: BoardItem, error: unknown) {
     if (!this.resolutions.fail(item)) return
