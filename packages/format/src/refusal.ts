@@ -1,8 +1,10 @@
+export type AdviceFor = 'author' | 'host'
+
 export interface RefusalCause {
   code: string
   subject?: string
   message: string
-  adviceFor?: 'author' | 'host'
+  adviceFor?: AdviceFor
 }
 
 export interface RefusalOptions {

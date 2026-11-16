@@ -1,3 +1,5 @@
+import type { AdviceFor } from './refusal.ts'
+
 export type FetchKind = 'script' | 'style' | 'font' | 'image'
 export const FETCH_KINDS = ['script', 'style', 'font', 'image'] as const satisfies readonly FetchKind[]
 
@@ -16,7 +18,7 @@ export interface AssetRefusal {
   reason: AssetRefusalReason
   message: string
   advice: string
-  adviceFor: 'author' | 'host'
+  adviceFor: AdviceFor
 }
 
 export function assetRefusalText(refusal: AssetRefusal): string {

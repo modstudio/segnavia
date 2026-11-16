@@ -123,7 +123,10 @@ export async function assetRouteDecision(
 ): Promise<AssetRouteDecision> {
   if (url.startsWith('data:') || url === 'about:blank') return { action: 'continue' }
   if (!kind)
-    return { action: 'abort', cause: { code: 'unsupported-fetch', subject: url, message: `${url} uses unsupported fetching; no asset kind can approve it` } }
+    return {
+      action: 'abort',
+      cause: { code: 'unsupported-fetch', subject: url, message: `${url} uses unsupported fetching; no asset kind can approve it`, adviceFor: 'author' },
+    }
   const policy = originDecision(url, kind, origins, scripts)
   if (!policy.allowed) {
     return {
@@ -142,6 +145,7 @@ export async function assetRouteDecision(
         code: 'host-rejected',
         subject: url,
         message: `The host assets option rejected ${url}: ${message}; answer the approved asset to clear this refusal`,
+        adviceFor: 'host',
       },
     }
   }
@@ -152,6 +156,7 @@ export async function assetRouteDecision(
         code: 'late-answer',
         subject: url,
         message: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal`,
+        adviceFor: 'host',
       },
     }
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
@@ -236,7 +241,7 @@ export async function renderInBrowserTab<T>(
   await context.routeWebSocket('**/*', (socket) => {
     const url = socket.url()
     const message = `${url} uses unsupported websocket fetching; no asset kind can approve it`
-    refused.set(message, { code: 'unsupported-fetch', subject: url, message })
+    refused.set(message, { code: 'unsupported-fetch', subject: url, message, adviceFor: 'author' })
     socket.close()
   })
   const tab = await context.newPage()

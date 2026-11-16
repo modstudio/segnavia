@@ -24,9 +24,9 @@ test('parses the strict request shape and requires an array for pages', () => {
 
 test('maps refusals and failures to distinct one-line JSON outcomes', () => {
   const refused = outcomeFromError(
-    new Refusal('outer', 'could not render', {
+    new Refusal('asset', 'could not render', {
       subject: 'document',
-      refusals: [{ code: 'inner', subject: 'page', message: 'bad page' }],
+      refusals: [{ code: 'unapproved-origin', subject: 'https://outside.example/a.png', message: 'bad asset', adviceFor: 'author' }],
     }),
   )
   expect(refused.exitCode).toBe(2)
@@ -35,10 +35,10 @@ test('maps refusals and failures to distinct one-line JSON outcomes', () => {
   expect(JSON.parse(refused.stderr)).toEqual({
     refusal: {
       name: 'Refusal',
-      code: 'outer',
+      code: 'asset',
       subject: 'document',
       message: 'could not render',
-      refusals: [{ code: 'inner', subject: 'page', message: 'bad page' }],
+      refusals: [{ code: 'unapproved-origin', subject: 'https://outside.example/a.png', message: 'bad asset', adviceFor: 'author' }],
     },
   })
   expect(JSON.parse(outcomeFromError(new Error('broken')).stderr)).toEqual({ failure: { name: 'Error', message: 'broken' } })

@@ -41,6 +41,21 @@ describe('asset route decision', () => {
     expect(lookups).toBe(0)
   })
 
+  test('directs unsupported and unversioned requests to the author', async () => {
+    expect(await assetRouteDecision('https://example.test/data', undefined, origins, undefined, new AbortController().signal)).toEqual({
+      action: 'abort',
+      cause: {
+        code: 'unsupported-fetch',
+        subject: 'https://example.test/data',
+        message: 'https://example.test/data uses unsupported fetching; no asset kind can approve it',
+        adviceFor: 'author',
+      },
+    })
+    expect(await assetRouteDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', origins, undefined, new AbortController().signal)).toMatchObject(
+      { action: 'abort', cause: { code: 'unversioned-script', adviceFor: 'author' } },
+    )
+  })
+
   test('answers only requests under an approved path prefix', async () => {
     const approvals = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'] as const, pathname: '/fontsource' }]
     const allowed = 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.woff2'
@@ -81,6 +96,7 @@ describe('asset route decision', () => {
         code: 'host-rejected',
         subject: url,
         message: `The host assets option rejected ${url}: storage unavailable; answer the approved asset to clear this refusal`,
+        adviceFor: 'host',
       },
     })
 
@@ -102,6 +118,7 @@ describe('asset route decision', () => {
         code: 'late-answer',
         subject: url,
         message: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal`,
+        adviceFor: 'host',
       },
     })
   })
@@ -130,6 +147,7 @@ test('markup preflight ignores scripts-off sources and refuses unapproved images
       adviceFor: 'host',
     },
   ])
+  expect(markupAssetRefusal('<img src="images/a.png">', { scripts: false })).toMatchObject([{ code: 'not-absolute', adviceFor: 'author' }])
 })
 
 test('markup asset refusals expose their asset code and structured causes', async () => {
