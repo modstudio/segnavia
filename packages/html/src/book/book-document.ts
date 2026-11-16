@@ -47,6 +47,7 @@ import { decorateSection } from './book-section-decoration.ts'
 import { appendChapterHeadings, appendHeldHeadings, withSectionDepth } from './book-section-headings.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
+import { noteRunNodes } from './note-run-nodes.ts'
 import { runTextNodes } from './run-nodes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
@@ -136,12 +137,7 @@ function notesSection(
   parts?: Record<string, string>,
   opens?: string,
 ): BuiltSection {
-  const runs = notes.runs.flatMap((run) => [
-    ...(run.heading === undefined
-      ? []
-      : [element('p', { class: 'segnavia-notes-scope', dir: resolveDirection(book.dir, book.lang, plainText(run.heading)) }, runTextNodes(run.heading))]),
-    ...run.paragraphs,
-  ])
+  const runs = noteRunNodes(book, notes)
   return {
     info: {
       id,

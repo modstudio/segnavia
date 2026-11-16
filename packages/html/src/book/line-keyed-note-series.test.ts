@@ -14,6 +14,30 @@ const input = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe('line-keyed note series document', () => {
+  test('applies heading scope to line-keyed ids and counters', () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          lineNumbers: {},
+          notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: { heading: 2 }, marker: 'arabic' }],
+          body: [
+            {
+              id: 'one',
+              ...chapter(
+                'One',
+                '<p data-line-numbers>Lead<span data-note="sources">zero</span></p><h2 id="first">First</h2><p data-line-numbers>Text<span data-note="sources">one</span><span data-note="sources">two</span></p>',
+              ),
+            },
+          ],
+        }),
+      ),
+    )
+    expect(result.issues).toEqual([])
+    expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1-0-1"')
+    expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1-1-1"')
+    expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1-1-2"')
+  })
+
   test('builds labels from a lemma without leaving a call', () => {
     const result = bookDocument(
       Book.parse(

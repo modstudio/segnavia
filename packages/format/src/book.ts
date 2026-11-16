@@ -24,7 +24,7 @@ import { HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { RequiredLogicalMargin } from './margins.ts'
-import { NoteSeriesEntries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
+import { NoteNumbering, NoteSeriesEntries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { defaultPageNumbering, divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
 import { DefaultOutline, OutlineSource } from './outline.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
@@ -126,7 +126,7 @@ export const BookShape = closedObject({
   }).default({}),
   footnotes: closedObject({
     marker: NoteMarker.optional(),
-    restart: z.enum(['chapter', 'book']).default('chapter'),
+    restart: NoteNumbering.default('chapter'),
   }).default({ restart: 'chapter' }),
   endnotes: closedObject({
     marker: NoteMarker.optional(),

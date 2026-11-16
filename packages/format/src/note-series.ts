@@ -11,7 +11,15 @@ const DEFAULT_LEMMA_SEPARATOR = ']'
 export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
 export type NotePlacement = z.infer<typeof NotePlacement>
 
-export const NoteNumbering = z.enum(['chapter', 'part', 'book'])
+const HeadingNoteNumbering = closedObject({
+  heading: z.number().int().superRefine((level, ctx) => {
+    if (level < 2 || level > 6) {
+      ctx.addIssue({ code: 'custom', message: `heading note numbering level ${level} is outside 2 to 6; set heading to a level from 2 to 6 to clear this refusal` })
+    }
+  }),
+})
+
+export const NoteNumbering = z.union([z.enum(['chapter', 'part', 'book']), HeadingNoteNumbering])
 export type NoteNumbering = z.infer<typeof NoteNumbering>
 
 export const NoteSeries = closedObject({
@@ -89,7 +97,7 @@ type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker' | 'contents'> & {
 interface NoteSeriesSettings {
   lang?: string
   lineNumberSystem?: NumberSystem
-  footnotes: { marker?: NoteMarkerValue; restart: 'chapter' | 'book' }
+  footnotes: { marker?: NoteMarkerValue; restart: NoteNumbering }
   endnotes: { marker?: NoteMarkerValue; placement: 'book' | 'chapter'; title?: string }
   notes: NoteSeriesInput[]
 }
