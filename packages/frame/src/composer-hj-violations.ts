@@ -17,10 +17,13 @@ export interface HjViolation {
   wordSpacing: number
 }
 
+export interface ComposedHjViolation {
+  spacing: HjSpacing
+  violation: HjViolation
+}
+
 function wordSpacingForRatio(ratio: number, spacing: HjSpacing): number {
-  return ratio < 0
-    ? spacing.desired + ratio * (spacing.desired - spacing.minimum)
-    : spacing.desired + ratio * (spacing.maximum - spacing.desired)
+  return ratio < 0 ? spacing.desired + ratio * (spacing.desired - spacing.minimum) : spacing.desired + ratio * (spacing.maximum - spacing.desired)
 }
 
 export function worstViolation(lines: readonly HjLine[], spacing: HjSpacing): HjViolation | undefined {

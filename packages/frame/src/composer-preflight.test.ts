@@ -199,26 +199,20 @@ test('seeds every compose from a fresh copy', () => {
 
 test('reports one composed paragraph at the folio showing its worst line', () => {
   const flow = { getAttribute: () => 'body', children: [] as unknown[] }
-  const lines = [
-    { getBoundingClientRect: () => ({ top: 110, bottom: 120 }) },
-    { getBoundingClientRect: () => ({ top: 210, bottom: 220 }) },
-  ]
+  const lines = [{ getBoundingClientRect: () => ({ top: 110, bottom: 120 }) }, { getBoundingClientRect: () => ({ top: 210, bottom: 220 }) }]
   const paragraph = {
     getAttribute: (name: string) => (name === 'data-segnavia-id' ? 'paragraph-2' : null),
     closest: () => flow,
     querySelectorAll: () => lines,
   } as unknown as Element
   flow.children.push(paragraph)
-  const pages = [
-    { windows: [{ flow: 'body', start: 0, end: 150 }] },
-    { windows: [{ flow: 'body', start: 150, end: 300 }] },
-  ]
+  const pages = [{ windows: [{ flow: 'body', start: 0, end: 150 }] }, { windows: [{ flow: 'body', start: 150, end: 300 }] }]
   Object.assign(flow, { getBoundingClientRect: () => ({ top: 10 }) })
   expect(hjViolationFolio(paragraph, 1, pages, ['10', '11'])).toBe('11')
 
   const entries: PreflightEntry[] = []
   appendHjViolationEntries(
-    new Map([[paragraph, { children: [], inlineSize: 100, spacing: { minimum: 80, desired: 100, maximum: 133 }, violation: { line: 1, ratio: 1.5, wordSpacing: 149.5 } }]]),
+    new Map([[paragraph, { spacing: { minimum: 80, desired: 100, maximum: 133 }, violation: { line: 1, ratio: 1.5, wordSpacing: 149.5 } }]]),
     pages,
     ['10', '11'],
     entries,

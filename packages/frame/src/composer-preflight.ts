@@ -12,8 +12,7 @@ import { embedFunction, fittedSlotModes, readSlotOverflowMarker } from '@segnavi
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
-import { hjViolationEntry } from './composer-hj-violations.ts'
-import type { ComposedParagraph } from './composer-paragraph-policy.ts'
+import { type ComposedHjViolation, hjViolationEntry } from './composer-hj-violations.ts'
 import { blockSubject } from './composer-source-staging.ts'
 import { embeddedPreflightBounds, PREFLIGHT_ATTRIBUTE, publishPreflightReport, slotMarkCoverage } from './embedded-preflight.ts'
 
@@ -37,13 +36,12 @@ export function hjViolationFolio(paragraph: Element, lineIndex: number, pages: r
 }
 
 export function appendHjViolationEntries(
-  composedParagraphs: ReadonlyMap<Element, ComposedParagraph>,
+  composedParagraphs: ReadonlyMap<Element, ComposedHjViolation>,
   pages: readonly HjPlanPage[],
   folios: readonly (string | null)[],
   entries: PreflightEntry[],
 ): void {
   for (const [paragraph, composed] of composedParagraphs) {
-    if (!composed.violation) continue
     const flow = paragraph.closest('[data-segnavia-flow]')
     const flowId = flow?.getAttribute('data-segnavia-flow') ?? ''
     const block = flow ? Array.prototype.indexOf.call(flow.children, paragraph) + 1 : 0

@@ -2,8 +2,8 @@ import { firstStrongDirection } from '@segnavia/format'
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
+import { type ComposedHjViolation, type HjSpacing, type HjViolation, worstViolation } from './composer-hj-violations.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
-import { type HjSpacing, type HjViolation, worstViolation } from './composer-hj-violations.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
   COMPOSITION_IDENTITY_ATTRIBUTE,
@@ -307,7 +307,7 @@ export function composeParagraphs(
   root: ParentNode,
   doc: Document,
   styleFor: typeof getComputedStyle,
-  composedParagraphs: Map<Element, ComposedParagraph>,
+  composedParagraphs: WeakMap<Element, ComposedParagraph>,
   readStyle: typeof readCompositionStyle,
   planLines: typeof planParagraphLinesWith,
   breakForLines: typeof breakLines,
@@ -316,6 +316,7 @@ export function composeParagraphs(
   identityAttribute: string,
   continuationAttribute: string,
   variableValueAttribute: string,
+  composedHjViolations: Map<Element, ComposedHjViolation> = new Map(),
 ): void {
   const cache = new Map<string, number>()
   const hyphenWidths = new Map<string, number>()
@@ -325,6 +326,7 @@ export function composeParagraphs(
   for (const fact of facts) {
     if (paragraphCompositionUnchanged(fact.previous?.inlineSize, fact.inlineSize)) continue
     restoreParagraph(fact.paragraph, fact.previous, composedParagraphs, variableValueAttribute)
+    composedHjViolations.delete(fact.paragraph)
     changedFacts.push(fact)
   }
   const rewrites: ParagraphRewrite[] = []
@@ -345,12 +347,13 @@ export function composeParagraphs(
   }
   for (const { paragraph, original, inlineSize, output, spacing, violation } of rewrites) {
     paragraph.replaceChildren(...(output ?? []))
-    composedParagraphs.set(paragraph, { children: original, inlineSize, spacing, ...(violation ? { violation } : {}) })
+    composedParagraphs.set(paragraph, { children: original, inlineSize })
+    if (violation) composedHjViolations.set(paragraph, { spacing, violation })
   }
 }
 
 export function paragraphComposerScript(): string {
-  return `var composedParagraphs=new Map();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
+  return `var paragraphCompositions=new WeakMap(),composedParagraphs=new Map();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
 ${embedFunction('graphemes', graphemes)}
 ${embedFunction('verticalWritingMode', verticalWritingMode)}
 ${embedFunction('logicalExtent', logicalExtent)}

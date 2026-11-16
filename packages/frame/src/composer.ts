@@ -41,8 +41,8 @@ import {
 } from './composer-dress.ts'
 import { embeddedComposerFillFunctions } from './composer-fill.ts'
 import { embeddedComposerFitFunctions } from './composer-fit.ts'
-import { embeddedComposerInlineOverflowFunctions } from './composer-inline-overflow.ts'
 import { embeddedComposerHjViolationFunctions } from './composer-hj-violations.ts'
+import { embeddedComposerInlineOverflowFunctions } from './composer-inline-overflow.ts'
 import { composerLineLabelConvergenceScript, embeddedComposerLineLabelFunctions } from './composer-line-labels-embed.ts'
 import { embeddedComposerMarginFunctions } from './composer-margin-embed.ts'
 import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
@@ -354,7 +354,7 @@ fitResults=fitSourceElements();
 fillSourceRegions();
 // Measured properties run after source-shaping stages and before pagination.
 propertyResults=measureSourceProperties();
-composeParagraphs(document,document,getComputedStyle,composedParagraphs,readCompositionStyle,planParagraphLinesWith,breakLines,hyphenationPoints,contentInlineSize,COMPOSITION_IDENTITY_ATTRIBUTE,COMPOSITION_CONTINUATION_ATTRIBUTE,COMPOSITION_VARIABLE_VALUE_ATTRIBUTE);
+composeParagraphs(document,document,getComputedStyle,paragraphCompositions,readCompositionStyle,planParagraphLinesWith,breakLines,hyphenationPoints,contentInlineSize,COMPOSITION_IDENTITY_ATTRIBUTE,COMPOSITION_CONTINUATION_ATTRIBUTE,COMPOSITION_VARIABLE_VALUE_ATTRIBUTE,composedParagraphs);
 var selectedLayout=document.querySelector('[${LAYOUT_ATTRIBUTE}]');if(selectedLayout&&!window.segnaviaLayout){fail('Layout provider '+JSON.stringify((selectedLayout.getAttribute('${LAYOUT_ATTRIBUTE}')||'').trim().split(/\\s+/)[0]||'selected')+' was selected, but its runtime was not installed; inject the registered provider runtime to clear this refusal');return;}if(window.segnaviaLayout)await window.segnaviaLayout.run('galley');
 var input=measureInput();
 var plan;

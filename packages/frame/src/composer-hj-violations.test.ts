@@ -5,6 +5,8 @@ const spacing = { minimum: 80, desired: 100, maximum: 133 }
 
 test('finds the line furthest outside the author word-spacing limits', () => {
   expect(worstViolation([{ ratio: -1 }, { ratio: 0 }, { ratio: 1 }], spacing)).toBeUndefined()
+  expect(worstViolation([{ ratio: 1.1 }], spacing)).toEqual({ line: 0, ratio: 1.1, wordSpacing: 136.3 })
+  expect(worstViolation([{ ratio: -1.1 }], spacing)).toEqual({ line: 0, ratio: -1.1, wordSpacing: 78 })
   expect(worstViolation([{ ratio: 1.1 }, { ratio: -1.4 }, { ratio: 1.3 }], spacing)).toEqual({ line: 1, ratio: -1.4, wordSpacing: 72 })
 })
 
