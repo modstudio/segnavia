@@ -30,7 +30,7 @@
 
   Add typed React props for report events. The five elements' `onError` callbacks now receive the native `ErrorEvent` rather than React's synthetic error event.
 
-- 401ef7c: Run board command batches against the canvas's measured shapes with `BoardEditing.command`, and expose those shapes through `BoardEditing.shapes`.
+- 401ef7c: Run board command batches against the canvas's measured shapes with `BoardEditing.command`, and expose those shapes through `BoardEditing.shapes`. Breaking for hosts: `SegnaviaBoard.measuredLabelSizes()` is removed; read measured shapes from `BoardEditing.shapes()`.
 - 592bda3: Declare font faces over inclusive weight ranges and let a font source identify faces already present in the document.
 - 0aff593: Resolve a deck's declared fonts for host-served URL slides through the server-safe bridge entry.
 
