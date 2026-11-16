@@ -115,6 +115,54 @@ describe('board section commands', () => {
     expect(op && 'prior' in op ? op.prior : {}).not.toHaveProperty('layout')
   })
 
+  for (const layout of ['auto', 'manual'] as const) {
+    test(`changes only the title when renaming a settled ${layout} section`, () => {
+      const before = fixture()
+      const section = before.sections[0]
+      if (!section) throw new Error('test board has no section')
+      section.layout = layout
+      const settled = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, title: 'Settled' }], shapes))
+      const geometry = {
+        rectangle: settled.board.sections[0]?.rectangle,
+        items: settled.board.items.map(({ id, x, y, width }) => ({ id, x, y, width })),
+      }
+
+      const renamed = success(editBoard(settled.board, [{ type: 'section-set', section: { id: 'old' }, title: 'Renamed' }], shapes))
+
+      expect(renamed.batch.ops).toHaveLength(1)
+      expect(renamed.batch.ops[0]).toMatchObject({ type: 'setFields', id: 'old' })
+      expect(renamed.batch.ops[0]?.type === 'setFields' ? renamed.batch.ops[0].fields : {}).toEqual({ title: 'Renamed' })
+      expect({
+        rectangle: renamed.board.sections[0]?.rectangle,
+        items: renamed.board.items.map(({ id, x, y, width }) => ({ id, x, y, width })),
+      }).toEqual(geometry)
+    })
+  }
+
+  test('lays out an unsettled auto section when renaming it', () => {
+    const before = fixture()
+    const section = before.sections[0]
+    if (!section) throw new Error('test board has no section')
+    section.layout = 'auto'
+
+    const renamed = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, title: 'Renamed' }], shapes))
+
+    expect(renamed.board.sections[0]?.rectangle).toEqual({ x: 0, y: 0, width: 224, height: 120 })
+    expect(renamed.board.items.find((item) => item.id === 'a')).toMatchObject({ x: 24, y: 56 })
+    expect(renamed.board.items.find((item) => item.id === 'b')).toMatchObject({ x: 120, y: 56 })
+    expect(renamed.board.items.find((item) => item.id === 'c')).toMatchObject({ x: 400, y: 40 })
+  })
+
+  test('fits an unsettled manual section when renaming it without moving its items', () => {
+    const before = fixture()
+    const positions = before.items.map(({ id, x, y, width }) => ({ id, x, y, width }))
+
+    const renamed = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, title: 'Renamed' }], shapes))
+
+    expect(renamed.board.sections[0]?.rectangle).toEqual({ x: -4, y: -16, width: 238, height: 120 })
+    expect(renamed.board.items.map(({ id, x, y, width }) => ({ id, x, y, width }))).toEqual(positions)
+  })
+
   test('derives missing auto cells before reordering and when auto is restated', () => {
     const before = fixture()
     const section = before.sections[0]
