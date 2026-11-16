@@ -22,7 +22,7 @@ import { sourceAttributeIssues } from '../source-attributes.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
 import { headingContent } from './book-heading-content.ts'
 import { encodedPartNumbers } from './book-part-values.ts'
-import { element, headingText, linkChildren } from './dom.ts'
+import { element, linkChildren, plainHeadingText } from './dom.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
 export interface BuiltSection {
@@ -158,7 +158,7 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
         id,
         block: heading.attribs['data-segnavia-id'] as string,
         level,
-        text: headingText(heading).replace(/\s+/g, ' ').trim(),
+        text: plainHeadingText(heading),
         sectionId,
         listed,
         ...(content.some((node) => !isText(node)) ? { content } : {}),

@@ -1,4 +1,14 @@
-import { type Book, type BookDivision, noteMarker, type ResolvedNoteSeries, type RunText } from '@segnavia/format'
+import {
+  type Book,
+  type BookDivision,
+  type BookSectionEntry,
+  MAX_NOTE_HEADING_LEVEL,
+  MIN_NOTE_HEADING_LEVEL,
+  noteHeadingLevel,
+  noteMarker,
+  type ResolvedNoteSeries,
+  type RunText,
+} from '@segnavia/format'
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import { append, element, insertAfter, replace, text } from './dom.ts'
@@ -10,6 +20,7 @@ const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
 
 export interface NoteSectionContext {
   chapter: number
+  headingScopeKey: string
   title?: RunText
   division: BookDivision
   targetId: string
@@ -49,7 +60,7 @@ export interface NoteState {
   collected: Map<string, CollectedNotes>
   pageParagraphs: Map<string, Element[]>
   authored: Map<string, AuthoredNote>
-  headingScopes: Map<string, { ordinal: number; heading?: RunText }>
+  headingScopes: Map<string, { ordinal: number; heading: RunText | undefined }>
   repeatCount: number
   issues: string[]
 }
@@ -64,6 +75,27 @@ export function noteState(): NoteState {
     headingScopes: new Map(),
     repeatCount: 0,
     issues: [],
+  }
+}
+
+export function noteSectionContext(
+  sectionEntry: BookSectionEntry,
+  targetId: string,
+  chapter: number,
+  title: RunText | undefined,
+  partTargets: Map<string, string>,
+  headingScopeKey = chapter === 0 ? `s:${targetId}` : String(chapter),
+): NoteSectionContext {
+  const ancestry = sectionEntry.ancestry.at(-1)
+  for (const part of sectionEntry.ancestry) partTargets.set(part.id, targetId)
+  return {
+    chapter,
+    headingScopeKey,
+    title,
+    division: sectionEntry.division,
+    targetId,
+    ...(chapter === 0 && sectionEntry.division !== 'front' ? { placementKey: targetId.replace(/^segnavia-/, '') } : {}),
+    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title } } : {}),
   }
 }
 
@@ -120,18 +152,19 @@ function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, ref
   })
 }
 
-function sectionScopeKey(context: NoteSectionContext): string {
-  return context.chapter === 0 ? context.targetId : String(context.chapter)
+function headingStateKey(context: NoteSectionContext, level: number): string {
+  return `${context.headingScopeKey}:${level}`
 }
 
-function headingStateKey(context: NoteSectionContext, level: number): string {
-  return `${sectionScopeKey(context)}:${level}`
+function headingScopeState(state: NoteState, context: NoteSectionContext, level: number) {
+  return state.headingScopes.get(headingStateKey(context, level))
 }
 
 function scopeKey(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): string {
-  if (typeof series.numbering === 'object') {
-    const ordinal = state.headingScopes.get(headingStateKey(context, series.numbering.heading))?.ordinal ?? 0
-    return `${sectionScopeKey(context)}-${ordinal}`
+  const headingLevel = noteHeadingLevel(series.numbering)
+  if (headingLevel !== undefined) {
+    const ordinal = headingScopeState(state, context, headingLevel)?.ordinal ?? 0
+    return `${context.headingScopeKey}-${ordinal}`
   }
   if (series.numbering === 'book') return 'book'
   if (series.numbering === 'part') return context.part?.id ?? 'book'
@@ -147,11 +180,12 @@ function placementKey(series: ResolvedNoteSeries, context: NoteSectionContext): 
 const SCOPE_RANK = { page: -1, heading: -0.5, chapter: 0, part: 1, book: 2 } as const
 
 function numberingRank(numbering: ResolvedNoteSeries['numbering']): number {
-  return typeof numbering === 'object' ? SCOPE_RANK.heading : SCOPE_RANK[numbering]
+  return noteHeadingLevel(numbering) === undefined ? SCOPE_RANK[numbering as 'chapter' | 'part' | 'book'] : SCOPE_RANK.heading
 }
 
 function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): RunText | undefined {
-  if (typeof series.numbering === 'object') return state.headingScopes.get(headingStateKey(context, series.numbering.heading))?.heading
+  const headingLevel = noteHeadingLevel(series.numbering)
+  if (headingLevel !== undefined) return headingScopeState(state, context, headingLevel)?.heading
   if (series.numbering === 'book' || numberingRank(series.numbering) > SCOPE_RANK[series.placement]) return undefined
   if (series.numbering === 'part') return context.part?.title
   // Chapter scope zero is shared by every front-matter and held section, so it has no single title to name.
@@ -168,8 +202,8 @@ function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, sta
 }
 
 function noteIds(series: ResolvedNoteSeries, scope: string, chapter: number, number: number): { noteId: string; refId: string } {
-  const scopePart =
-    typeof series.numbering === 'object' ? `-${scope}` : series.idScope === 'chapter' ? `-${chapter}` : series.numbering === 'book' ? '' : `-${scope}`
+  const headingLevel = noteHeadingLevel(series.numbering)
+  const scopePart = headingLevel !== undefined ? `-${scope}` : series.idScope === 'chapter' ? `-${chapter}` : series.numbering === 'book' ? '' : `-${scope}`
   return { noteId: `segnavia-${series.idStem}${scopePart}-${number}`, refId: `segnavia-${series.idStem}ref${scopePart}-${number}` }
 }
 
@@ -235,11 +269,11 @@ function addCollectedParagraph(series: ResolvedNoteSeries, context: NoteSectionC
     run.paragraphs.push(paragraph)
     return
   }
-  const headingScoped = typeof series.numbering === 'object'
+  const headingScoped = noteHeadingLevel(series.numbering) !== undefined
   const grouped = headingScoped && (series.placement === 'part' || series.placement === 'book') && context.chapter > 0
   collected.runs.push({
     scopeKey: scope,
-    ...(grouped ? { groupKey: sectionScopeKey(context), groupHeading: context.title } : {}),
+    ...(grouped ? { groupKey: context.headingScopeKey, groupHeading: context.title } : {}),
     heading: runHeading(series, context, state),
     ...(headingScoped ? { headingScope: true } : {}),
     paragraphs: [paragraph],
@@ -311,20 +345,27 @@ export function transformNotes(root: Element, book: Book, context: NoteSectionCo
   const blocks = new Map<Element, Map<string, Element>>()
   const byName = new Map(book.notes.map((series) => [series.name, series]))
   const seriesOrder = new Map(book.notes.map((series, index) => [series.name, index]))
-  const headingLevels = new Set(book.notes.flatMap((series) => (typeof series.numbering === 'object' ? [series.numbering.heading] : [])))
-  const nodes = elements(root.children).filter((node) => {
-    const heading = /^h([2-6])$/.exec(node.name)
-    return (
-      (heading !== null && headingLevels.has(Number(heading[1]))) ||
+  const headingLevels = new Set(
+    book.notes.flatMap((series) => {
+      const level = noteHeadingLevel(series.numbering)
+      return level === undefined ? [] : [level]
+    }),
+  )
+  const nodes = elements(root.children).flatMap((node) => {
+    const match = /^h([0-9]+)$/.exec(node.name)
+    const headingLevel = match === null ? undefined : Number(match[1])
+    const matchingHeading =
+      headingLevel !== undefined && headingLevel >= MIN_NOTE_HEADING_LEVEL && headingLevel <= MAX_NOTE_HEADING_LEVEL && headingLevels.has(headingLevel)
+    return matchingHeading ||
       (node.name === 'span' && node.attribs['data-note'] !== undefined) ||
       (node.name === 'a' && node.attribs['data-note-ref'] !== undefined)
-    )
+      ? [{ node, headingLevel: matchingHeading ? headingLevel : undefined }]
+      : []
   })
-  for (const node of nodes) {
-    const heading = /^h([2-6])$/.exec(node.name)
-    if (heading) {
-      const key = headingStateKey(context, Number(heading[1]))
-      const ordinal = (state.headingScopes.get(key)?.ordinal ?? 0) + 1
+  for (const { node, headingLevel } of nodes) {
+    if (headingLevel !== undefined) {
+      const key = headingStateKey(context, headingLevel)
+      const ordinal = (headingScopeState(state, context, headingLevel)?.ordinal ?? 0) + 1
       state.headingScopes.set(key, { ordinal, heading: headingRunText(node) })
       continue
     }

@@ -51,10 +51,13 @@ export {
   bookVariablePageNumbers,
 } from './book-variable-page-numbers.ts'
 export {
+  MAX_NOTE_HEADING_LEVEL,
+  MIN_NOTE_HEADING_LEVEL,
   NoteNumbering,
   NotePlacement,
   NoteSeries,
   type NoteSeriesInput,
+  noteHeadingLevel,
   noteMarkerIssues,
   type ResolvedNoteSeries,
   resolveLineKeyedNoteSystem,

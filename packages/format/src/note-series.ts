@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ContentsLabel, REGION_NAME } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
+import { MAX_HEADING_LEVEL } from './outline.ts'
 import { primitiveRoot } from './repeated-mark.ts'
 import type { RunText } from './text-run.ts'
 
@@ -11,15 +12,18 @@ const DEFAULT_LEMMA_SEPARATOR = ']'
 export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
 export type NotePlacement = z.infer<typeof NotePlacement>
 
+export const MIN_NOTE_HEADING_LEVEL = 2
+export const MAX_NOTE_HEADING_LEVEL = MAX_HEADING_LEVEL
+
 const HeadingNoteNumbering = closedObject({
   heading: z
     .number()
     .int()
     .superRefine((level, ctx) => {
-      if (level < 2 || level > 6) {
+      if (level < MIN_NOTE_HEADING_LEVEL || level > MAX_NOTE_HEADING_LEVEL) {
         ctx.addIssue({
           code: 'custom',
-          message: `heading note numbering level ${level} is outside 2 to 6; set heading to a level from 2 to 6 to clear this refusal`,
+          message: `heading note numbering level ${level} is outside ${MIN_NOTE_HEADING_LEVEL} to ${MAX_NOTE_HEADING_LEVEL}; set heading to a level from ${MIN_NOTE_HEADING_LEVEL} to ${MAX_NOTE_HEADING_LEVEL} to clear this refusal`,
         })
       }
     }),
@@ -27,6 +31,10 @@ const HeadingNoteNumbering = closedObject({
 
 export const NoteNumbering = z.union([z.enum(['chapter', 'part', 'book']), HeadingNoteNumbering])
 export type NoteNumbering = z.infer<typeof NoteNumbering>
+
+export function noteHeadingLevel(numbering: NoteNumbering): number | undefined {
+  return typeof numbering === 'object' ? numbering.heading : undefined
+}
 
 export const NoteSeries = closedObject({
   name: z.string().regex(REGION_NAME, 'a note series name must be an HTML name token'),

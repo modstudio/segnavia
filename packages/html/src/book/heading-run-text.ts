@@ -1,18 +1,12 @@
-import type { Direction, RunText } from '@segnavia/format'
+import type { Direction, RunText, TextRun } from '@segnavia/format'
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
-import { headingText, hiddenHeadingNode } from './dom.ts'
-
-interface HeadingRun {
-  text: string
-  lang?: string
-  dir?: Direction
-}
+import { headingTextBlock, hiddenHeadingNode, plainHeadingText } from './dom.ts'
 
 function authoredDirection(value: string | undefined, inherited: Direction | undefined): Direction | undefined {
   return value === 'ltr' || value === 'rtl' || value === 'auto' ? value : inherited
 }
 
-function collectHeadingRuns(node: ChildNode, runs: HeadingRun[], lang?: string, dir?: Direction): void {
+function collectHeadingRuns(node: ChildNode, runs: TextRun[], lang?: string, dir?: Direction): void {
   if (isText(node)) {
     if (node.data !== '') runs.push({ text: node.data, lang, dir })
     return
@@ -24,18 +18,24 @@ function collectHeadingRuns(node: ChildNode, runs: HeadingRun[], lang?: string, 
   }
   const ownLang = node.attribs.lang ?? lang
   const ownDir = authoredDirection(node.attribs.dir, dir)
+  if (headingTextBlock(node)) runs.push({ text: ' ', lang: ownLang, dir: ownDir })
   for (const child of node.children) collectHeadingRuns(child, runs, ownLang, ownDir)
+  if (headingTextBlock(node)) runs.push({ text: ' ', lang: ownLang, dir: ownDir })
 }
 
-export function headingRunText(heading: Element): RunText {
-  const plain = headingText(heading).replace(/\s+/g, ' ').trim()
-  const runs: HeadingRun[] = []
+export function headingRunText(heading: Element): RunText | undefined {
+  const plain = plainHeadingText(heading)
+  if (plain === '') return undefined
+  const runs: TextRun[] = []
   collectHeadingRuns(heading, runs)
   if (!runs.some((run) => run.lang !== undefined || run.dir !== undefined)) return plain
-  const normalized = runs.map((run) => ({ ...run, text: run.text.replace(/\s+/g, ' ') })).filter((run) => run.text !== '')
-  const first = normalized[0]
+  const normalized: TextRun[] = []
+  for (const run of runs) {
+    let value = run.text.replace(/\s+/g, ' ')
+    if (normalized.length === 0 || normalized.at(-1)?.text.endsWith(' ')) value = value.trimStart()
+    if (value !== '') normalized.push({ ...run, text: value })
+  }
   const last = normalized.at(-1)
-  if (first) first.text = first.text.trimStart()
   if (last) last.text = last.text.trimEnd()
   return normalized.filter((run) => run.text !== '')
 }

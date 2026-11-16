@@ -12,7 +12,6 @@ import {
   MAX_HEADING_LEVEL,
   noteMarkerIssues,
   plainText,
-  type RunText,
   resolveDirection,
   type StructureNumberValue,
   structureNumbers,
@@ -47,7 +46,7 @@ import { decorateSection } from './book-section-decoration.ts'
 import { appendChapterHeadings, appendHeldHeadings, withSectionDepth } from './book-section-headings.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { noteRunNodes } from './note-run-nodes.ts'
-import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
+import { type CollectedNotes, noteSectionContext, noteState, transformNotes } from './notes.ts'
 import { runTextNodes } from './run-nodes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
@@ -83,7 +82,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...designedSectionAttributeIssues(entry, id))
   appendHeldHeadings(entry, held.headings, sectionEntry.depth, build.headings)
-  const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
+  const context = noteSectionContext(sectionEntry, held.built.info.id, 0, entry.title, build.partTargets)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
 }
 
@@ -103,7 +102,7 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...templatedSectionIssues(entry, id, build.templates))
   appendHeldHeadings(entry, held.headings, sectionEntry.depth, build.headings)
-  const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
+  const context = noteSectionContext(sectionEntry, held.built.info.id, 0, entry.title, build.partTargets)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
 }
 
@@ -170,19 +169,6 @@ export interface DocumentBuild {
   structureNumbers: Map<string, StructureNumberValue>
 }
 
-function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: number, title: RunText | undefined, build: DocumentBuild): NoteSectionContext {
-  const ancestry = sectionEntry.ancestry.at(-1)
-  for (const part of sectionEntry.ancestry) build.partTargets.set(part.id, targetId)
-  return {
-    chapter,
-    title,
-    division: sectionEntry.division,
-    targetId,
-    ...(chapter === 0 && sectionEntry.division !== 'front' ? { placementKey: targetId.replace(/^segnavia-/, '') } : {}),
-    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title } } : {}),
-  }
-}
-
 function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefined {
   let contents: BuiltSection | undefined
   for (const sectionEntry of bookSections(book)) {
@@ -222,12 +208,19 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
         ),
       )
     }
-    transformNotes(section.node, book, noteContext(sectionEntry, section.info.id, 0, entry.title, build), build.notes, build.build === 'galley')
+    transformNotes(
+      section.node,
+      book,
+      noteSectionContext(sectionEntry, section.info.id, 0, entry.title, build.partTargets),
+      build.notes,
+      build.build === 'galley',
+    )
   }
   return contents
 }
 
 function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' = 'body'): void {
+  let flowingHeadingScopeKey: string | undefined
   for (const sectionEntry of bookSections(book)) {
     if (sectionEntry.division !== division) continue
     const { entry } = sectionEntry
@@ -248,6 +241,9 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     }
     if (!('html' in entry)) continue
     build.chapterNumber += 1
+    const chapterHeadingScopeKey = String(build.chapterNumber)
+    const headingScopeKey = entry.opens === 'continue' ? (flowingHeadingScopeKey ?? chapterHeadingScopeKey) : chapterHeadingScopeKey
+    flowingHeadingScopeKey = headingScopeKey
     const section = chapterSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, build.chapterNumber, sectionEntry.division, build.build)
     build.sections.push(section)
     decorateSection(sectionEntry, build)
@@ -256,7 +252,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     transformNotes(
       section.node,
       book,
-      noteContext(sectionEntry, section.info.id, build.chapterNumber, entry.title, build),
+      noteSectionContext(sectionEntry, section.info.id, build.chapterNumber, entry.title, build.partTargets, headingScopeKey),
       build.notes,
       build.build === 'galley',
     )

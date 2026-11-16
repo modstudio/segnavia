@@ -8,14 +8,20 @@ const input = (overrides: Record<string, unknown> = {}) => ({ title: 'Book', mod
 const scopeHeadings = (html: string) => [...html.matchAll(/<p class="segnavia-notes-scope" dir="(?:ltr|rtl)">(.*?)<\/p>/g)].map((match) => match[1])
 
 describe('heading-numbered note series', () => {
-  test('keeps the established chapter-numbered notes output unchanged', () => {
+  test('keeps chapter-numbered ids and headings unchanged beside a heading-numbered series', () => {
     const result = bookDocument(
       parseBookFixture(
         input({
-          notes: [{ name: 'sources', placement: 'book', numbering: 'chapter', marker: 'roman-lower', title: 'Sources' }],
+          notes: [
+            { name: 'sources', placement: 'book', numbering: 'chapter', marker: 'roman-lower', title: 'Sources' },
+            { name: 'comments', placement: 'book', numbering: { heading: 2 }, marker: 'arabic', title: 'Comments' },
+          ],
           body: [
-            chapter('One', '<p>A<span data-note="sources">first</span><span data-note="sources">second</span></p>'),
-            chapter('Two', '<p>B<span data-note="sources">third</span></p>'),
+            chapter(
+              'One',
+              '<p>A<span data-note="sources">first</span><span data-note="sources">second</span></p><h2>Detail</h2><p><span data-note="comments">comment</span></p>',
+            ),
+            chapter('Two', '<p>B<span data-note="sources">third</span><span data-note="comments">other</span></p>'),
           ],
         }),
       ),
@@ -25,7 +31,9 @@ describe('heading-numbered note series', () => {
       'id="segnavia-note-sources-1-2"',
       'id="segnavia-note-sources-2-1"',
     ])
-    expect(scopeHeadings(result.html)).toEqual(['One', 'Two'])
+    expect(result.html).toContain('id="segnavia-note-comments-1-1-1"')
+    expect(result.html).toContain('id="segnavia-note-comments-2-0-1"')
+    expect(scopeHeadings(result.html)).toEqual(['One', 'Two', 'One', 'Two'])
   })
 
   test('restarts and heads book-placed runs at authored headings independently of contents settings', () => {
@@ -95,8 +103,99 @@ describe('heading-numbered note series', () => {
         }),
       ),
     )
-    expect(result.html).toContain('id="segnavia-note-sources-preface-1-1"')
-    expect(result.html).toContain('id="segnavia-note-sources-thanks-1-1"')
+    expect(result.html).toContain('id="segnavia-note-sources-s:preface-1-1"')
+    expect(result.html).toContain('id="segnavia-note-sources-s:thanks-1-1"')
+  })
+
+  test('keeps chapter-zero section ids separate from the same numbered chapter', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: { heading: 2 }, marker: 'arabic', title: 'Sources' }],
+          frontMatter: [{ id: '2', ...chapter('Preface', '<h2>About</h2><p><span data-note="sources">front</span></p>') }],
+          body: [chapter('One', '<p>First</p>'), chapter('Two', '<h2>About</h2><p><span data-note="sources">body</span></p>')],
+        }),
+      ),
+    )
+    expect(result.html).toContain('id="segnavia-note-sources-s:2-1-1"')
+    expect(result.html).toContain('id="segnavia-note-sources-2-1-1"')
+    expect(result.html.match(/data-segnavia-scope="heading"/g)).toHaveLength(2)
+  })
+
+  test('continues heading ordinals and one group across a continuing section', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: { heading: 2 }, marker: 'arabic', title: 'Sources' }],
+          body: [
+            chapter('One', '<h2>First</h2><p><span data-note="sources">one</span></p>'),
+            { ...chapter('Two', '<h2>Second</h2><p><span data-note="sources">two</span></p>'), opens: 'continue' },
+          ],
+        }),
+      ),
+    )
+    expect(result.html).toContain('id="segnavia-note-sources-1-1-1"')
+    expect(result.html).toContain('id="segnavia-note-sources-1-2-1"')
+    expect(result.html.match(/<p class="segnavia-notes-scope" dir="ltr">One<\/p>/g)).toHaveLength(1)
+    expect(result.html).not.toContain('<p class="segnavia-notes-scope" dir="ltr">Two</p>')
+    expect(result.html).toContain('data-segnavia-scope="heading" dir="ltr">Second</p>')
+  })
+
+  test('places heading-numbered runs after each part', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'part', numbering: { heading: 2 }, marker: 'arabic', title: 'Sources' }],
+          body: [
+            {
+              id: 'first-part',
+              name: 'first',
+              title: 'First Part',
+              children: [chapter('One', '<h2>First</h2><p><span data-note="sources">one</span></p>')],
+            },
+            {
+              id: 'second-part',
+              name: 'second',
+              title: 'Second Part',
+              children: [chapter('Two', '<h2>Second</h2><p><span data-note="sources">two</span></p>')],
+            },
+          ],
+        }),
+      ),
+    )
+    expect(result.sections.map(({ id }) => id)).toEqual(['section-1', 'segnavia-notes-sources-first-part', 'section-2', 'segnavia-notes-sources-second-part'])
+    expect(result.html).toContain('id="segnavia-note-sources-1-1-1"')
+    expect(result.html).toContain('id="segnavia-note-sources-2-1-1"')
+    expect(scopeHeadings(result.html)).toEqual(['One', 'Two'])
+    expect(result.html).toContain('data-segnavia-scope="heading" dir="ltr">First</p>')
+    expect(result.html).toContain('data-segnavia-scope="heading" dir="ltr">Second</p>')
+  })
+
+  test('restarts at empty headings without printing empty labels', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: { heading: 2 }, marker: 'arabic', title: 'Sources' }],
+          body: [chapter('One', '<h2>Named</h2><p><span data-note="sources">one</span></p><h2> </h2><p><span data-note="sources">two</span></p>')],
+        }),
+      ),
+    )
+    expect(result.html).toContain('id="segnavia-note-sources-1-1-1"')
+    expect(result.html).toContain('id="segnavia-note-sources-1-2-1"')
+    expect(result.html.match(/data-segnavia-scope="heading"/g)).toHaveLength(1)
+    expect(result.html).not.toContain('data-segnavia-scope="heading" dir="ltr"></p>')
+  })
+
+  test('uses the same block spacing in heading labels as heading text', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: { heading: 2 }, marker: 'arabic', title: 'Sources' }],
+          body: [chapter('One', '<h2><span lang="he">א</span><div>ב</div></h2><p><span data-note="sources">one</span></p>')],
+        }),
+      ),
+    )
+    expect(result.html).toContain('data-segnavia-scope="heading" dir="rtl"><span lang="he" dir="rtl">א</span> ב</p>')
   })
 
   test('renders Hebrew siman runs with a leading run, group label, unique ids and directed heading labels', () => {
