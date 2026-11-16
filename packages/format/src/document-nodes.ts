@@ -19,6 +19,7 @@ import {
 } from './document-nodes-common.ts'
 import type { ParentRules } from './parent-rules.ts'
 import { parentRules } from './parent-rules.ts'
+import { RunText, type RunText as RunTextValue } from './text-run.ts'
 
 export interface DivisionNode {
   type: 'division'
@@ -33,8 +34,8 @@ export interface PartNode {
   type: 'part'
   id?: string
   name: string
-  title?: string
-  contentsLabel?: string
+  title?: RunTextValue
+  contentsLabel?: RunTextValue
   html?: string
   number?: z.infer<typeof StructureNumber>
   numbering?: z.infer<typeof PartNumbering>
@@ -97,7 +98,7 @@ export const PartNodeFields = {
   type: z.literal('part'),
   id: z.string().optional(),
   name: z.string().min(1),
-  title: z.string().optional(),
+  title: RunText.optional(),
   contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
   number: StructureNumber.optional(),

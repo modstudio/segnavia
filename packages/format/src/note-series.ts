@@ -3,6 +3,7 @@ import { ContentsLabel, REGION_NAME } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
 import { primitiveRoot } from './repeated-mark.ts'
+import type { RunText } from './text-run.ts'
 
 const DEFAULT_NOTE_KEY = 'counter'
 const DEFAULT_LEMMA_SEPARATOR = ']'
@@ -37,7 +38,7 @@ export interface ResolvedNoteSeries {
   title: string
   /** Whether to list the series section; present only on a book-placed series. */
   contents?: boolean
-  contentsLabel?: string
+  contentsLabel?: RunText
   idStem: string
   idScope: 'chapter' | 'numbering'
   blockClass: string

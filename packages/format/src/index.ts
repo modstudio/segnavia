@@ -369,6 +369,7 @@ export {
   WordSpacing,
 } from './style-sheet.ts'
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'
+export { plainText, RunText, TextRun } from './text-run.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
 export { type FontFetch, type UrlFontSourceOptions, urlFontSource } from './url-font-source.ts'

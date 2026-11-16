@@ -28,6 +28,63 @@ test('uses a section contents label and independently resolves its subtitle dire
   expect(result.html).toContain('<a href="#section-2" dir="rtl">פרק ראשון<span class="segnavia-contents-subtitle" dir="ltr">Introduction</span></a>')
 })
 
+test('writes title, contents label and subtitle runs with their own languages', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    frontMatter: [
+      {
+        kind: 'contents',
+        title: [
+          { text: 'תוכן', lang: 'he' },
+          { text: ' Contents', lang: 'en' },
+        ],
+      },
+    ],
+    chapters: [
+      {
+        title: [
+          { text: 'פרק ', lang: 'he' },
+          { text: 'Genesis', lang: 'en' },
+        ],
+        contentsLabel: [
+          { text: 'בראשית ', lang: 'he' },
+          { text: 'Genesis', lang: 'en' },
+        ],
+        subtitle: [
+          { text: 'מבוא ', lang: 'he' },
+          { text: 'Introduction', lang: 'en' },
+        ],
+        html: '<h2 id="mixed">פרק <span id="inner" lang="en">Genesis</span></h2>',
+      },
+    ],
+  })
+  const built = bookDocument(book)
+  expect(built.html).toContain(
+    '<h1 class="segnavia-contents-title" dir="rtl"><span lang="he" dir="rtl">תוכן</span><span lang="en" dir="ltr"> Contents</span></h1>',
+  )
+  expect(built.html).toContain('<span lang="he" dir="rtl">בראשית </span><span lang="en" dir="ltr">Genesis</span>')
+  expect(built.html).toContain(
+    '<span class="segnavia-contents-subtitle" dir="rtl"><span lang="he" dir="rtl">מבוא </span><span lang="en" dir="ltr">Introduction</span></span>',
+  )
+  expect(built.html).toContain('פרק <span lang="en">Genesis</span>')
+  expect(built.html.match(/id="inner"/g)).toHaveLength(1)
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['בראשית Genesis', 'פרק Genesis'])
+})
+
+test('unwraps links and removes note calls from authored heading contents entries', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    chapters: [{ title: 'Chapter', html: '<h2 id="source"><a href="/elsewhere"><em id="em">Linked</em></a><span data-note="footnote">note</span></h2>' }],
+  })
+  const html = bookDocument(book).html
+  expect(html).toContain('<a href="#source" dir="ltr"><em>Linked</em></a>')
+  expect(html).not.toContain('<a href="#source" dir="ltr"><a')
+  expect(html).not.toContain('<em id="em">Linked</em></a><a class="segnavia-contents-page"')
+})
+
 test('prints chapter numbers in contents and outline only when opted in', () => {
   const book = parseBookFixture({
     title: 'Book',

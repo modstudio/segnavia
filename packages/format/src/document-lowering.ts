@@ -8,9 +8,12 @@ import { Page, type Page as PageValue } from './page.ts'
 import type { PrintedPages } from './printed-pages.ts'
 import { recordExpansion } from './record-expansion.ts'
 import type { Brand } from './style-sheet.ts'
+import { plainText } from './text-run.ts'
+import type { RunText } from './text-run.ts'
 
 type ParsedNode = DocumentValue['children'][number]
 type ShapeNode = DocumentShapeValue['children'][number]
+const plainTitle = (title: RunText | undefined) => (title === undefined ? undefined : plainText(title))
 const PAGE_AND_DECK_SETTINGS = ['scripts', 'dir', 'lang'] as const satisfies readonly (keyof NonNullable<DocumentValue['settings']> &
   keyof PageValue &
   keyof DeckValue)[]
@@ -184,7 +187,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
           path,
           value: defined({
             id: fields.id,
-            title: fields.title,
+            title: plainTitle(fields.title),
             opens: fields.opens,
             numbering: fields.numbering,
             parentRules: fields.parentRules,
@@ -201,7 +204,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
         path,
         value: defined({
           id: fields.id,
-          title: fields.title,
+          title: plainTitle(fields.title),
           opens: fields.opens,
           numbering: fields.numbering,
           parentRules: fields.parentRules,

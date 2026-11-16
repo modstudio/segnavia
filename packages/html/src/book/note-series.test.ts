@@ -14,6 +14,26 @@ const input = (overrides: Record<string, unknown> = {}) => ({
 const scopeHeadings = (html: string) => [...html.matchAll(/<p class="segnavia-notes-scope" dir="(?:ltr|rtl)">(.*?)<\/p>/g)].map((match) => match[1])
 
 describe('note series document', () => {
+  test('writes mixed-language numbering scope headings as directed runs', () => {
+    const book = parseBookFixture(
+      input({
+        notes: [{ name: 'endnote', placement: 'book', numbering: 'chapter' }],
+        body: [
+          {
+            title: [
+              { text: 'פרק ', lang: 'he' },
+              { text: 'Genesis', lang: 'en' },
+            ],
+            html: '<p>Text<span data-note="endnote">Source</span></p>',
+          },
+        ],
+      }),
+    )
+    expect(bookDocument(book).html).toContain(
+      '<p class="segnavia-notes-scope" dir="rtl"><span lang="he" dir="rtl">פרק </span><span lang="en" dir="ltr">Genesis</span></p>',
+    )
+  })
+
   test('keeps page series in separate declaration-ordered blocks in flow and continuous builds', () => {
     const notes = [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'roman-lower' }] as const
     const body = [chapter('One', '<p>A<span data-note="commentary">comment</span> B<span data-note="footnote">source</span></p>')]

@@ -1,12 +1,13 @@
+import type { RunText } from '@segnavia/format'
 import { type BuiltSection, collectHeadings, sectionHeading } from './book-held.ts'
 import type { BookHeading } from './types.ts'
 
 // A section's headings enter the shared headings, which feed both the contents and the PDF outline, only while the section is listed.
 
 interface ChapterHeadingEntry {
-  title?: string
-  contentsLabel?: string
-  subtitle?: string
+  title?: RunText
+  contentsLabel?: RunText
+  subtitle?: RunText
   contents?: boolean
   contentsDepth?: number
 }

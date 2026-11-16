@@ -10,6 +10,7 @@ import { NoteSeries } from './note-series.ts'
 import { RemovedParentPageFields } from './parent-page-fields.ts'
 import { ParentRegions } from './parent-regions.ts'
 import { parentRules } from './parent-rules.ts'
+import { RunText } from './text-run.ts'
 import {
   ChapterNumberTextVariable,
   ContentTextVariable,
@@ -25,7 +26,7 @@ export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTempl
 
 export const SectionFields = {
   ...NodeConditions,
-  title: z.string().optional(),
+  title: RunText.optional(),
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
   contents: z.boolean().optional(),
@@ -44,7 +45,7 @@ export const ContentsNode = closedObject(
   {
     ...NodeId.shape,
     type: z.literal('contents'),
-    title: z.string().optional(),
+    title: RunText.optional(),
     contentsDepth: z.number().int().min(1).max(6).optional(),
     pageNumbers: z.boolean().optional(),
     opens: BookOpens.optional(),

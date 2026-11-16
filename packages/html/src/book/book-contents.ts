@@ -1,8 +1,9 @@
-import { type Book, entryDirection, resolveDirection } from '@segnavia/format'
+import { type Book, entryDirection, plainText, resolveDirection } from '@segnavia/format'
 import { isTag } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
 import { CONTENTS_PAGE_REFERENCE_ATTRIBUTE, CONTENTS_PAGE_REFERENCE_CLASS, PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_VALUE } from './book-page-reference.ts'
 import { element, linkChildren, text } from './dom.ts'
+import { runTextNodes } from './run-text.ts'
 import { type BookDocumentOptions, type BookHeading, headingLabel } from './types.ts'
 
 export function listedInContents(heading: BookHeading, bookDepth: number): boolean {
@@ -15,6 +16,7 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
     .map((heading) => {
       const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
       const label = headingLabel(heading)
+      const labelText = plainText(label)
       const level = heading.level + (heading.depth ?? 0)
       const attributes = {
         class: 'segnavia-contents-entry',
@@ -26,13 +28,13 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
           'a',
           {
             href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`,
-            dir: entryDirection(book, label),
+            dir: entryDirection(book, labelText),
           },
           [
             ...(heading.number === undefined
               ? []
               : [element('span', { class: 'segnavia-contents-number' }, [element('bdi', {}, [text(heading.number)])]), text(' ')]),
-            text(label),
+            ...(heading.content !== undefined && heading.contentsLabel === undefined ? heading.content : runTextNodes(label)),
             ...(heading.subtitle === undefined
               ? []
               : [
@@ -40,9 +42,9 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
                     'span',
                     {
                       class: 'segnavia-contents-subtitle',
-                      dir: entryDirection(book, heading.subtitle),
+                      dir: entryDirection(book, plainText(heading.subtitle)),
                     },
-                    [text(heading.subtitle)],
+                    runTextNodes(heading.subtitle),
                   ),
                 ]),
           ],

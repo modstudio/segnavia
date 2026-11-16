@@ -38,6 +38,7 @@ import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { structureNumberingIssues } from './structure-numbering-policy.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
+import { plainText } from './text-run.ts'
 import { Variables } from './variable.ts'
 import { VariableDocumentFacts } from './variable-document-facts.ts'
 
@@ -317,7 +318,7 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
       const parent = byName.get(name)
       return parent ? [{ name, width: textArea(parent, sectionTrim).width }] : []
     })
-    const label = flow.title ?? `flow ${index + 1}`
+    const label = flow.title === undefined ? `flow ${index + 1}` : plainText(flow.title)
     const fitFacts = names.flatMap((name) => {
       const parent = byName.get(name)
       return parent ? [{ section: label, parent: name, path, paper: sectionTrim, textArea: textArea(parent, sectionTrim) }] : []
@@ -365,7 +366,9 @@ export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx
     ctx.addIssue({ code: 'custom', ...issue })
   }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
-    !isPart(entry) && 'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
+    !isPart(entry) && 'numbering' in entry && entry.numbering !== undefined
+      ? [{ id, title: entry.title === undefined ? undefined : plainText(entry.title), division, path, numbering: entry.numbering }]
+      : [],
   )
   for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections })) {
     ctx.addIssue({ code: 'custom', ...issue })

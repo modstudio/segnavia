@@ -30,6 +30,7 @@ import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
+import { plainText } from './text-run.ts'
 
 const DocumentSettings = closedObject({
   scripts: Scripts.optional(),
@@ -140,8 +141,9 @@ function documentNumberedSections(document: DocumentShapeValue): SectionNumberin
       const nodePath = [...path, index]
       const heldDivision = node.type === 'division' ? node.name : division
       if ((node.type === 'section' || node.type === 'contents') && node.numbering !== undefined) {
-        const id = node.id ?? node.title ?? nodePath.join('.')
-        sections.push({ id, title: node.title, division: heldDivision, path: nodePath, numbering: node.numbering })
+        const title = node.title === undefined ? undefined : plainText(node.title)
+        const id = node.id ?? title ?? nodePath.join('.')
+        sections.push({ id, title, division: heldDivision, path: nodePath, numbering: node.numbering })
       }
       if ('children' in node && node.children !== undefined) collect(node.children, heldDivision, [...nodePath, 'children'])
     })

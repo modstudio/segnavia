@@ -1,16 +1,18 @@
-import type { ParentRules } from '@segnavia/format'
 import {
   type Book,
   type BookSection,
   type BookTemplate,
   DEFAULT_HEADING_LISTING,
   type DesignedSection,
+  type ParentRules,
+  plainText,
   REGION_NAME,
   type RecordFacts,
+  type RunText,
   type SectionNumbering,
   type TemplatedSection,
 } from '@segnavia/format'
-import type { ChildNode, Element } from 'domhandler'
+import { type ChildNode, cloneNode, type Element, isTag, isText } from 'domhandler'
 import { fillAttributeIssues } from '../fill-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
 import { headingListing } from '../heading-listing.ts'
@@ -46,7 +48,7 @@ export function authoredSection(
       id,
       kind: 'front',
       division: 'front',
-      title: section.title,
+      title: section.title === undefined ? undefined : plainText(section.title),
       opens: section.opens,
       numbering: section.numbering,
       parentRules: section.parentRules,
@@ -88,12 +90,12 @@ export function sectionNode(
   id: string,
   children: ChildNode[] = [],
   build: BookBuild,
-  title?: string,
+  title?: RunText,
   extra: Record<string, string> = {},
 ) {
   const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
   if (build !== 'print') attribs['data-segnavia-flow'] = id
-  if (build === 'galley' && title !== undefined) attribs['data-segnavia-section-title'] = title
+  if (build === 'galley' && title !== undefined) attribs['data-segnavia-section-title'] = plainText(title)
   return element('section', attribs, children)
 }
 
@@ -112,7 +114,16 @@ export function partSection(
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   return {
-    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens, parts, partNumbers, parentRules: entry.parentRules },
+    info: {
+      id,
+      kind: 'part',
+      division,
+      title: entry.title === undefined ? undefined : plainText(entry.title),
+      opens: entry.opens,
+      parts,
+      partNumbers,
+      parentRules: entry.parentRules,
+    },
     node: sectionNode('part', id, children, build, entry.title, extra),
   }
 }
@@ -140,6 +151,7 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
     }
     heading.attribs['data-segnavia-id'] ??= id
     heading.attribs.id = id
+    const content = headingContent(heading.children)
     return [
       {
         id,
@@ -148,12 +160,28 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
         text: headingText(heading).replace(/\s+/g, ' ').trim(),
         sectionId,
         listed,
+        ...(content.some((node) => !isText(node)) ? { content } : {}),
       },
     ]
   })
 }
 
-export function sectionHeading(entry: { title: string; contentsLabel?: string; subtitle?: string }, id: string, number?: string): BookHeading {
+const HIDDEN_HEADING_CONTENT = new Set(['script', 'style', 'template'])
+
+function headingContent(nodes: ChildNode[]): ChildNode[] {
+  return nodes.flatMap((node): ChildNode[] => {
+    if (isText(node)) return [cloneNode(node, true)]
+    if (!isTag(node)) return []
+    if (HIDDEN_HEADING_CONTENT.has(node.name)) return []
+    if (node.name === 'span' && node.attribs['data-note'] !== undefined) return []
+    const children = headingContent(node.children)
+    if (node.name === 'a') return children
+    const attribs = Object.fromEntries(Object.entries(node.attribs).filter(([name]) => name !== 'id' && !name.startsWith('data-segnavia-')))
+    return [element(node.name, attribs, children)]
+  })
+}
+
+export function sectionHeading(entry: { title: RunText; contentsLabel?: RunText; subtitle?: RunText }, id: string, number?: string): BookHeading {
   return {
     id,
     block: id,
@@ -205,7 +233,15 @@ export function designedSection(
   }
   return {
     built: {
-      info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering, parentRules: entry.parentRules },
+      info: {
+        id,
+        kind,
+        division,
+        title: entry.title === undefined ? undefined : plainText(entry.title),
+        opens: entry.opens,
+        numbering: entry.numbering,
+        parentRules: entry.parentRules,
+      },
       node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,
@@ -344,7 +380,15 @@ export function templatedSection(
   }
   return {
     built: {
-      info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering, parentRules: entry.parentRules },
+      info: {
+        id,
+        kind,
+        division,
+        title: entry.title === undefined ? undefined : plainText(entry.title),
+        opens: entry.opens,
+        numbering: entry.numbering,
+        parentRules: entry.parentRules,
+      },
       node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,

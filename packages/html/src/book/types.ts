@@ -1,4 +1,5 @@
-import type { BookOpens, HeadingListing, ParentRules, SectionNumbering } from '@segnavia/format'
+import { type BookOpens, type HeadingListing, type ParentRules, plainText, type RunText, type SectionNumbering } from '@segnavia/format'
+import type { ChildNode } from 'domhandler'
 
 export interface BookDocumentOptions {
   pageNumbers?: Record<string, string>
@@ -36,22 +37,23 @@ export interface BookHeading {
   id: string
   block: string
   level: number
-  text: string
+  text: RunText
   number?: string
-  contentsLabel?: string
-  subtitle?: string
+  contentsLabel?: RunText
+  subtitle?: RunText
+  content?: ChildNode[]
   sectionId: string
   depth?: number
   contentsDepth?: number
   listed: HeadingListing
 }
 
-export function headingLabel(heading: BookHeading): string {
+export function headingLabel(heading: BookHeading): RunText {
   return heading.contentsLabel ?? heading.text
 }
 
 export function numberedHeadingLabel(heading: BookHeading): string {
-  const label = headingLabel(heading)
+  const label = plainText(headingLabel(heading))
   return heading.number === undefined ? label : `${heading.number} ${label}`
 }
 
