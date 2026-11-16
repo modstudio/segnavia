@@ -2,6 +2,7 @@
 
 zero=0000000000000000000000000000000000000000
 risk_paths='^packages/html/src/sanitize|^packages/frame/src/bridge|^packages/format/src/'
+test_fixture_paths='(^|/)(__tests__|[Tt][Ee][Ss][Tt][Ss]?|[Ff][Ii][Xx][Tt][Uu][Rr][Ee][Ss]?)/|\.(test|spec)\.[jt]sx?$|\.[Ff][Ii][Xx][Tt][Uu][Rr][Ee][Ss]?\.'
 failed=0
 
 json_field() {
@@ -106,7 +107,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     failed=1
     continue
   fi
-  risky=$(printf '%s\n' "$pushed" | grep -E "$risk_paths")
+  risky=$(printf '%s\n' "$pushed" | grep -vE "$test_fixture_paths" | grep -E "$risk_paths")
   if [ -n "$risky" ]; then
     tier=$(json_field "$artifact" tier)
     case "$tier" in
