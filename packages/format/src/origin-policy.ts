@@ -126,8 +126,8 @@ export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined,
 }
 
 /**
- * Returns the CSP sources approved for a kind: either a whole origin or a scoped path as both its exact file and its directory
- * with a trailing slash.
+ * Returns the CSP sources approved for a kind: a bare origin for an unscoped approval, or the origin plus the path prefix both
+ * without and with a trailing slash, which covers the prefix and its whole-segment descendants.
  */
 export function approvedSources(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
   const result = new Set<string>()
