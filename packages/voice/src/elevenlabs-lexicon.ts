@@ -1,7 +1,7 @@
 import type { Lexicon } from '@segnavia/format'
 import type { PronunciationDictionary } from './index.ts'
 import { longestTermsFirst } from './lexicon-order.ts'
-import { LexiconRefusedError } from './lexicon-refusal.ts'
+import { LexiconCollisionError, LexiconRefusedError } from './lexicon-refusal.ts'
 
 const ELEVENLABS_API = 'https://api.elevenlabs.io/v1/'
 
@@ -23,17 +23,15 @@ type PhonemeRule = RuleBase & {
 }
 
 function refuseCaseInsensitiveCollisions(lexicon: Lexicon): void {
-  const terms = new Map<string, string>()
+  const terms = new Map<string, string[]>()
   for (const entry of lexicon.entries) {
     const folded = entry.term.toLocaleLowerCase()
-    const previous = terms.get(folded)
-    if (previous !== undefined) {
-      throw new Error(
-        `The terms ${JSON.stringify(previous)} and ${JSON.stringify(entry.term)} collide when caseSensitive is false. Set caseSensitive to true or remove one entry.`,
-      )
-    }
-    terms.set(folded, entry.term)
+    const group = terms.get(folded)
+    if (group === undefined) terms.set(folded, [entry.term])
+    else group.push(entry.term)
   }
+  const collisions = [...terms.values()].filter((group) => group.length >= 2)
+  if (collisions.length > 0) throw new LexiconCollisionError(collisions)
 }
 
 async function dictionaryRequest(options: {
