@@ -12,11 +12,17 @@ export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
 export type NotePlacement = z.infer<typeof NotePlacement>
 
 const HeadingNoteNumbering = closedObject({
-  heading: z.number().int().superRefine((level, ctx) => {
-    if (level < 2 || level > 6) {
-      ctx.addIssue({ code: 'custom', message: `heading note numbering level ${level} is outside 2 to 6; set heading to a level from 2 to 6 to clear this refusal` })
-    }
-  }),
+  heading: z
+    .number()
+    .int()
+    .superRefine((level, ctx) => {
+      if (level < 2 || level > 6) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `heading note numbering level ${level} is outside 2 to 6; set heading to a level from 2 to 6 to clear this refusal`,
+        })
+      }
+    }),
 })
 
 export const NoteNumbering = z.union([z.enum(['chapter', 'part', 'book']), HeadingNoteNumbering])

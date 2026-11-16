@@ -168,7 +168,8 @@ function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, sta
 }
 
 function noteIds(series: ResolvedNoteSeries, scope: string, chapter: number, number: number): { noteId: string; refId: string } {
-  const scopePart = typeof series.numbering === 'object' ? `-${scope}` : series.idScope === 'chapter' ? `-${chapter}` : series.numbering === 'book' ? '' : `-${scope}`
+  const scopePart =
+    typeof series.numbering === 'object' ? `-${scope}` : series.idScope === 'chapter' ? `-${chapter}` : series.numbering === 'book' ? '' : `-${scope}`
   return { noteId: `segnavia-${series.idStem}${scopePart}-${number}`, refId: `segnavia-${series.idStem}ref${scopePart}-${number}` }
 }
 

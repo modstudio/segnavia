@@ -1,4 +1,4 @@
-import { type Direction, type RunText } from '@segnavia/format'
+import type { Direction, RunText } from '@segnavia/format'
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { headingText, hiddenHeadingNode } from './dom.ts'
 
