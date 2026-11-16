@@ -48,7 +48,7 @@ describe('board policy', () => {
   test('bounds a reveal, centers it and preserves the fitted zoom below the cap', () => {
     const label = { kind: 'label' as const, bounds: { x: 20, y: 30, width: 20, height: 10 } }
     const bounded = revealRequest(label, { width: 500, height: 300 }, 1)
-    const unbounded = revealRequest(label, { width: 500, height: 300 })
+    const unbounded = revealRequest(label, { width: 500, height: 300 }, effectiveRevealMaxZoom())
     expect(bounded).toEqual({
       view: { zoom: 1, pan: { x: 220, y: 115 }, viewport: { width: 500, height: 300 } },
       pendingReveal: undefined,
@@ -56,13 +56,14 @@ describe('board policy', () => {
     expect(unbounded.view.zoom).toBeGreaterThan(1)
 
     const large = { kind: 'section' as const, bounds: { x: 0, y: 0, width: 1000, height: 500 } }
-    expect(revealRequest(large, { width: 500, height: 300 }, 1).view).toEqual(revealRequest(large, { width: 500, height: 300 }).view)
+    expect(revealRequest(large, { width: 500, height: 300 }, 1).view).toEqual(revealRequest(large, { width: 500, height: 300 }, effectiveRevealMaxZoom()).view)
   })
 
   test('prefers a per-call reveal bound, then the board bound, then the existing maximum', () => {
     expect(effectiveRevealMaxZoom(2, 1)).toBe(2)
     expect(effectiveRevealMaxZoom(undefined, 1)).toBe(1)
     expect(effectiveRevealMaxZoom()).toBe(MAX_BOARD_ZOOM)
+    expect(() => effectiveRevealMaxZoom(null as unknown as number, 1)).toThrow(RangeError)
   })
 
   test('carries a reveal bound through an item refit', () => {
@@ -72,7 +73,7 @@ describe('board policy', () => {
     const refit = revealRequest(
       { kind: 'item', item, bounds: { x: 10, y: 20, width: 100, height: 200 } },
       { width: 500, height: 300 },
-      initial.pendingReveal?.maxZoom,
+      initial.pendingReveal?.maxZoom ?? effectiveRevealMaxZoom(),
     )
     expect(refit.view.zoom).toBeLessThanOrEqual(1)
     expect(refit.pendingReveal?.maxZoom).toBe(1)

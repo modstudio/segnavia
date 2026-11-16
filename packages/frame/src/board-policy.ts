@@ -44,10 +44,11 @@ export function checkRevealMaxZoom(value: number): number {
 }
 
 export function effectiveRevealMaxZoom(callMaxZoom?: number, boardMaxZoom?: number): number {
-  return checkRevealMaxZoom(callMaxZoom ?? boardMaxZoom ?? MAX_BOARD_ZOOM)
+  const maxZoom = callMaxZoom !== undefined ? callMaxZoom : boardMaxZoom !== undefined ? boardMaxZoom : MAX_BOARD_ZOOM
+  return checkRevealMaxZoom(maxZoom)
 }
 
-export function revealRequest(target: RevealTarget, viewport: MeasuredSize, maxZoom: number = MAX_BOARD_ZOOM): RevealRequest {
+export function revealRequest(target: RevealTarget, viewport: MeasuredSize, maxZoom: number): RevealRequest {
   const checkedMaxZoom = checkRevealMaxZoom(maxZoom)
   return {
     view: revealView(target.bounds, viewport, 48, { maxZoom: checkedMaxZoom }),
