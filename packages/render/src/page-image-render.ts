@@ -48,7 +48,7 @@ export async function renderPreparedPageImage(
         prepared.fontCss,
         prepared.fontFailures,
         resolvedLayoutScripts,
-        imagePage,
+        opts.page,
       ),
       readiness: renderReadiness(page.scripts, opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
       boundMs: opts.boundMs,
