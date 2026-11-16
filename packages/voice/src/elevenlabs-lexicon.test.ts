@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { archiveElevenLabsLexicon, LexiconRefusedError, publishElevenLabsLexicon } from './index.ts'
+import { Refusal } from '@segnavia/format'
+import { archiveElevenLabsLexicon, LexiconCollisionError, LexiconRefusedError, publishElevenLabsLexicon } from './index.ts'
 
 describe('ElevenLabs lexicon publishing', () => {
   const realFetch = globalThis.fetch
@@ -124,9 +125,51 @@ describe('ElevenLabs lexicon publishing', () => {
       },
     })
 
-    await expect(publishing).rejects.toThrow(
-      'The terms "Yom Tov" and "yom tov" collide when caseSensitive is false. Set caseSensitive to true or remove one entry.',
-    )
+    await expect(publishing).rejects.toBeInstanceOf(LexiconCollisionError)
+    await expect(publishing).rejects.toMatchObject({
+      code: 'lexicon-collision',
+      collisions: [['Yom Tov', 'yom tov']],
+      message: expect.stringContaining('Set caseSensitive to true'),
+    })
+    expect(requests).toBe(0)
+  })
+
+  test('reports every case-insensitive collision group in entry order before publishing', async () => {
+    let requests = 0
+    globalThis.fetch = (async () => {
+      requests++
+      return Response.json({ id: 'dictionary-a', version_id: 'version-a' })
+    }) as unknown as typeof fetch
+
+    const publishing = publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      name: 'Shared words',
+      caseSensitive: false,
+      lexicon: {
+        entries: [
+          { term: 'Yom Tov', say: 'YomTov' },
+          { term: 'yom tov', say: 'holiday' },
+          { term: 'Shabbos', say: 'Shabbat' },
+          { term: 'SHABBOS', say: 'Shabbat' },
+          { term: 'YOM TOV', say: 'holiday' },
+        ],
+      },
+    })
+
+    await expect(publishing).rejects.toBeInstanceOf(LexiconCollisionError)
+    await expect(publishing).rejects.toBeInstanceOf(Refusal)
+    await expect(publishing).rejects.toMatchObject({
+      code: 'lexicon-collision',
+      collisions: [
+        ['Yom Tov', 'yom tov', 'YOM TOV'],
+        ['Shabbos', 'SHABBOS'],
+      ],
+      refusals: [
+        { code: 'lexicon-collision', subject: 'yom tov', message: expect.stringContaining('YOM TOV') },
+        { code: 'lexicon-collision', subject: 'shabbos', message: expect.stringContaining('SHABBOS') },
+      ],
+      message: expect.stringMatching(/Yom Tov.*yom tov.*YOM TOV.*Shabbos.*SHABBOS.*one term stays in each collision group/),
+    })
     expect(requests).toBe(0)
   })
 

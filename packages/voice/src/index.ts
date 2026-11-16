@@ -14,7 +14,7 @@ export { splitWords } from './captions.ts'
 
 export { archiveElevenLabsLexicon, publishElevenLabsLexicon } from './elevenlabs-lexicon.ts'
 export { lexiconProvider } from './lexicon-provider.ts'
-export { LexiconRefusedError } from './lexicon-refusal.ts'
+export { LexiconCollisionError, LexiconRefusedError } from './lexicon-refusal.ts'
 
 export interface Speech {
   words: Word[]
