@@ -1,7 +1,17 @@
 import { type Limits, parseLimits } from '@segnavia/format'
-import type { Page as Tab } from 'playwright-core'
+import type { CDPSession, Page as Tab } from 'playwright-core'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { ImageOptions } from './options.ts'
+
+async function withTransparentBackground<T>(session: CDPSession, omitBackground: boolean | undefined, capture: () => Promise<T>): Promise<T> {
+  if (!omitBackground) return capture()
+  await session.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } })
+  try {
+    return await capture()
+  } finally {
+    await session.send('Emulation.setDefaultBackgroundColorOverride', {})
+  }
+}
 
 // One image of what a tab shows. Shared with capture, so a shot and a
 // rendered slide are encoded the same way under the same size ceiling.
@@ -27,17 +37,14 @@ export async function captureImage(
   }
   // Playwright offers no WebP; Chromium's own capture does, at a quality.
   const session = await tab.context().newCDPSession(tab)
-  let refusal: RenderLimitError | undefined
   try {
-    if (options.omitBackground) {
-      await session.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } })
-    }
-    try {
+    return await withTransparentBackground(session, options.omitBackground, async () => {
       const clip = await tab.evaluate((wholePage) => {
         const scale = devicePixelRatio
         if (wholePage) return { x: 0, y: 0, width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, scale }
         return { x: scrollX, y: scrollY, width: innerWidth, height: innerHeight, scale }
       }, fullPage)
+      let refusal: RenderLimitError | undefined
       for (const quality of options.quality ?? [90, 80, 70]) {
         const { data } = await session.send('Page.captureScreenshot', {
           format: 'webp',
@@ -49,12 +56,10 @@ export async function captureImage(
         if (limits?.bytes === undefined || bytes.byteLength <= limits.bytes) return bytes
         refusal = new RenderLimitError('bytes', bytes.byteLength, limits.bytes, refusalOptions)
       }
-    } finally {
-      if (options.omitBackground) await session.send('Emulation.setDefaultBackgroundColorOverride', {})
-    }
+      if (refusal) throw refusal
+      throw new RenderRefusedError('The WebP capture produced no attempt; pass at least one quality value to clear this refusal.')
+    })
   } finally {
     await session.detach()
   }
-  if (refusal) throw refusal
-  throw new RenderRefusedError('The WebP capture produced no attempt; pass at least one quality value to clear this refusal.')
 }
