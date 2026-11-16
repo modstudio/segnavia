@@ -1,6 +1,7 @@
 import type { BookDivisions, BookItem } from './book-section.ts'
 import type { DocumentNode } from './document-nodes.ts'
 import { type ExpandedRecordSection, recordExpansion } from './record-expansion.ts'
+import { plainText, type RunText } from './text-run.ts'
 
 type Division = 'front' | 'body' | 'end'
 type Path = (string | number)[]
@@ -20,8 +21,8 @@ function defined<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as T
 }
 
-function nodeId(node: { id?: string; title?: string }, path: Path): string {
-  return node.id ?? node.title ?? path.join('.')
+function nodeId(node: { id?: string; title?: RunText }, path: Path): string {
+  return node.id ?? (node.title === undefined ? path.join('.') : plainText(node.title))
 }
 
 export function documentSectionFields(section: Extract<DocumentNode, { type: 'section' }>, path: Path) {

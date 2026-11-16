@@ -1,4 +1,4 @@
-import { type Book, type BookDivision, noteMarker, type ResolvedNoteSeries } from '@segnavia/format'
+import { type Book, type BookDivision, noteMarker, type ResolvedNoteSeries, type RunText } from '@segnavia/format'
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import { append, element, insertAfter, replace, text } from './dom.ts'
@@ -9,16 +9,16 @@ const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
 
 export interface NoteSectionContext {
   chapter: number
-  title?: string
+  title?: RunText
   division: BookDivision
   targetId: string
   placementKey?: string
-  part?: { id: string; title?: string }
+  part?: { id: string; title?: RunText }
 }
 
 export interface CollectedNoteRun {
   scopeKey: string
-  heading?: string
+  heading?: RunText
   paragraphs: Element[]
 }
 
@@ -120,7 +120,7 @@ function placementKey(series: ResolvedNoteSeries, context: NoteSectionContext): 
 
 const SCOPE_RANK = { page: -1, chapter: 0, part: 1, book: 2 } as const
 
-function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext): string | undefined {
+function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext): RunText | undefined {
   if (series.numbering === 'book' || SCOPE_RANK[series.numbering] > SCOPE_RANK[series.placement]) return undefined
   if (series.numbering === 'part') return context.part?.title
   // Chapter scope zero is shared by every front-matter and held section, so it has no single title to name.

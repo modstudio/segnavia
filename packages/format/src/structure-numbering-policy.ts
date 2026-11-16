@@ -1,6 +1,7 @@
 import { type BookDivisions, type BookSectionEntry, bookSections, isBookContents, isPart } from './book-section.ts'
 import { type NumberSystem, numberSystemMaximum } from './numbering.ts'
 import { type StructureNumberSettings, structureNumberStyle } from './structure-numbers.ts'
+import { plainText } from './text-run.ts'
 
 export interface StructureNumberingIssue {
   path: (string | number)[]
@@ -56,7 +57,7 @@ function authoredNumberIssue(section: BookSectionEntry, level: 'part' | 'chapter
   const style = structureNumberStyle(section, level, settings)
   const maximum = numberSystemMaximum(style)
   if (maximum === undefined || entry.number <= maximum) return []
-  return [issue([...section.path, 'number'], `${level} ${JSON.stringify(entry.title ?? section.id)}`, 'number', entry.number, style, maximum)]
+  return [issue([...section.path, 'number'], `${level} ${JSON.stringify(plainText(entry.title) ?? section.id)}`, 'number', entry.number, style, maximum)]
 }
 
 function restartIssues(section: BookSectionEntry, settings: StructureNumberSettings): StructureNumberingIssue[] {
@@ -70,7 +71,14 @@ function restartIssues(section: BookSectionEntry, settings: StructureNumberSetti
     const maximum = numberSystemMaximum(style)
     if (maximum === undefined || restart <= maximum) return []
     return [
-      issue([...section.path, 'numbering', level, 'restart'], `part ${JSON.stringify(entry.title ?? section.id)}`, `${level} restart`, restart, style, maximum),
+      issue(
+        [...section.path, 'numbering', level, 'restart'],
+        `part ${JSON.stringify(plainText(entry.title) ?? section.id)}`,
+        `${level} restart`,
+        restart,
+        style,
+        maximum,
+      ),
     ]
   })
 }

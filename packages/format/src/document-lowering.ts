@@ -8,6 +8,7 @@ import { Page, type Page as PageValue } from './page.ts'
 import type { PrintedPages } from './printed-pages.ts'
 import { recordExpansion } from './record-expansion.ts'
 import type { Brand } from './style-sheet.ts'
+import { plainText } from './text-run.ts'
 
 type ParsedNode = DocumentValue['children'][number]
 type ShapeNode = DocumentShapeValue['children'][number]
@@ -184,7 +185,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
           path,
           value: defined({
             id: fields.id,
-            title: fields.title,
+            title: plainText(fields.title),
             opens: fields.opens,
             numbering: fields.numbering,
             parentRules: fields.parentRules,
@@ -201,7 +202,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
         path,
         value: defined({
           id: fields.id,
-          title: fields.title,
+          title: plainText(fields.title),
           opens: fields.opens,
           numbering: fields.numbering,
           parentRules: fields.parentRules,

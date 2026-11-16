@@ -11,6 +11,8 @@ import {
   isTemplatedSection,
   MAX_HEADING_LEVEL,
   noteMarkerIssues,
+  plainText,
+  type RunText,
   resolveDirection,
   type StructureNumberValue,
   structureNumbers,
@@ -45,14 +47,22 @@ import { decorateSection } from './book-section-decoration.ts'
 import { appendChapterHeadings, appendHeldHeadings, withSectionDepth } from './book-section-headings.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
+import { runTextNodes } from './run-nodes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
 function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parentRules' | 'numbering'>, build: BookBuild): BuiltSection {
   const { id } = entry
   const title = entry.title
-  const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
+  const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, runTextNodes(title))] : []
   return {
-    info: { id, kind: 'contents', division: 'front', title, opens: entry.opens, parentRules: entry.parentRules },
+    info: {
+      id,
+      kind: 'contents',
+      division: 'front',
+      title: plainText(title),
+      opens: entry.opens,
+      parentRules: entry.parentRules,
+    },
     node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parentRules, numberingAttribs(entry.numbering))),
   }
 }
@@ -129,7 +139,7 @@ function notesSection(
   const runs = notes.runs.flatMap((run) => [
     ...(run.heading === undefined
       ? []
-      : [element('p', { class: 'segnavia-notes-scope', dir: resolveDirection(book.dir, book.lang, run.heading) }, [text(run.heading)])]),
+      : [element('p', { class: 'segnavia-notes-scope', dir: resolveDirection(book.dir, book.lang, plainText(run.heading)) }, runTextNodes(run.heading))]),
     ...run.paragraphs,
   ])
   return {
@@ -164,7 +174,7 @@ export interface DocumentBuild {
   structureNumbers: Map<string, StructureNumberValue>
 }
 
-function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: number, title: string | undefined, build: DocumentBuild): NoteSectionContext {
+function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: number, title: RunText | undefined, build: DocumentBuild): NoteSectionContext {
   const ancestry = sectionEntry.ancestry.at(-1)
   for (const part of sectionEntry.ancestry) build.partTargets.set(part.id, targetId)
   return {

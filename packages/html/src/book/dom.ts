@@ -53,6 +53,19 @@ const HEADING_TEXT_BLOCK_ELEMENTS = new Set([
 
 const HEADING_TEXT_HIDDEN_ELEMENTS = new Set(['script', 'style', 'template'])
 
+export function hiddenHeadingNode(node: ChildNode): boolean {
+  return (
+    isTag(node) &&
+    (HEADING_TEXT_HIDDEN_ELEMENTS.has(node.name) ||
+      (node.name === 'span' && node.attribs['data-note'] !== undefined) ||
+      (node.name === 'a' && node.attribs['data-note-ref'] !== undefined))
+  )
+}
+
+export function headingTextBlock(node: ChildNode): boolean {
+  return isTag(node) && HEADING_TEXT_BLOCK_ELEMENTS.has(node.name)
+}
+
 export function element(name: string, attribs: Record<string, string> = {}, children: ChildNode[] = []): Element {
   const node = new Element(name, attribs, children)
   linkChildren(node)
@@ -98,10 +111,9 @@ export function append(parent: ParentNode, addition: ChildNode): void {
 export function headingText(node: ChildNode): string {
   if (isText(node)) return node.data
   if (!('children' in node) || node.children === undefined) return ''
-  if (isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
-  if (isTag(node) && HEADING_TEXT_HIDDEN_ELEMENTS.has(node.name)) return ''
+  if (hiddenHeadingNode(node)) return ''
   if (isTag(node) && node.name === 'br') return ' '
   const content = node.children.map(headingText).join('')
-  if (isTag(node) && HEADING_TEXT_BLOCK_ELEMENTS.has(node.name)) return ` ${content} `
+  if (headingTextBlock(node)) return ` ${content} `
   return content
 }

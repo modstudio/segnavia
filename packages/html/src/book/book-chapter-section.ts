@@ -1,10 +1,10 @@
-import type { BookDivision, Chapter } from '@segnavia/format'
+import { type BookDivision, type Chapter, plainText, type RunText } from '@segnavia/format'
 import { bindRecordValues } from '../record-values.ts'
 import { parse } from '../sanitize.ts'
 import { type BuiltSection, flowAttribs, languageAttribs, recordAttribs, sectionNode } from './book-held.ts'
 import type { BookBuild } from './types.ts'
 
-export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
+export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: RunText }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
   const recordValues = chapter.values
   const record = chapter.record
   chapter = bindRecordValues(chapter)
@@ -15,7 +15,7 @@ export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: strin
       id,
       kind: 'chapter',
       division,
-      title: chapter.title,
+      title: plainText(chapter.title),
       opens: chapter.opens,
       values: recordValues,
       record,

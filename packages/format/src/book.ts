@@ -38,6 +38,7 @@ import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { structureNumberingIssues } from './structure-numbering-policy.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
+import { plainText } from './text-run.ts'
 import { Variables } from './variable.ts'
 import { VariableDocumentFacts } from './variable-document-facts.ts'
 
@@ -76,10 +77,8 @@ export {
 } from './book-section.ts'
 export { type StructureNumberSettings, type StructureNumberValue, structureNumbers } from './structure-numbers.ts'
 export type { PageGeometry } from './style-sheet.ts'
-
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
-
 const BookPrinted = closedObject({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
 
 export const BookPage = closedObject({
@@ -144,7 +143,6 @@ export const BookShape = closedObject({
 
 export const LineNoteSeries = closedObject({ name: z.string(), system: NumberSystem })
 export type LineNoteSeries = z.infer<typeof LineNoteSeries>
-
 export const BookViewPagination = closedObject({
   paper: closedObject({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
@@ -272,7 +270,7 @@ function refineNamedPageGeometries(book: ResolvedBookValue, ctx: z.RefinementCtx
   const declaredNames = Object.keys(book.style?.pageGeometries ?? {})
   const facts = bookSections(book).flatMap((section) => {
     if (!('pageGeometry' in section.entry) || section.entry.pageGeometry === undefined) return []
-    const title = section.entry.title ?? section.id
+    const title = plainText(section.entry.title) ?? section.id
     return [{ label: `${title} (${section.id})`, path: section.path, pageGeometry: section.entry.pageGeometry, declaredNames, mode: book.mode }]
   })
   for (const issue of pageGeometryIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
@@ -317,7 +315,7 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
       const parent = byName.get(name)
       return parent ? [{ name, width: textArea(parent, sectionTrim).width }] : []
     })
-    const label = flow.title ?? `flow ${index + 1}`
+    const label = flow.title === undefined ? `flow ${index + 1}` : plainText(flow.title)
     const fitFacts = names.flatMap((name) => {
       const parent = byName.get(name)
       return parent ? [{ section: label, parent: name, path, paper: sectionTrim, textArea: textArea(parent, sectionTrim) }] : []
@@ -365,7 +363,9 @@ export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx
     ctx.addIssue({ code: 'custom', ...issue })
   }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
-    !isPart(entry) && 'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
+    !isPart(entry) && 'numbering' in entry && entry.numbering !== undefined
+      ? [{ id, title: plainText(entry.title), division, path, numbering: entry.numbering }]
+      : [],
   )
   for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections })) {
     ctx.addIssue({ code: 'custom', ...issue })

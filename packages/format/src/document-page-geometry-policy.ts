@@ -1,5 +1,6 @@
 import type { DocumentNode } from './document-nodes.ts'
 import type { PageGeometry } from './style-sheet.ts'
+import { plainText } from './text-run.ts'
 
 export interface DocumentPageGeometryFacts {
   kind: string
@@ -48,7 +49,7 @@ export function documentPageGeometryIssues(document: DocumentPageGeometryFacts):
     nodes.forEach((node, index) => {
       const nodePath = [...path, index]
       if (node.type === 'section' && node.pageGeometry !== undefined) {
-        const label = node.title ?? node.id ?? nodePath.join('.')
+        const label = node.title === undefined ? (node.id ?? nodePath.join('.')) : plainText(node.title)
         facts.push({ label, path: nodePath, pageGeometry: node.pageGeometry, declaredNames, mode: document.kind === 'book' ? document.mode : undefined })
       }
       if ('children' in node && node.children !== undefined) visit(node.children, [...nodePath, 'children'])

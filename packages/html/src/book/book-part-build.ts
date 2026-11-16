@@ -1,24 +1,30 @@
-import { type Book, type BookSectionEntry, DEFAULT_HEADING_LISTING, isPart, resolveDirection } from '@segnavia/format'
+import { type Book, type BookSectionEntry, DEFAULT_HEADING_LISTING, isPart, plainText, type RunText, resolveDirection } from '@segnavia/format'
 import type { DocumentBuild } from './book-document.ts'
 import { partSection } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
+import { runTextNodes } from './run-nodes.ts'
 
 type PartFact = BookSectionEntry['ancestry'][number]
 
 export function partNames(ancestry: PartFact[], own?: PartFact): Record<string, string> {
-  return Object.fromEntries([...ancestry, ...(own ? [own] : [])].map((part) => [part.name, part.title ?? '']))
+  return Object.fromEntries([...ancestry, ...(own ? [own] : [])].map((part) => [part.name, part.title === undefined ? '' : plainText(part.title)]))
 }
 
-function generatedPartHeading(number: string | undefined, title: string, book: Pick<Book, 'dir' | 'lang'>) {
+function generatedPartHeading(number: string | undefined, title: RunText, book: Pick<Book, 'dir' | 'lang'>) {
+  const titleText = plainText(title)
   const numbered =
     number === undefined
       ? []
       : [element('span', { class: 'segnavia-part-heading-number', dir: resolveDirection(book.dir, book.lang, number) }, [element('bdi', {}, [text(number)])])]
   const titled =
-    title === ''
+    titleText === ''
       ? []
-      : [element('span', { class: 'segnavia-part-heading-title', dir: resolveDirection(book.dir, book.lang, title) }, [element('bdi', {}, [text(title)])])]
-  return element('h1', { class: 'segnavia-part-heading', dir: resolveDirection(book.dir, book.lang, `${number ?? ''} ${title}`) }, [
+      : [
+          element('span', { class: 'segnavia-part-heading-title', dir: resolveDirection(book.dir, book.lang, titleText) }, [
+            element('bdi', {}, runTextNodes(title)),
+          ]),
+        ]
+  return element('h1', { class: 'segnavia-part-heading', dir: resolveDirection(book.dir, book.lang, `${number ?? ''} ${titleText}`) }, [
     ...numbered,
     ...(numbered.length > 0 && titled.length > 0 ? [text(' ')] : []),
     ...titled,

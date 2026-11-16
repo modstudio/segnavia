@@ -11,6 +11,7 @@ import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
+import { plainText, type RunText as RunTextValue, runTextField } from './text-run.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
@@ -42,12 +43,13 @@ export type BookTemplate = z.infer<typeof BookTemplate>
 const designedPagesRefusal = 'a designed section needs at least one page; add a page or remove the section to clear this refusal'
 const templatedPagesRefusal = 'a templated section needs at least one page; add a page or remove the section to clear this refusal'
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
-export const ContentsLabel = z.string().min(1, 'contentsLabel cannot be empty; omit contentsLabel or give it text to clear this refusal')
-export const Subtitle = z.string().min(1, 'subtitle cannot be empty; omit subtitle or give it text to clear this refusal')
+const Title = runTextField('title', { emptyString: 'allowed' })
+export const ContentsLabel = runTextField('contentsLabel', { emptyString: 'refused' })
+export const Subtitle = runTextField('subtitle', { emptyString: 'refused' })
 
 const sectionFields = {
   id: z.string(),
-  title: z.string().optional(),
+  title: Title.optional(),
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
@@ -69,7 +71,7 @@ const sectionFields = {
 const partFields = {
   id: z.string(),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
-  title: z.string().optional(),
+  title: Title.optional(),
   contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
   number: StructureNumber.optional(),
@@ -104,7 +106,7 @@ export type BookSection = z.infer<typeof BookSection>
 export const BookContents = closedObject({
   id: z.string(),
   kind: z.literal('contents'),
-  title: z.string().optional(),
+  title: Title.optional(),
   opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
@@ -120,7 +122,7 @@ const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
 export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, BookContents, PlacedSection, flowingFront])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
-export const Chapter = BookSection.omit({ contents: true }).extend({ title: z.string() })
+export const Chapter = BookSection.omit({ contents: true }).extend({ title: Title })
 export type Chapter = z.infer<typeof Chapter>
 
 const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
@@ -142,7 +144,7 @@ export type BookDivision = 'front' | 'body' | 'end'
 interface BookSectionLocation {
   ancestry: Array<{
     name: string
-    title?: string
+    title?: RunTextValue
     id: string
     number?: z.infer<typeof StructureNumber>
     numbering?: z.infer<typeof PartNumbering>
@@ -214,7 +216,7 @@ export function flowingSection(entry: BookItem): boolean {
 export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
   return bookSections(book).map(({ entry, id, path }) => ({
     id,
-    title: entry.title,
+    title: plainText(entry.title),
     path,
     sequence: path.slice(0, -1).join('.'),
     flowing: flowingSection(entry) || (isPart(entry) && (entry.html !== undefined || entry.opens === 'continue')),
@@ -248,14 +250,14 @@ function namedSections(book: BookDivisions): NamedSection[] {
   return bookSections(book).map(({ entry, path }): NamedSection => {
     if (isDesignedSection(entry) || isTemplatedSection(entry)) {
       return {
-        label: entry.title ?? pathLabel(path),
+        label: entry.title === undefined ? pathLabel(path) : plainText(entry.title),
         path,
         parentRules: entry.parentRules,
         legacyParents: entry.parents,
         templated: isTemplatedSection(entry) ? entry : undefined,
       }
     }
-    return { label: entry.title ?? pathLabel(path), path, parentRules: entry.parentRules, legacyParents: entry.parents }
+    return { label: entry.title === undefined ? pathLabel(path) : plainText(entry.title), path, parentRules: entry.parentRules, legacyParents: entry.parents }
   })
 }
 
