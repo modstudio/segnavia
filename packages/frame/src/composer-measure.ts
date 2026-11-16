@@ -182,6 +182,20 @@ export function measuredKeepRuns(lines: readonly MeasuredLineBox[], candidates: 
   }
 }
 
+export function flowTextAreas(
+  rules: ParentRules | undefined,
+  areas: Record<string, TextArea>,
+  kind = 'chapter',
+  role?: 'body' | 'fixed',
+  defaults?: typeof defaultParentRules,
+): TextArea[] {
+  const selectedRules = rules ?? (defaults ?? defaultParentRules)(kind, role)
+  const names = [...new Set(textHoldingParentRules(selectedRules).map((rule) => rule.parent))]
+  const selected = names.map((name) => areas[name])
+  if (selected.length === 0 || selected.some((area) => !area)) throw new Error('A flow parent has no text area.')
+  return selected.filter((area): area is TextArea => area !== undefined)
+}
+
 export function flowTextArea(
   rules: ParentRules | undefined,
   areas: Record<string, TextArea>,
@@ -189,10 +203,7 @@ export function flowTextArea(
   role?: 'body' | 'fixed',
   defaults?: typeof defaultParentRules,
 ): TextArea {
-  const selectedRules = rules ?? (defaults ?? defaultParentRules)(kind, role)
-  const names = [...new Set(textHoldingParentRules(selectedRules).map((rule) => rule.parent))]
-  const selected = names.map((name) => areas[name])
-  if (selected.length === 0 || selected.some((area) => !area)) throw new Error('A flow parent has no text area.')
+  const selected = flowTextAreas(rules, areas, kind, role, defaults)
   return { width: selected[0]?.width ?? 0, height: Math.min(...selected.map((area) => area?.height ?? 0)) }
 }
 

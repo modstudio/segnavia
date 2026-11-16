@@ -257,7 +257,10 @@ flow's text-holding parents, every one its parent rules can select, must leave
 the same text width because the galley breaks its lines once; print and IDML import refuse a mismatch.
 Pagination selects and carries each page's parent, whose text height determines
 that page's capacity, while the galley caps images at the shortest of the
-flow's parent text areas so they can fit on every page that holds the flow.
+flow's parent text areas so they can fit on every page that holds the flow. Copyfit, fill and measured
+properties run before pagination selects a page's parent, so a templated holder is
+staged at the least text width and least text height across the parents its rules
+can select, the one area that holds on every page it may land on.
 
 **Rendered PDFs are composed from top-level documents.** `printableDeck` and
 `printablePages` are frame-based documents for a browser to show and print.

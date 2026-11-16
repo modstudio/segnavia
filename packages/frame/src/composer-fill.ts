@@ -18,10 +18,9 @@ import {
   truncatedRegion,
 } from './composer-fill-policy.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
+import { type SourceGeometry, templateStagingArea } from './composer-source-staging.ts'
 
-interface FillGeometry {
-  parents: Array<{ textArea: { width: number; height: number } }>
-}
+type FillGeometry = Pick<SourceGeometry, 'parents'>
 
 function regionSubject(region: HTMLElement): string {
   const name = region.getAttribute('data-region') ?? region.getAttribute('data-segnavia-region') ?? ''
@@ -94,8 +93,7 @@ function fillTemplateHolder(
   defaultLang: string,
 ): PreflightRegion[] {
   const flow = holder.closest<HTMLElement>('[data-segnavia-flow]')
-  const area = geometry(flow?.getAttribute('data-page-geometry')).parents[0]?.textArea
-  if (!area) throw new Error(`Template ${templateName} has no definite text area; configure a page parent to clear this refusal.`)
+  const area = templateStagingArea(holder, template, geometry(flow?.getAttribute('data-page-geometry')), templateName)
   const clone = template.cloneNode(true) as HTMLElement
   clone.removeAttribute('hidden')
   clone.removeAttribute('data-segnavia-template')

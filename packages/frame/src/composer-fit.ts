@@ -3,7 +3,7 @@ import { embedFunction, fitList, fittedSlotModes, parseCssLength, readSlotOverfl
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
 import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue } from './composer-fit-policy.ts'
 import { embeddedInkFunctions, fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
-import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded } from './composer-source-staging.ts'
+import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded, templateStagingArea } from './composer-source-staging.ts'
 import { runStageOnce } from './composer-stage-policy.ts'
 
 interface FitResult {
@@ -83,9 +83,7 @@ export function templateFits(
     )
     for (const holder of holders) {
       const flow = holder.closest<HTMLElement>('[data-segnavia-flow]')
-      const parent = geometry(flow?.getAttribute('data-page-geometry')).parents[0]
-      if (!parent) throw new Error(`template "${name}" has no text area; configure a page parent to clear this refusal`)
-      const area = parent.textArea
+      const area = templateStagingArea(holder, template, geometry(flow?.getAttribute('data-page-geometry')), name)
       temporary.push(
         ...measurePage(
           root as Document,

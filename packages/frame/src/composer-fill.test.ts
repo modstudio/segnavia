@@ -1,5 +1,82 @@
 import { expect, test } from 'bun:test'
-import { applyRegionOverflow, repeatFill } from './composer-fill.ts'
+import { applyRegionOverflow, embeddedComposerFillFunctions, repeatFill } from './composer-fill.ts'
+import { embeddedComposerStagingFunctions } from './composer-source-staging.ts'
+
+const stagingGeometry = {
+  parents: [
+    { name: 'segnavia:recto', textArea: { width: 320, height: 520 } },
+    { name: 'segnavia:verso', textArea: { width: 280, height: 480 } },
+  ],
+}
+
+function stagedFillCss(flowRules?: unknown, templateRules?: unknown): string {
+  const fillTemplateHolder = new Function(
+    `var fillTemplateRegions=function(){};${embeddedComposerStagingFunctions()};${embeddedComposerFillFunctions()};return fillTemplateHolder`,
+  )() as (
+    root: ParentNode,
+    template: HTMLElement,
+    holder: HTMLElement,
+    name: string,
+    geometry: () => typeof stagingGeometry,
+    direction: string,
+    lang: string,
+  ) => unknown
+  const flow = {
+    getAttribute: (name: string) =>
+      name === 'data-segnavia-parent-rules' && flowRules !== undefined
+        ? JSON.stringify(flowRules)
+        : name === 'data-page-geometry'
+          ? 'book'
+          : name === 'dir'
+            ? 'ltr'
+            : null,
+  }
+  const clone = {
+    style: { cssText: '' },
+    removeAttribute: () => {},
+    setAttribute: () => {},
+    querySelectorAll: () => [],
+    remove: () => {},
+  }
+  const template = {
+    cloneNode: () => clone,
+    getAttribute: (name: string) => (name === 'data-segnavia-parent-rules' && templateRules !== undefined ? JSON.stringify(templateRules) : null),
+  }
+  const holder = {
+    closest: () => flow,
+    querySelectorAll: () => [],
+  }
+  const root = { body: { append: () => {} } }
+  fillTemplateHolder(
+    root as unknown as ParentNode,
+    template as unknown as HTMLElement,
+    holder as unknown as HTMLElement,
+    'practice',
+    () => stagingGeometry,
+    'ltr',
+    '',
+  )
+  return clone.style.cssText
+}
+
+test('template fill stages holders at their parent-rule areas', () => {
+  const css = [
+    stagedFillCss([{ parent: 'segnavia:verso' }]),
+    stagedFillCss([{ when: { face: 'verso' }, parent: 'segnavia:verso' }, { parent: 'segnavia:recto' }]),
+    stagedFillCss([{ parent: 'segnavia:recto' }]),
+    stagedFillCss(undefined, [{ parent: 'segnavia:recto' }]),
+    stagedFillCss([{ when: { position: 'sectionFirst' }, parent: 'segnavia:recto' }, { parent: 'segnavia:verso' }]),
+  ]
+  expect(css).toHaveLength(5)
+  for (const value of [css[0], css[1], css[4]]) {
+    expect(value).toContain('inline-size:280px')
+    expect(value).toContain('block-size:480px')
+  }
+  for (const value of [css[2], css[3]]) {
+    expect(value).toContain('inline-size:320px')
+    expect(value).toContain('block-size:520px')
+  }
+})
 
 function fillRegion(options: { min?: string; max?: string; blockSize: (count: number) => number }) {
   const children: Array<{ remove(): void; setAttribute(name: string, value: string): void; getAttribute(name: string): string | null; cloneNode(): unknown }> =
