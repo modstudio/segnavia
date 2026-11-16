@@ -2,7 +2,7 @@ import { firstStrongDirection } from '@segnavia/format'
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
-import { type ComposedHjViolation, type HjSpacing, type HjViolation, worstViolation } from './composer-hj-violations.ts'
+import { type ComposedHjViolation, type HjSpacing, type HjViolation, hjLineRatio, worstViolation } from './composer-hj-violations.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
@@ -203,6 +203,7 @@ function plannedLines(
     const itemIndex = broken.breaks[lineIndex] ?? items.length
     const meta = metadata.get(itemIndex) ?? { end: tokens.length, next: tokens.length, hyphen: false, forced: false }
     const ratio = broken.ratios[lineIndex] ?? 0
+    const adjustmentRatio = hjLineRatio(ratio, meta.forced, meta.end === tokens.length)
     const percent =
       ratio < 0
         ? settings.spacing.desired + ratio * (settings.spacing.desired - settings.spacing.minimum)
@@ -220,7 +221,7 @@ function plannedLines(
       forced: meta.forced,
       ...(start === meta.end && meta.forced ? { blank: true } : {}),
     } as ParagraphLine
-    Object.defineProperty(line, 'ratio', { value: ratio })
+    Object.defineProperty(line, 'ratio', { value: adjustmentRatio })
     lines.push(line)
     start = meta.next
   }

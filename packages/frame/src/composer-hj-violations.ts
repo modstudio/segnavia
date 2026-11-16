@@ -22,6 +22,10 @@ export interface ComposedHjViolation {
   violation: HjViolation
 }
 
+export function hjLineRatio(ratio: number, forced: boolean, final: boolean): number {
+  return forced || final ? Math.min(ratio, 0) : ratio
+}
+
 function wordSpacingForRatio(ratio: number, spacing: HjSpacing): number {
   return ratio < 0 ? spacing.desired + ratio * (spacing.desired - spacing.minimum) : spacing.desired + ratio * (spacing.maximum - spacing.desired)
 }
@@ -50,6 +54,7 @@ export function hjViolationEntry(subject: string, folio: string, violation: HjVi
 
 export function embeddedComposerHjViolationFunctions(): string {
   return `${embedFunction('hjViolationMessage', hjViolationMessage)}
+${embedFunction('hjLineRatio', hjLineRatio)}
 ${embedFunction('wordSpacingForRatio', wordSpacingForRatio)}
 ${embedFunction('worstViolation', worstViolation)}
 ${embedFunction('hjViolationEntry', hjViolationEntry)}`
