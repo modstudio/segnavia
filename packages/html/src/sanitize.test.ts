@@ -36,6 +36,16 @@ test('returns structured active-content findings with their asset refusals', () 
   expect(findings.filter(({ element }) => element === 'form' || element === 'p').every(({ refusals }) => refusals.length === 0)).toBe(true)
 })
 
+test('pairs a CSS refusal once when its removed unit names nested constructs', () => {
+  const html = '<style>a{content:src(url(https://outside.example/image.png))}</style>'
+  const findings = activeContentFindings(html)
+  expect(findings.map(({ construct, refusals }) => ({ construct, urls: refusals.map(({ url }) => url) }))).toEqual([
+    { construct: 'src()', urls: [] },
+    { construct: 'url()', urls: ['https://outside.example/image.png'] },
+  ])
+  expect(findings.flatMap(({ refusals }) => refusals)).toEqual(assetOriginRefusals(html))
+})
+
 test('removes library-owned generated contents markers from author HTML', () => {
   expect(sanitize('<a data-segnavia-generated-contents-page class="segnavia-contents-page" href="#topic">Topic</a>')).toBe(
     '<a class="segnavia-contents-page" href="#topic">Topic</a>',

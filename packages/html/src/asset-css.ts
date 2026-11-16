@@ -154,6 +154,7 @@ function removedFindings(units: readonly CssRemovedUnit[], refusals: readonly As
       finding = { label: unit.label, refusals: [] }
       findings.set(unit.label, finding)
     }
+    if (unit.label !== 'url()' && unit.label !== '@import') continue
     refusedPattern.lastIndex = 0
     for (const match of unit.source.matchAll(refusedPattern)) {
       const refusal = refusals[Number(match[1])]
