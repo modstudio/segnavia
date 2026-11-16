@@ -9,7 +9,9 @@ test('returns a fitting line without invoking hyphenation or the breaker', () =>
     throw new Error('a fitting paragraph does not need the breaker')
   }
   const tokens: ParagraphToken[] = Array.from('one', (text) => ({ kind: 'text', text, width: 5 }))
-  expect(planParagraphLinesWith(tokens, settings, 0, unavailable, unavailable)).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false }])
+  expect(planParagraphLinesWith(tokens, settings, 0, unavailable, unavailable)).toEqual([
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
+  ])
 })
 
 test('measures a hyphen once for paragraphs with the same measured style', () => {

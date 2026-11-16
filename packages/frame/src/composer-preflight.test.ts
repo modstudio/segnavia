@@ -2,8 +2,31 @@ import { expect, test } from 'bun:test'
 import { appendSlotOversetEntries, boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import { composerScript } from './composer.ts'
 import { mergeRegionFact } from './composer-fill-policy.ts'
-import { embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
+import {
+  appendHjViolationEntries,
+  embeddedPreflightFunctions,
+  hjViolationFolio,
+  hjViolationSubject,
+  markFurnitureInvalidVariables,
+} from './composer-preflight.ts'
 import { embeddedSurfacePreflight, slotMarkCoverage } from './embedded-preflight.ts'
+
+function hjPage(
+  overrides: Partial<{
+    flow: string
+    windows: Array<{ flow: string; start: number; end: number }>
+    notes: Array<{ id: string; start: number; end: number }>
+  }> = {},
+) {
+  return {
+    blank: false,
+    flow: overrides.flow ?? 'body',
+    role: 'body' as const,
+    sectionOpening: true,
+    windows: (overrides.windows ?? []).map((window) => ({ ...window, top: 0, column: 0, columns: 1 })),
+    notes: (overrides.notes ?? []).map((note) => ({ ...note, series: 'footnote', whole: false })),
+  }
+}
 
 test('waits for slot fit before publishing its one report', () => {
   const posted: unknown[] = []
@@ -195,4 +218,83 @@ test('embedded custom property messages carry their font remedy', () => {
 
 test('seeds every compose from a fresh copy', () => {
   expect(composerScript('{}')).toContain('preflightEntries=(config.preflightSeed||[]).slice()')
+})
+
+test('reports one composed paragraph at the folio showing its worst line', () => {
+  const flow = { getAttribute: () => 'body', children: [] as unknown[] }
+  const lines = [{ getBoundingClientRect: () => ({ top: 110, bottom: 120 }) }, { getBoundingClientRect: () => ({ top: 210, bottom: 220 }) }]
+  const paragraph = {
+    getAttribute: (name: string) => (name === 'data-segnavia-id' ? 'paragraph-2' : null),
+    closest: () => flow,
+    querySelectorAll: () => lines,
+  } as unknown as Element
+  flow.children.push(paragraph)
+  const pages = [hjPage({ windows: [{ flow: 'body', start: 0, end: 150 }] }), hjPage({ windows: [{ flow: 'body', start: 150, end: 300 }] })]
+  Object.assign(flow, { getBoundingClientRect: () => ({ top: 10 }) })
+  expect(hjViolationFolio(paragraph, 1, pages, ['10', '11'], () => [])).toBe('11')
+
+  const entries: PreflightEntry[] = []
+  appendHjViolationEntries(
+    new Map([[paragraph, { spacing: { minimum: 80, desired: 100, maximum: 133 }, violation: { line: 1, ratio: 1.5, wordSpacingPercent: 149.5 } }]]),
+    pages,
+    ['10', '11'],
+    entries,
+    () => [],
+  )
+  expect(entries).toHaveLength(1)
+  expect(entries[0]).toMatchObject({ check: 'hj-violations', subject: 'paragraph-2', location: { folio: '11' } })
+})
+
+test('reports two violating note paragraphs with distinct subjects and their placed folio', () => {
+  const note = {
+    getAttribute: (name: string) => (name === 'data-segnavia-note' ? 'note-1' : null),
+    getBoundingClientRect: () => ({ top: 100 }),
+    querySelectorAll: () => paragraphs,
+  }
+  const paragraph = (top: number) =>
+    ({
+      getAttribute: () => null,
+      closest: (selector: string) => (selector === '[data-segnavia-note]' ? note : null),
+      querySelectorAll: () => [{ getBoundingClientRect: () => ({ top, bottom: top + 10 }) }],
+    }) as unknown as Element
+  const paragraphs = [paragraph(100), paragraph(120)]
+  const violation = { spacing: { minimum: 80, desired: 100, maximum: 120 }, violation: { line: 0, ratio: 1.5, wordSpacingPercent: 130 } }
+  const entries: PreflightEntry[] = []
+  appendHjViolationEntries(
+    new Map([
+      [paragraphs[0] as Element, violation],
+      [paragraphs[1] as Element, violation],
+    ]),
+    [hjPage({ notes: [{ id: 'note-1', start: 0, end: 2 }] })],
+    ['7'],
+    entries,
+    () => [
+      { top: 0, bottom: 10 },
+      { top: 20, bottom: 30 },
+    ],
+  )
+  expect(entries.map(({ subject, location }) => ({ subject, location }))).toEqual([
+    { subject: 'note note-1 p 1', location: { folio: '7' } },
+    { subject: 'note note-1 p 2', location: { folio: '7' } },
+  ])
+})
+
+test('names nested flow paragraphs by their block and position', () => {
+  const flow = { getAttribute: () => 'body', children: [] as Element[] }
+  const block = { parentElement: flow, querySelectorAll: () => paragraphs }
+  const paragraph = () =>
+    ({
+      parentElement: block,
+      getAttribute: () => null,
+      closest: (selector: string) => (selector === '[data-segnavia-flow]' ? flow : null),
+    }) as unknown as Element
+  const paragraphs = [paragraph(), paragraph()]
+  flow.children.push(block as unknown as Element)
+  expect(paragraphs.map((held, index) => hjViolationSubject(held, index + 1))).toEqual(['body p block 1 paragraph 1', 'body p block 1 paragraph 2'])
+})
+
+test('does not collect H&J entries when the profile turns the check off', () => {
+  expect(composerScript(JSON.stringify({ preflight: { ...PREFLIGHT_PRESETS.default, 'hj-violations': 'off' } }))).toContain(
+    "if(config.preflight&&config.preflight['hj-violations']!=='off')appendHjViolationEntries",
+  )
 })

@@ -13,6 +13,7 @@ import {
   verifyPrintedComposedParagraphs,
 } from './composed-paragraph-acceptance.ts'
 import { type Harness, ROOT } from './harness.ts'
+import { verifyPrintedPageHjViolation } from './printed-page-hj-violation.ts'
 import { verifyPrintedPageInlineOverflow } from './printed-page-inline-overflow.ts'
 
 interface PdfWord {
@@ -109,6 +110,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       parentRules: [{ parent: 'body' }],
     }
     await verifyPrintedComposedParagraphs(page, url, check, parentPages)
+    await verifyPrintedPageHjViolation(page, check)
     const viewportFixture = {
       type: 'document' as const,
       kind: 'printed' as const,

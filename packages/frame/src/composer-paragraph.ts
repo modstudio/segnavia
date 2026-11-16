@@ -2,6 +2,7 @@ import { firstStrongDirection } from '@segnavia/format'
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
+import { type ComposedHjViolation, type HjSpacing, type HjViolation, hjLineRatio, wordSpacingForRatio, worstViolation } from './composer-hj-violations.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
@@ -37,6 +38,7 @@ export interface ParagraphLine {
   start: number
   end: number
   wordSpacing: number
+  ratio: number
   hyphen: boolean
   forced: boolean
   blank?: boolean
@@ -61,6 +63,8 @@ interface ParagraphRewrite {
   tokens: ParagraphToken[]
   lines: ParagraphLine[]
   direction: string
+  spacing: HjSpacing
+  violation?: HjViolation
   source?: ParagraphRewrite
   output?: Node[]
 }
@@ -110,7 +114,7 @@ export function planParagraphLinesWith(
   pointsForWord: typeof hyphenationPoints,
 ): ParagraphLine[] {
   if (paragraphFitsOneLine(tokens, settings)) {
-    return [{ start: 0, end: tokens.length, wordSpacing: 0, hyphen: false, forced: false }]
+    return [{ start: 0, end: tokens.length, wordSpacing: 0, ratio: 0, hyphen: false, forced: false }]
   }
   const { items, metadata, tokenItems } = paragraphItems(tokens, settings)
   addHyphenationItems(items, metadata, tokenItems, tokens, settings, markerWidth, pointsForWord)
@@ -197,23 +201,23 @@ function plannedLines(
     const itemIndex = broken.breaks[lineIndex] ?? items.length
     const meta = metadata.get(itemIndex) ?? { end: tokens.length, next: tokens.length, hyphen: false, forced: false }
     const ratio = broken.ratios[lineIndex] ?? 0
-    const percent =
-      ratio < 0
-        ? settings.spacing.desired + ratio * (settings.spacing.desired - settings.spacing.minimum)
-        : settings.spacing.desired + ratio * (settings.spacing.maximum - settings.spacing.desired)
+    const adjustmentRatio = hjLineRatio(ratio, meta.forced, meta.end === tokens.length)
+    const percent = wordSpacingForRatio(ratio, settings.spacing)
     const fittedEnd = tokens[meta.end - 1]?.kind === 'space' ? meta.end - 1 : meta.end
     const spaces = tokens.slice(start, fittedEnd).filter((token) => token.kind === 'space')
     const wordSpaces = spaces.filter((token) => token.text !== '\u200b')
     const natural = wordSpaces.length ? wordSpaces.reduce((sum, token) => sum + token.width, 0) / wordSpaces.length : 0
     if (start === tokens.length && meta.end === tokens.length) continue
-    lines.push({
+    const line = {
       start,
       end: meta.end,
       wordSpacing: natural === 0 || !Number.isFinite(percent) ? 0 : natural * (percent / 100 - 1),
+      ratio: adjustmentRatio,
       hyphen: meta.hyphen,
       forced: meta.forced,
       ...(start === meta.end && meta.forced ? { blank: true } : {}),
-    })
+    }
+    lines.push(line)
     start = meta.next
   }
   return lines
@@ -270,6 +274,8 @@ function paragraphRewriteForFact(
       tokens: [],
       lines: source.lines,
       direction,
+      spacing: source.spacing,
+      ...(source.violation ? { violation: source.violation } : {}),
       source,
     }
   }
@@ -288,7 +294,7 @@ function paragraphRewriteForFact(
   )
   const action = paragraphCompositionAction(previous?.inlineSize, style.textAlign, composer, lines.length)
   if (action === 'leave' || action === 'restore') return undefined
-  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction }
+  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction, spacing: wordSpacing, violation: worstViolation(lines, wordSpacing) }
   if (reuseKey) reusable.set(reuseKey, rewrite)
   return rewrite
 }
@@ -306,6 +312,7 @@ export function composeParagraphs(
   identityAttribute: string,
   continuationAttribute: string,
   variableValueAttribute: string,
+  composedHjViolations: Map<Element, ComposedHjViolation> = new Map(),
 ): void {
   const cache = new Map<string, number>()
   const hyphenWidths = new Map<string, number>()
@@ -315,6 +322,7 @@ export function composeParagraphs(
   for (const fact of facts) {
     if (paragraphCompositionUnchanged(fact.previous?.inlineSize, fact.inlineSize)) continue
     restoreParagraph(fact.paragraph, fact.previous, composedParagraphs, variableValueAttribute)
+    composedHjViolations.delete(fact.paragraph)
     changedFacts.push(fact)
   }
   const rewrites: ParagraphRewrite[] = []
@@ -333,14 +341,15 @@ export function composeParagraphs(
       rewrite.output = paragraphLineNodes(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
     }
   }
-  for (const { paragraph, original, inlineSize, output } of rewrites) {
+  for (const { paragraph, original, inlineSize, output, spacing, violation } of rewrites) {
     paragraph.replaceChildren(...(output ?? []))
     composedParagraphs.set(paragraph, { children: original, inlineSize })
+    if (inlineSize > 0 && violation) composedHjViolations.set(paragraph, { spacing, violation })
   }
 }
 
 export function paragraphComposerScript(): string {
-  return `var composedParagraphs=new WeakMap();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
+  return `var composedParagraphs=new WeakMap(),composedHjViolations=new Map();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
 ${embedFunction('graphemes', graphemes)}
 ${embedFunction('verticalWritingMode', verticalWritingMode)}
 ${embedFunction('logicalExtent', logicalExtent)}

@@ -27,7 +27,7 @@ const base = { measure: 32, language: 'en-US', hyphenate: true, spacing: { minim
 
 test('plans explicit lines and leaves a one-line paragraph as one line', () => {
   expect(planParagraphLines(tokens('one two three'), base).length).toBeGreaterThan(1)
-  expect(planParagraphLines(tokens('one'), base)).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false }])
+  expect(planParagraphLines(tokens('one'), base)).toEqual([{ start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: false }])
   const short = planParagraphLines(tokens('one two three'), { ...base, measure: 100 })
   expect(short).toHaveLength(1)
   expect(short[0]?.end).toBe(13)
@@ -67,9 +67,10 @@ test('uses the indented first-line measure for positive and hanging indents', ()
 
 test('plans br as a forced start-aligned break and counts an atomic inline box', () => {
   const forced: ParagraphToken[] = [...tokens('one'), { kind: 'forced', text: '', width: 0 }, ...tokens('two')]
-  expect(planParagraphLines(forced, { ...base, measure: 100 })).toEqual([
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
-    { start: 4, end: 7, wordSpacing: 0, hyphen: false, forced: false },
+  const lines = planParagraphLines(forced, { ...base, measure: 100 })
+  expect(lines).toEqual([
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
+    { start: 4, end: 7, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
   const withAtomic: ParagraphToken[] = [...tokens('one '), { kind: 'atomic', text: '', width: 30 }, ...tokens(' two')]
   expect(planParagraphLines(withAtomic, { ...base, measure: 35 }).length).toBeGreaterThan(
@@ -120,7 +121,7 @@ test('builds a plain-text line without cloning a DOM range', () => {
       { kind: 'text', text: 'e', width: 1, node: text, start: 2, end: 3 },
       { kind: 'space', text: ' ', width: 1, node: text, start: 3, end: 4 },
     ],
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
     doc,
   )
   expect(appended).toEqual([{ data: 'ne ' }])
@@ -266,21 +267,23 @@ test('classifies collapsible, non-breaking and zero-width spaces for line planni
 test('keeps browser line boxes for leading and consecutive br but not a trailing br', () => {
   const br = (): ParagraphToken => ({ kind: 'forced', text: '', width: 0 })
   expect(planParagraphLines([br(), ...tokens('one')], { ...base, measure: 100 })).toEqual([
-    { start: 0, end: 0, wordSpacing: 0, hyphen: false, forced: true, blank: true },
-    { start: 1, end: 4, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 0, wordSpacing: 0, ratio: 0, hyphen: false, forced: true, blank: true },
+    { start: 1, end: 4, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
   expect(planParagraphLines([...tokens('one'), br(), br(), ...tokens('two')], { ...base, measure: 100 })).toEqual([
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
-    { start: 4, end: 4, wordSpacing: 0, hyphen: false, forced: true, blank: true },
-    { start: 5, end: 8, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
+    { start: 4, end: 4, wordSpacing: 0, ratio: 0, hyphen: false, forced: true, blank: true },
+    { start: 5, end: 8, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
-  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true }])
+  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
+  ])
   const appended: unknown[] = []
   const doc = {
     createDocumentFragment: () => ({ append: (node: unknown) => appended.push(node) }),
     createElement: (name: string) => ({ name }),
   } as unknown as Document
-  lineFragment([], { start: 0, end: 0, wordSpacing: 0, hyphen: false, forced: true, blank: true }, doc)
+  lineFragment([], { start: 0, end: 0, wordSpacing: 0, ratio: 0, hyphen: false, forced: true, blank: true }, doc)
   expect(appended).toEqual([{ name: 'br' }])
 })
 

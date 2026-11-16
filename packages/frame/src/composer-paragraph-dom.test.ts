@@ -23,7 +23,7 @@ test('builds line nodes without writing the source paragraph', () => {
   const output = paragraphLineNodes(
     paragraph,
     [{ kind: 'text', text: 'one', width: 3, node: text, start: 0, end: 3 }],
-    [{ start: 0, end: 1, wordSpacing: 0, hyphen: false, forced: false }],
+    [{ start: 0, end: 1, wordSpacing: 0, ratio: 0, hyphen: false, forced: false }],
     doc,
     'ltr',
     'data-identity',

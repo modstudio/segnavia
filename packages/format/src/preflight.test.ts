@@ -32,10 +32,18 @@ describe('preflight profiles', () => {
     expect(() => resolvePreflightProfile(1 as never)).toThrow('profile is invalid')
     expect(preflightEnabled(PREFLIGHT_PRESETS.default)).toBe(true)
     expect(preflightEnabled(PREFLIGHT_PRESETS.off)).toBe(false)
+    expect(PREFLIGHT_PRESETS.default['hj-violations']).toBe('warning')
+    expect(resolvePreflightProfile({ 'hj-violations': 'off' })['hj-violations']).toBe('off')
   })
 })
 
 describe('boundPreflightReport', () => {
+  test('admits H&J violations and drops them when the profile turns the check off', () => {
+    const violation = { check: 'hj-violations', subject: 'body', message: 'Spacing is outside its limits.' } as const
+    expect(boundPreflightReport({ entries: [violation], facts }, PREFLIGHT_PRESETS.default).issues).toHaveLength(1)
+    expect(boundPreflightReport({ entries: [violation], facts }, resolvePreflightProfile({ 'hj-violations': 'off' })).issues).toEqual([])
+  })
+
   test('applies severities, drops off checks, sorts errors first and derives status', () => {
     const profile = resolvePreflightProfile({ 'region-overset': 'warning', 'furniture-overset': 'error', 'slot-overset': 'off' })
     const report = boundPreflightReport(

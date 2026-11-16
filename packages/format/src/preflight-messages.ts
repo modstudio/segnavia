@@ -1,5 +1,17 @@
 import type { PreflightCoverage, PreflightCoverageUnit, PreflightEntry, PreflightReport } from './preflight.ts'
 
+export function hjViolationMessage(wordSpacing: number, minimum: number, maximum: number, ratio: number): string {
+  const percent = (value: number): string => `${Math.round(value * 10) / 10}%`
+  const remedy = 'Widen the measure, allow hyphenation, widen the word-spacing limits, or edit the text to clear this violation.'
+  if (ratio === Number.NEGATIVE_INFINITY) {
+    return `The worst line is overfull even at the ${percent(minimum)} minimum word spacing; no word spacing can set it. ${remedy}`
+  }
+  if (ratio === Number.POSITIVE_INFINITY) {
+    return `The worst line is too short and has no space to stretch within the ${percent(minimum)}–${percent(maximum)} word-spacing limits; no word spacing can set it. ${remedy}`
+  }
+  return `The worst line uses ${percent(wordSpacing)} word spacing, outside the ${percent(minimum)}–${percent(maximum)} limits (adjustment ratio ${ratio.toFixed(2)}). ${remedy}`
+}
+
 export function cssVarInvalidMessage(subject: string): string {
   const remedies = [
     {
