@@ -60,14 +60,18 @@ export class BoardNames {
     this.generation += 1
     this.inFlight.clear()
     if (!addresses) {
+      const hadNames = this.names.size > 0
       this.names.clear()
       this.failedAddresses.clear()
+      if (hadNames) this.changed()
       return
     }
+    let hadNames = false
     for (const address of addresses) {
-      this.names.delete(address)
+      hadNames = this.names.delete(address) || hadNames
       this.failedAddresses.delete(address)
     }
+    if (hadNames) this.changed()
   }
 
   name(item: BoardItem | undefined, outcome: BoardResolutionOutcome): string {

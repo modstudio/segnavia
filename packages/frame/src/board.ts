@@ -387,7 +387,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       if (this.value) this.shapeCache.update(this.value, (address) => this.resolutions.outcome(address), this.currentView.zoom)
       this.revealItem(resolvedId, false, maxZoom)
     } else this.render()
-    if (!('state' in resolved) && resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
+    if ('state' in resolved || resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
   }
   private fail(item: BoardItem, error: unknown) {
     if (!this.resolutions.fail(item)) return

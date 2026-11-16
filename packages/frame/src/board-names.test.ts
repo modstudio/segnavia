@@ -126,8 +126,11 @@ describe('board names', () => {
 
   test('drops failed and cached names at the requested addresses', async () => {
     let calls = 0
+    let changes = 0
     const names = new BoardNames(
-      () => {},
+      () => {
+        changes += 1
+      },
       () => {},
     )
     const provider = async (items: BoardItem[]) => {
@@ -139,11 +142,12 @@ describe('board names', () => {
     await settle()
     names.update([a, b], provider)
     await settle()
-    names.drop(['one'])
+    names.drop(['one', 'two'])
     names.update([a, b], provider)
     await settle()
     expect(calls).toBe(3)
     expect(names.name(a, pending)).toBe('Restored')
     expect(names.name(b, pending)).toBe('Kept')
+    expect(changes).toBe(3)
   })
 })
