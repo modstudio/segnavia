@@ -1,5 +1,6 @@
 import { type Element, isTag } from 'domhandler'
 import { parseAnchoredFrames } from './anchored-frames.ts'
+import { isApproximatedComposer } from './composition-style.ts'
 import { parseFonts } from './fonts.ts'
 import { FramePreferenceIndex } from './frame-preferences.ts'
 import { IDML_LIMITS, type IdmlLimits } from './limits.ts'
@@ -237,7 +238,7 @@ function reportUnmappedFeatures(parts: ParsedPart[], styles: IdmlStyle[], report
   for (const part of parts) {
     for (const element of part.all) {
       const composer = attribute(element, 'Composer')
-      if (composer) report.unmappedFeature('composer', composer)
+      if (composer && isApproximatedComposer(composer)) report.unmappedFeature('composer', composer)
       const alternateLayout = attribute(element, 'AlternateLayout')
       if (alternateLayout && !alternateLayout.startsWith('$ID/')) report.unmappedFeature('alternateLayout', alternateLayout)
     }

@@ -59,10 +59,10 @@ function importedStyle(css: string, references: FontReference[]): DocumentInput[
   return { ...(css ? { css } : {}), ...(references.length > 0 ? { fonts } : {}) }
 }
 
-export function refuseActiveBookHtml(chapters: { html: string }[], parents: ParentPage[]): void {
+export function refuseActiveDocumentHtml(chapters: { html: string }[], parents: ParentPage[]): void {
   const html = [...chapters.map((chapter) => chapter.html), ...parents.flatMap((parent) => Object.values(parent.regions).map((region) => region.html))].join('')
   const active = findActiveContent(html)
-  if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
+  if (active.length > 0) throw refusal(`the imported document contains active content (${active.join(', ')})`, 'remove that active content')
 }
 
 interface ImportedChapter {
@@ -187,7 +187,7 @@ export function modelToDocument(
     return { story: story.id, title: story.id, html: identified.replace(/\bdata-idml-variable=/g, 'data-variable='), ...(parentRules ? { parentRules } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
-  refuseActiveBookHtml(chapters, masters.parents)
+  refuseActiveDocumentHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()

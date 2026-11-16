@@ -70,6 +70,28 @@ describe('importIdml', () => {
     })
   })
 
+  test('does not report a reproduced composer as an unmapped feature', async () => {
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      {
+        name: 'designmap.xml',
+        content: designmap.replace('</Document>', '<idPkg:Styles src="Resources/Styles.xml"/></Document>'),
+      },
+      { name: 'Spreads/Spread_s.xml', content: `<Spread Self="s"><Page Self="p1" GeometricBounds="0 0 100 100"/>${frame('story', 0)}</Spread>` },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'Resources/Styles.xml',
+        content:
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" Composer="$ID/Adobe Paragraph Composer"/></RootParagraphStyleGroup></idPkg:Styles>',
+      },
+      { name: 'Stories/Story_story.xml', content: '<Story Self="story"><ParagraphStyleRange><Content>Words</Content></ParagraphStyleRange></Story>' },
+    ])
+
+    const result = await importIdml(bytes)
+
+    expect(result.report.unmappedFeatures).not.toHaveProperty('composer')
+  })
+
   test('refuses a missing or wrong IDML identity entry by name', async () => {
     await expect(importIdml(await testZip([{ name: 'designmap.xml', content: designmap }]))).rejects.toThrow('mimetype entry is missing')
     await expect(

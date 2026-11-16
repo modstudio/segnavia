@@ -131,7 +131,10 @@ other placements outside a chapter's opener page, including master-spread
 placements, are reported rather than silently dropped.
 The report names every unmapped element, style or override property, special
 character, language and spot color, with locations, and lists the fonts the
-styles reference. The importer's synchronous `font` seam maps each distinct
+styles reference. Its `unmappedFeatures` lists, by feature (`composer`,
+`alternateLayout` or `objectStyle`), the names of IDML features for which the
+document has no carrier; a composer is listed only when the library approximates
+it. The importer's synchronous `font` seam maps each distinct
 IDML family and style pair to an app or local font reference. A local answer
 also declares its app-font fallback on the Book; absent mappings are reported.
 An unmapped font emits no `font-family`, while known weight and italic intent

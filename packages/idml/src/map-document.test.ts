@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { bookFromDocument } from '@segnavia/format'
 import { bookDocument } from '@segnavia/html'
-import { modelToDocument, refuseActiveBookHtml } from './map-document.ts'
+import { modelToDocument, refuseActiveDocumentHtml } from './map-document.ts'
 import { chapterParents, type MasterMapping, storyPageUses } from './masters.ts'
 import type { IdmlModel } from './model.ts'
 import { ReportCollector } from './report.ts'
@@ -46,7 +46,16 @@ test('maps document setup and orders placeholder chapters by first page', () => 
     ],
   }
   const report = new ReportCollector()
-  const book = loweredModel(model, report)
+  const document = modelToDocument(model, report)
+  const book = bookFromDocument(document)
+  expect(document.children[0]).toMatchObject({
+    type: 'division',
+    name: 'body',
+    children: [
+      { type: 'section', title: 'later', children: [{ type: 'flow' }] },
+      { type: 'section', title: 'earlier', children: [{ type: 'flow' }] },
+    ],
+  })
   expect(book).toMatchObject({
     title: 'book',
     mode: 'paginated',
@@ -349,8 +358,8 @@ test('reports extra master pages and unknown applied masters by location', () =>
 
 test('refuses active content found only in a master head', () => {
   expect(() =>
-    refuseActiveBookHtml([{ html: '<p>safe</p>' }], [{ name: 'unsafe', regions: { head: { edge: 'blockStart', html: '<script>unsafe</script>' } } }]),
-  ).toThrow('the imported Book contains active content')
+    refuseActiveDocumentHtml([{ html: '<p>safe</p>' }], [{ name: 'unsafe', regions: { head: { edge: 'blockStart', html: '<script>unsafe</script>' } } }]),
+  ).toThrow('the imported document contains active content')
 })
 
 test('reports a mixed-master chapter as structured data and breaks ties by page order', () => {

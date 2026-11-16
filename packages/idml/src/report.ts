@@ -89,7 +89,9 @@ export class ReportCollector {
       for (const [key, count] of Object.entries(seed?.[name] ?? {})) this.buckets[name].set(key, count)
     }
     for (const [key, locations] of Object.entries(seed?.locations ?? {})) this.locations.set(key, [...locations])
-    for (const [feature, values] of Object.entries(seed?.unmappedFeatures ?? {})) this.unmappedFeatures.set(feature, [...values])
+    for (const [feature, values] of Object.entries(seed?.unmappedFeatures ?? {})) {
+      for (const value of values) this.unmappedFeature(feature, value)
+    }
     this.seedKeyedRecords(seed)
   }
 
@@ -144,7 +146,9 @@ export class ReportCollector {
   }
 
   unmappedFeature(feature: string, value: string): void {
-    this.recordKeyed(this.unmappedFeatures, feature, value)
+    const found = this.unmappedFeatures.get(feature) ?? []
+    if (!found.includes(value)) found.push(value)
+    this.unmappedFeatures.set(feature, found)
   }
 
   private recordKeyed(target: Map<string, string[]>, key: string, location: string): void {
@@ -181,7 +185,9 @@ export class ReportCollector {
       unmappedFonts: [...this.unmappedFonts.values()],
       links: [...this.links.values()],
       mixedMasterChapters: [...this.mixedMasterChapters],
-      unmappedFeatures: Object.fromEntries([...this.unmappedFeatures].sort(([a], [b]) => a.localeCompare(b))),
+      unmappedFeatures: Object.fromEntries(
+        [...this.unmappedFeatures].sort(([a], [b]) => a.localeCompare(b)).map(([feature, values]) => [feature, [...values].sort((a, b) => a.localeCompare(b))]),
+      ),
     }
   }
 

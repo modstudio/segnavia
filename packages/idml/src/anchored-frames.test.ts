@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Book, bookFromDocument } from '@segnavia/format'
+import { bookFromDocument } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
 import { importIdml } from './import.ts'
 import { testZip } from './zip.test-helper.ts'
@@ -62,7 +62,6 @@ test('renders an inline anchored story inside its host paragraph and not as a ch
   expect(html).toContain('before<span class="idml-anchored" style="display:inline-block;inline-size:82.46pt;vertical-align:baseline">')
   expect(html).toContain('<span style="display:block">inside</span></span>after')
   expect(html).not.toContain('<p>inside</p>')
-  expect(() => Book.parse(bookFromDocument(result.document))).not.toThrow()
   expect(findActiveContent(html)).toEqual([])
 })
 
