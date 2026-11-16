@@ -124,6 +124,7 @@ test('paints unavailable items as labeled placeholders with their state', async 
       { origins: [] },
     )
     expect(fallback.children[0]?.children[0]?.textContent).toBe('paper')
+    expect(fallback.dataset.boardItemState).toBe('gone')
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')
