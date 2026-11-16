@@ -1,10 +1,13 @@
 import { expect, test } from 'bun:test'
+import { bookFromDocument } from '@segnavia/format'
 import { bookDocument } from '@segnavia/html'
-import { modelToBook, refuseActiveBookHtml } from './map-book.ts'
+import { modelToDocument, refuseActiveBookHtml } from './map-document.ts'
 import { chapterParents, type MasterMapping, storyPageUses } from './masters.ts'
 import type { IdmlModel } from './model.ts'
 import { ReportCollector } from './report.ts'
 import type { IdmlTextNode } from './types.ts'
+
+const loweredModel = (...args: Parameters<typeof modelToDocument>) => bookFromDocument(modelToDocument(...args))
 
 const node = (name: string, children: IdmlTextNode[] = [], attributes: Record<string, string> = {}, text?: string): IdmlTextNode => ({
   name,
@@ -43,7 +46,7 @@ test('maps document setup and orders placeholder chapters by first page', () => 
     ],
   }
   const report = new ReportCollector()
-  const book = modelToBook(model, report)
+  const book = loweredModel(model, report)
   expect(book).toMatchObject({
     title: 'book',
     mode: 'paginated',
@@ -76,7 +79,7 @@ test('maps left binding, asymmetric margins, and non-facing pages', () => {
     masterStoryIds: [],
     partsRead: [],
   }
-  const book = modelToBook(model)
+  const book = loweredModel(model)
   expect(book.dir).toBe('ltr')
   expect(book.rectoOpenings).toBe(false)
   expect(book.page?.margin.inlineStart).toBeCloseTo(30 * (25.4 / 72))
@@ -165,7 +168,7 @@ test('maps RTL master heads, chapter parents, variables, unmapped items, and no-
     partsRead: [],
   }
   const report = new ReportCollector()
-  const book = modelToBook(model, report)
+  const book = loweredModel(model, report)
   expect(book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-haggadah-recto', 'idml-h-haggadah-verso', 'idml-none'])
   expect(book.parentPages[0]?.margin).toMatchObject({ inlineStart: 13 * (25.4 / 72), inlineEnd: 12 * (25.4 / 72) })
   expect(book.parentPages[0]?.regions.head?.html).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:last"')
@@ -204,7 +207,7 @@ test('maps RTL master heads, chapter parents, variables, unmapped items, and no-
   verso.margin = { ...verso.margin, left: 22, right: 23 }
   let refusal = ''
   try {
-    modelToBook(model, new ReportCollector())
+    loweredModel(model, new ReportCollector())
   } catch (error) {
     refusal = error instanceof Error ? error.message : String(error)
   }
@@ -253,7 +256,7 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
     masterStoryIds: ['folio'],
     partsRead: [],
   }
-  const book = modelToBook(model)
+  const book = loweredModel(model)
   expect(book.parentPages).toHaveLength(1)
   expect(book.parentPages[0]?.regions.foot?.html).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
   expect(book.parentPages[0]?.regions.foot?.html).toContain('class="idml-master-frame-1"')
@@ -294,7 +297,7 @@ test('emits an unapplied base master and preserves its inheritance', () => {
     masterStoryIds: [],
     partsRead: [],
   }
-  const book = modelToBook(model)
+  const book = loweredModel(model)
   expect(book.parentPages.map((parent) => parent.name)).toEqual(['idml-a-base-recto', 'idml-b-child-recto'])
   expect(book.parentPages[1]?.basedOn).toBe('idml-a-base-recto')
 })
@@ -331,7 +334,7 @@ test('reports extra master pages and unknown applied masters by location', () =>
     masterStoryIds: ['middle-story'],
     partsRead: [],
   }
-  const book = modelToBook(model, report)
+  const book = loweredModel(model, report)
   expect(book.body[0]?.parentRules?.[0]).toEqual({ when: { blank: true }, parent: 'segnavia:blank' })
   expect(book.body[0]?.parentRules?.[1]).toEqual({ when: { position: 'sectionFirst' }, parent: 'segnavia:recto' })
   expect(report.data().locations['element:applied master unknown:missing']).toEqual(['body-page'])
@@ -339,7 +342,7 @@ test('reports extra master pages and unknown applied masters by location', () =>
   const target = model.spreads[0]?.pages[0]
   if (!target) throw new Error('Expected the synthetic body page.')
   target.appliedMaster = 'three'
-  modelToBook(model, report)
+  loweredModel(model, report)
   expect(report.data().locations['element:master page']).toEqual(['Three#middle'])
   expect(report.data().locations['element:master TextFrame']).toContain('Three#middle-frame')
 })

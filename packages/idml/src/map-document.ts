@@ -1,18 +1,18 @@
 import {
-  Book,
-  BookItem,
+  Document,
+  type DocumentInput,
   defaultNewId,
   type FontReference,
   MM_PER_PT,
   type ParentPage,
   type ParentRules,
   persistedFontManifestWithReferences,
-  type Book as SegnaviaBook,
+  type Document as SegnaviaDocument,
 } from '@segnavia/format'
 import { findActiveContent, parseDocument } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
-import { orderedStories, plainChapter } from './chapter-stories.ts'
+import { orderedStories } from './chapter-stories.ts'
 import type { IdmlConversion } from './conversion.ts'
 import { FontMapper } from './fonts.ts'
 import { logicalMargin } from './margins.ts'
@@ -53,7 +53,7 @@ function anchoredFrameIssue(frame: IdmlAnchoredFrame, storyPages: { has(story: s
   return undefined
 }
 
-function importedStyle(css: string, references: FontReference[]): SegnaviaBook['style'] {
+function importedStyle(css: string, references: FontReference[]): DocumentInput['style'] {
   if (!css && references.length === 0) return undefined
   const fonts = persistedFontManifestWithReferences(undefined, references)
   return { ...(css ? { css } : {}), ...(references.length > 0 ? { fonts } : {}) }
@@ -72,42 +72,49 @@ interface ImportedChapter {
   parentRules?: ParentRules
 }
 
-function partBody(chapters: ImportedChapter[], conversion: IdmlConversion, newId: () => string): BookItem[] {
+type DocumentChild = DocumentInput['children'][number]
+
+function chapterSection(chapter: ImportedChapter, newId: () => string): DocumentChild {
+  return {
+    type: 'section',
+    id: newId(),
+    title: chapter.title,
+    ...(chapter.parentRules ? { parentRules: chapter.parentRules } : {}),
+    children: [{ type: 'flow', html: chapter.html }],
+  }
+}
+
+function partBody(chapters: ImportedChapter[], conversion: IdmlConversion, newId: () => string): DocumentChild[] {
   const marker = conversion.answers.parts
-  if ('none' in marker) return chapters.map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
+  if ('none' in marker) return chapters.map((chapter) => chapterSection(chapter, newId))
   const byStory = new Map(chapters.map((chapter) => [chapter.story, chapter]))
-  const body: BookItem[] = conversion.parts.leadingStories
-    .flatMap((story) => byStory.get(story) ?? [])
-    .map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
+  const body: DocumentChild[] = conversion.parts.leadingStories.flatMap((story) => byStory.get(story) ?? []).map((chapter) => chapterSection(chapter, newId))
   for (const [index, part] of conversion.parts.parts.entries()) {
     const runChapters = part.stories.flatMap((story) => byStory.get(story) ?? [])
     const openerStories = new Set(part.openerStories)
     const chapterStories = new Set(part.chapterStories)
     const opener = runChapters.filter((chapter) => openerStories.has(chapter.story))
-    const children = runChapters
-      .filter((chapter) => chapterStories.has(chapter.story))
-      .map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
-    body.push(
-      BookItem.parse({
-        id: newId(),
-        name: `part-${index + 1}`,
-        contents: true,
-        ...(part.title ? { title: part.title } : {}),
-        ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
-        ...(opener[0]?.parentRules ? { parentRules: opener[0].parentRules } : {}),
-        children,
-      }),
-    )
+    const children = runChapters.filter((chapter) => chapterStories.has(chapter.story)).map((chapter) => chapterSection(chapter, newId))
+    body.push({
+      type: 'part',
+      id: newId(),
+      name: `part-${index + 1}`,
+      contents: true,
+      ...(part.title ? { title: part.title } : {}),
+      ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
+      ...(opener[0]?.parentRules ? { parentRules: opener[0].parentRules } : {}),
+      children,
+    })
   }
   return body
 }
 
-export function modelToBook(
+export function modelToDocument(
   model: IdmlModel,
   report = new ReportCollector(model.report),
   options: IdmlImportOptions = {},
   conversion?: IdmlConversion,
-): SegnaviaBook {
+): SegnaviaDocument {
   const newId = options.newId ?? defaultNewId
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
@@ -184,22 +191,26 @@ export function modelToBook(
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
-  const body = conversion ? partBody(chapters, conversion, newId) : chapters.map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
-  return Book.parse({
-    title: model.id,
-    mode: 'paginated',
-    page: {
-      paper: { width: preferences.pageWidth, height: preferences.pageHeight, unit: 'pt' },
-      margin: masters.bookMargin ?? logicalMargin(preferences.margin, rightBinding ? 'left' : 'right'),
-      ...(columnGap === undefined ? {} : { columnGap: columnGap * MM_PER_PT }),
+  const body = conversion ? partBody(chapters, conversion, newId) : chapters.map((chapter) => chapterSection(chapter, newId))
+  return Document.parse(
+    {
+      type: 'document',
+      kind: 'book',
+      title: model.id,
+      mode: 'paginated',
+      page: {
+        paper: { width: preferences.pageWidth, height: preferences.pageHeight, unit: 'pt' },
+        margin: masters.bookMargin ?? logicalMargin(preferences.margin, rightBinding ? 'left' : 'right'),
+        ...(columnGap === undefined ? {} : { columnGap: columnGap * MM_PER_PT }),
+      },
+      settings: { dir: bookDirection, ...(bookLanguage ? { lang: bookLanguage } : {}) },
+      style: importedStyle(css, bookFonts),
+      rectoOpenings: openingPolicy.rectoOpenings,
+      parentPages: masters.parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+      variables: [...usedVariables.values()].map((variable) => ({ type: 'variable' as const, ...variable })),
+      headTemplates: [...usedHeadTemplates.values()].map((template) => ({ type: 'headTemplate' as const, ...template })),
+      children: [{ type: 'division', name: 'body', children: body }],
     },
-    dir: bookDirection,
-    ...(bookLanguage ? { lang: bookLanguage } : {}),
-    style: importedStyle(css, bookFonts),
-    rectoOpenings: openingPolicy.rectoOpenings,
-    parentPages: masters.parents,
-    variables: [...usedVariables.values()],
-    headTemplates: [...usedHeadTemplates.values()],
-    body,
-  })
+    { newId },
+  )
 }

@@ -233,6 +233,20 @@ function spreadSources(document: ParsedPart, kind: 'Spread' | 'MasterSpread'): s
     .filter((source): source is string => source !== undefined)
 }
 
+function reportUnmappedFeatures(parts: ParsedPart[], styles: IdmlStyle[], report: ReportCollector): void {
+  for (const part of parts) {
+    for (const element of part.all) {
+      const composer = attribute(element, 'Composer')
+      if (composer) report.unmappedFeature('composer', composer)
+      const alternateLayout = attribute(element, 'AlternateLayout')
+      if (alternateLayout && !alternateLayout.startsWith('$ID/')) report.unmappedFeature('alternateLayout', alternateLayout)
+    }
+  }
+  for (const style of styles) {
+    if (style.kind === 'object' && !style.name.startsWith('$ID/')) report.unmappedFeature('objectStyle', style.name)
+  }
+}
+
 export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS): IdmlModel {
   const parts = parseParts(entries, limits)
   const designmap = parts.find((part) => part.name === 'designmap.xml')
@@ -254,6 +268,7 @@ export function idmlModel(entries: ZipEntry[], limits: IdmlLimits = IDML_LIMITS)
   const masterStoryIds = [...masterResult.frameStories].filter((story) => !spreadResult.frameStories.has(story))
   const stories = parseStories(parts, framePreferences, report)
   const styles = parts.flatMap((part) => (part.name.endsWith('/Styles.xml') || part.name === 'Resources/Styles.xml' ? parseStyles(part.all, part.name) : []))
+  reportUnmappedFeatures(parts, styles, report)
   return {
     id: attribute(document, 'Self') ?? 'IDML document',
     preferences: {

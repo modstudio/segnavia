@@ -30,6 +30,7 @@ export interface IdmlReportData {
   strippedAssetContent: Record<string, string[]>
   versoOpenings: Record<string, string[]>
   mixedMasterChapters: IdmlMixedMasterChapter[]
+  unmappedFeatures: Record<string, string[]>
 }
 
 const BUCKET_NAMES = {
@@ -57,6 +58,7 @@ export class ReportCollector {
   readonly strippedAssetContent = new Map<string, string[]>()
   readonly versoOpenings = new Map<string, string[]>()
   readonly mixedMasterChapters: IdmlMixedMasterChapter[]
+  readonly unmappedFeatures = new Map<string, string[]>()
   private readonly buckets = Object.fromEntries(Object.keys(BUCKET_NAMES).map((name) => [name, new Map<string, number>()])) as Record<
     BucketKey,
     Map<string, number>
@@ -87,6 +89,7 @@ export class ReportCollector {
       for (const [key, count] of Object.entries(seed?.[name] ?? {})) this.buckets[name].set(key, count)
     }
     for (const [key, locations] of Object.entries(seed?.locations ?? {})) this.locations.set(key, [...locations])
+    for (const [feature, values] of Object.entries(seed?.unmappedFeatures ?? {})) this.unmappedFeatures.set(feature, [...values])
     this.seedKeyedRecords(seed)
   }
 
@@ -140,6 +143,10 @@ export class ReportCollector {
     this.recordKeyed(this.versoOpenings, story, page)
   }
 
+  unmappedFeature(feature: string, value: string): void {
+    this.recordKeyed(this.unmappedFeatures, feature, value)
+  }
+
   private recordKeyed(target: Map<string, string[]>, key: string, location: string): void {
     const found = target.get(key) ?? []
     this.recordLocation(found, location)
@@ -174,6 +181,7 @@ export class ReportCollector {
       unmappedFonts: [...this.unmappedFonts.values()],
       links: [...this.links.values()],
       mixedMasterChapters: [...this.mixedMasterChapters],
+      unmappedFeatures: Object.fromEntries([...this.unmappedFeatures].sort(([a], [b]) => a.localeCompare(b))),
     }
   }
 

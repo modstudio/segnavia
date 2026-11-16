@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { bookFromDocument } from '@segnavia/format'
 import { importIdml } from './import.ts'
 import { type TestZipEntry, testZip } from './zip.test-helper.ts'
 
@@ -58,9 +59,9 @@ test('composes matching page-level base folios below a master own head templates
   const result = await importIdml(
     await masterPackage([baseMaster, child], 'child', [...baseStories, story('child-left-story', 'Own verso'), story('child-right-story', 'Own recto')]),
   )
-  expect(result.book.parentPages.map((parent) => parent.name)).toEqual(['idml-child-recto', 'idml-child-verso'])
-  const recto = result.book.parentPages[0]?.regions.head?.html ?? ''
-  const verso = result.book.parentPages[1]?.regions.head?.html ?? ''
+  expect(bookFromDocument(result.document).parentPages.map((parent) => parent.name)).toEqual(['idml-child-recto', 'idml-child-verso'])
+  const recto = bookFromDocument(result.document).parentPages[0]?.regions.head?.html ?? ''
+  const verso = bookFromDocument(result.document).parentPages[1]?.regions.head?.html ?? ''
   expect(recto).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
   expect(recto).toContain('Base recto')
   expect(recto).not.toContain('Base verso')
@@ -79,7 +80,9 @@ test('suppresses inherited master items when the master spread or page disables 
   const result = await importIdml(
     await masterPackage([baseMaster, hidden], 'hidden', [...baseStories, story('hidden-left-story', 'Own verso'), story('hidden-right-story', 'Own recto')]),
   )
-  const heads = result.book.parentPages.map((parent) => parent.regions.head?.html ?? '').join('')
+  const heads = bookFromDocument(result.document)
+    .parentPages.map((parent) => parent.regions.head?.html ?? '')
+    .join('')
   expect(heads).toContain('Own recto')
   expect(heads).toContain('Own verso')
   expect(heads).not.toContain('Base recto')
@@ -97,7 +100,11 @@ test('suppresses inherited master items when the master spread or page disables 
       story('hidden-right-story', 'Own recto'),
     ]),
   )
-  expect(pageResult.book.parentPages.map((parent) => parent.regions.head?.html ?? '').join('')).not.toContain('Base')
+  expect(
+    bookFromDocument(pageResult.document)
+      .parentPages.map((parent) => parent.regions.head?.html ?? '')
+      .join(''),
+  ).not.toContain('Base')
 })
 
 test('reports a page-level master base cycle and stops recursion', async () => {
@@ -110,8 +117,8 @@ test('reports a page-level master base cycle and stops recursion', async () => {
     xml: `<MasterSpread Self="second" Name="Second">${page('second-page', 0, 'first')}${headFrame('second-frame', 'second-story', 0)}</MasterSpread>`,
   }
   const result = await importIdml(await masterPackage([first, second], 'first', [story('first-story', 'First'), story('second-story', 'Second')]))
-  expect(result.book.parentPages[0]?.regions.head?.html).toContain('First')
-  expect(result.book.parentPages[0]?.regions.head?.html).toContain('Second')
+  expect(bookFromDocument(result.document).parentPages[0]?.regions.head?.html).toContain('First')
+  expect(bookFromDocument(result.document).parentPages[0]?.regions.head?.html).toContain('Second')
   expect(result.report.unsupportedElements['master base cycle']).toBe(1)
   expect(result.report.locations['element:master base cycle']).toEqual(['Second#second-page'])
 })
@@ -128,8 +135,8 @@ test('reports and bounds an overly deep master base chain', async () => {
   const stories = masters.map(({ id }) => story(`${id}-story`, id))
   const result = await importIdml(await masterPackage(masters, 'depth-0', stories))
   expect(result.report.unsupportedElements['master base depth']).toBe(1)
-  expect(result.book.parentPages[0]?.regions.head?.html).toContain('depth-0')
-  expect(result.book.parentPages[0]?.regions.head?.html).not.toContain('depth-9')
+  expect(bookFromDocument(result.document).parentPages[0]?.regions.head?.html).toContain('depth-0')
+  expect(bookFromDocument(result.document).parentPages[0]?.regions.head?.html).not.toContain('depth-9')
 })
 
 test('continues to compose and link a spread-level base', async () => {
@@ -145,14 +152,14 @@ test('continues to compose and link a spread-level base', async () => {
       story('spread-right-story', 'Own recto'),
     ]),
   )
-  expect(result.book.parentPages.map((parent) => parent.name)).toEqual([
+  expect(bookFromDocument(result.document).parentPages.map((parent) => parent.name)).toEqual([
     'idml-base-recto',
     'idml-base-verso',
     'idml-spread-child-recto',
     'idml-spread-child-verso',
   ])
-  expect(result.book.parentPages[2]?.basedOn).toBe('idml-base-recto')
-  const head = result.book.parentPages[2]?.regions.head?.html ?? ''
+  expect(bookFromDocument(result.document).parentPages[2]?.basedOn).toBe('idml-base-recto')
+  const head = bookFromDocument(result.document).parentPages[2]?.regions.head?.html ?? ''
   expect(head.indexOf('Base recto')).toBeLessThan(head.indexOf('Own recto'))
 })
 
@@ -168,7 +175,7 @@ test('positions inherited boxes against the applying master margins', async () =
   const result = await importIdml(
     await masterPackage([wideBase, child], 'narrow-child', [story('wide-left-story', 'Verso'), story('wide-right-story', 'Recto')]),
   )
-  expect(result.book.style?.css).toContain(
+  expect(bookFromDocument(result.document).style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:3.527778mm;inline-size:21.166667mm;inset-block-start:0.705556mm;block-size:2.116667mm}',
   )
 })
@@ -183,7 +190,7 @@ test('shadows a spread base when pages apply another master with no head', async
     xml: `<MasterSpread Self="shadow" Name="Shadow" BasedOn="base">${page('shadow-left', 0, 'empty')}${page('shadow-right', 100, 'empty')}</MasterSpread>`,
   }
   const result = await importIdml(await masterPackage([baseMaster, empty, child], 'shadow', baseStories))
-  const shadow = result.book.parentPages.find((parent) => parent.name === 'idml-shadow-recto')
+  const shadow = bookFromDocument(result.document).parentPages.find((parent) => parent.name === 'idml-shadow-recto')
   expect(shadow?.regions.head?.html).toBe('<div class="idml-master-region"></div>')
   expect(shadow?.regions.head?.html).not.toContain('Base recto')
 })
@@ -194,7 +201,7 @@ test('shadows a spread base when master items are disabled', async () => {
     xml: `<MasterSpread Self="hidden-spread-base" Name="Hidden Spread Base" BasedOn="base" ShowMasterItems="false">${page('hidden-base-left', 0)}${page('hidden-base-right', 100)}</MasterSpread>`,
   }
   const result = await importIdml(await masterPackage([baseMaster, child], 'hidden-spread-base', baseStories))
-  const hidden = result.book.parentPages.find((parent) => parent.name === 'idml-hidden-spread-base-recto')
+  const hidden = bookFromDocument(result.document).parentPages.find((parent) => parent.name === 'idml-hidden-spread-base-recto')
   expect(hidden?.regions.head?.html).toBe('<div class="idml-master-region"></div>')
   expect(hidden?.regions.head?.html).not.toContain('Base recto')
 })

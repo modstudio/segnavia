@@ -64,10 +64,11 @@ The gate also runs `checkVueDependencies`: no
 package manifest may name Vue in a dependency field, because consumers supply
 it for the types-only opt-ins. `format`, `html` and `idml` run anywhere. `idml`
 accepts package bytes, refuses unsupported ZIP forms and bounded-resource
-violations, and returns a validated `Book` plus an import report. Body stories
-become chapters, and the paragraph and character styles they use become
-`idml-*` classes in `Book.css`, with physical indents and alignment resolved
-to logical properties by each paragraph's direction. Paragraph shading uses
+violations, and returns a validated book-kind `Document` plus an import report.
+Body stories become sections in its body division, and the paragraph and
+character styles they use become `idml-*` classes in `Document.style.css`,
+with physical indents and alignment resolved to logical properties by each
+paragraph's direction. Paragraph shading uses
 the resolved swatch and tint, and expands its logical padding while reducing
 the matching margins so its offsets do not move the text. When one master
 applies another, the importer recursively places the matching recto or verso
