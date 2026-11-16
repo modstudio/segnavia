@@ -9,6 +9,7 @@ import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts }
 import { verifyBookSideNotes } from './book-side-notes.ts'
 import { collectedComposeProgress, installComposeProgressCollector, LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { pagesText } from './book-text.ts'
+import { verifyComposedBookParagraphs } from './composed-paragraph-acceptance.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
 import { inspectNoteViewGeometry, pageContainsNoteText } from './paginated-notes.ts'
@@ -87,6 +88,7 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
     const report = await frame.locator('html').evaluate(() => ({
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
+      composedParagraphs: document.querySelectorAll('p > span[data-segnavia-line]:first-child').length,
     }))
     const progress = await collectedComposeProgress(stressPage, `book-large-${language}`)
     const progressPages = progress.map((entry) => entry.pages)
@@ -101,8 +103,8 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
     screenPages[language] = await frame.locator('html').evaluate(screenPageNotes)
     const geometry = await frame.locator('html').evaluate(inspectNoteViewGeometry)
     check(
-      `book-large-${language} composes 300+ pages within the repagination bound`,
-      report.pages >= 300 && report.pages === expectedPages && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
+      `book-large-${language} composes justified paragraphs across 300+ pages within the repagination bound`,
+      report.pages >= 300 && report.pages === expectedPages && report.composedParagraphs > 0 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
       JSON.stringify({ ...report, expectedPages, bound: REPAGINATE_BOUND_MS }),
     )
     check(
@@ -139,6 +141,7 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
 
 export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
+  await verifyComposedBookParagraphs(h)
   await verifyHiddenBookElements(h)
   await verifyBookLineNumbers(h)
   await verifyBookLineKeyed(h)

@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
+import { hyphenationPoints } from './hyphenate.ts'
 import { layoutScript } from './layout-script.ts'
+import { breakLines } from './line-break.ts'
 import { block, flow, input, settings } from './paginate-book.test-helper.ts'
 import { paginateScript } from './paginate-book.ts'
 import { defaultParentRules } from './parent-selection.ts'
@@ -53,7 +55,26 @@ test('layoutScript evaluates in a bare scope and its planners match the module',
   expect(typeof embedded.convergeLayout).toBe('function')
 })
 
-test('layoutScript keeps its planner names after minification', async () => {
+test('layoutScript embeds the paragraph breaker and English and Hebrew hyphen points', () => {
+  const embedded = new Function(`${layoutScript()};return {breakLines,hyphenationPoints}`)() as {
+    breakLines: typeof breakLines
+    hyphenationPoints: typeof hyphenationPoints
+  }
+  const items = [
+    { type: 'box' as const, width: 30 },
+    { type: 'glue' as const, width: 5, stretch: 3, shrink: 2 },
+    { type: 'box' as const, width: 30 },
+  ]
+  expect(embedded.breakLines(items, [40])).toEqual(breakLines(items, [40]))
+  for (const [word, language] of [
+    ['hyphenation', 'en-US'],
+    ['שלום־עליכם', 'he'],
+  ] as const) {
+    expect(embedded.hyphenationPoints(word, language)).toEqual(hyphenationPoints(word, language))
+  }
+})
+
+test('layoutScript keeps its planner and composition reader names after minification', async () => {
   const built = await Bun.build({
     entrypoints: ['virtual:layout-script'],
     minify: true,
@@ -78,7 +99,7 @@ test('layoutScript keeps its planner names after minification', async () => {
   expect(bundle).toBeDefined()
   const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
   const embedded = new Function(
-    `${script};return {planBook,planPrintedPages,bookPlanFolios,convergeLayout,lineInWindow,savePlan,replayPlan,selectParent}`,
+    `${script};return {planBook,planPrintedPages,bookPlanFolios,convergeLayout,lineInWindow,savePlan,replayPlan,selectParent,breakLines,hyphenationPoints,readCompositionStyle}`,
   )() as {
     planBook: typeof planBook
     planPrintedPages: typeof planPrintedPages
@@ -88,9 +109,35 @@ test('layoutScript keeps its planner names after minification', async () => {
     savePlan: typeof savePlan
     replayPlan: typeof replayPlan
     selectParent: (rules: readonly { parent: string }[], facts: object) => string
+    breakLines: typeof breakLines
+    hyphenationPoints: typeof hyphenationPoints
+    readCompositionStyle: (properties: { getPropertyValue(name: string): string }) => unknown
   }
   expect(typeof embedded.lineInWindow).toBe('function')
   expect(embedded.selectParent([{ parent: 'body' }], {})).toBe('body')
+  expect(
+    embedded.breakLines(
+      [
+        { type: 'box', width: 30 },
+        { type: 'glue', width: 5, stretch: 3, shrink: 2 },
+        { type: 'box', width: 30 },
+      ],
+      [40],
+    ),
+  ).toEqual(
+    breakLines(
+      [
+        { type: 'box', width: 30 },
+        { type: 'glue', width: 5, stretch: 3, shrink: 2 },
+        { type: 'box', width: 30 },
+      ],
+      [40],
+    ),
+  )
+  expect(embedded.hyphenationPoints('hyphenation', 'en-US')).toEqual(hyphenationPoints('hyphenation', 'en-US'))
+  expect(embedded.readCompositionStyle({ getPropertyValue: (name) => (name === '--segnavia-composer' ? 'paragraph' : '') })).toEqual({
+    composer: 'paragraph',
+  })
   const measurements = input({
     flows: [flow('front', 'front', [block('text', 'p', 0, 1, 1, 0)], 'Front'), flow('body', 'chapter', [block('text', 'p', 1, 1, 1, 0)], 'Body')],
     settings: { ...settings, direction: 'rtl' },

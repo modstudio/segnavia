@@ -66,21 +66,21 @@ function exceptionPoints(exception: string): [string, number[]] {
   return [parts.join(''), points]
 }
 
-function hyphenator(language: string): Hyphenator | undefined {
+function hyphenator(language: string, dataByLanguage: Record<string, LanguageData>, cache: Map<string, Hyphenator>): Hyphenator | undefined {
   const primary = language.toLowerCase().split('-')[0] ?? ''
-  const data = languageData[primary]
+  const data = dataByLanguage[primary]
   if (!data || data.patterns === null) return undefined
-  const cached = hyphenators.get(primary)
+  const cached = cache.get(primary)
   if (cached) return cached
   const built = {
     exceptions: new Map(data.exceptions.trim().split(/\s+/).map(exceptionPoints)),
     root: buildTrie(data.patterns),
   }
-  hyphenators.set(primary, built)
+  cache.set(primary, built)
   return built
 }
 
-function patternPoints(word: string, root: TrieNode): number[] {
+function patternPoints(word: string, root: TrieNode, leftMinimum: number, rightMinimum: number): number[] {
   const decorated = `.${word}.`
   const scores = Array.from<number>({ length: decorated.length + 1 }).fill(0)
   for (let start = 0; start < decorated.length; start += 1) {
@@ -93,32 +93,77 @@ function patternPoints(word: string, root: TrieNode): number[] {
       }
     }
   }
-  return scores.flatMap((score, index) => (score % 2 === 1 && index > LEFT_MINIMUM && index < word.length - RIGHT_MINIMUM + 2 ? [index - 1] : []))
+  return scores.flatMap((score, index) => (score % 2 === 1 && index > leftMinimum && index < word.length - rightMinimum + 2 ? [index - 1] : []))
 }
 
-function pointsForSegment(word: string, language: string): number[] {
-  const built = hyphenator(language)
-  if (!built || word.length < LEFT_MINIMUM + RIGHT_MINIMUM) return []
+function pointsForSegment(
+  word: string,
+  language: string,
+  dataByLanguage: Record<string, LanguageData>,
+  cache: Map<string, Hyphenator>,
+  leftMinimum: number,
+  rightMinimum: number,
+): HyphenationPoint[] {
+  const built = hyphenator(language, dataByLanguage, cache)
+  if (!built || word.length < leftMinimum + rightMinimum) return []
   const normalized = word.toLowerCase()
-  return built.exceptions.get(normalized) ?? patternPoints(normalized, built.root)
+  return (built.exceptions.get(normalized) ?? patternPoints(normalized, built.root, leftMinimum, rightMinimum)).map((index) => ({ index, hyphen: true }))
 }
 
-function isMaqafBreak(word: string, index: number): boolean {
-  return word[index] === '\u05be' && LETTER.test(word[index - 1] ?? '') && LETTER.test(word[index + 1] ?? '')
+function isMaqafBreak(word: string, index: number, letter: RegExp): boolean {
+  return word[index] === '\u05be' && letter.test(word[index - 1] ?? '') && letter.test(word[index + 1] ?? '')
 }
 
 /**
  * Returns indices at which a word may be broken, without changing the word.
  * A break following U+05BE maqaf inserts no hyphen; every other break does.
  */
-export function hyphenationPoints(word: string, language: string): number[] {
-  const points: number[] = []
+export interface HyphenationPoint {
+  index: number
+  hyphen: boolean
+}
+
+function hyphenationPointsWith(
+  word: string,
+  language: string,
+  dataByLanguage: Record<string, LanguageData>,
+  cache: Map<string, Hyphenator>,
+  leftMinimum: number,
+  rightMinimum: number,
+  letter: RegExp,
+): HyphenationPoint[] {
+  const points: HyphenationPoint[] = []
   let segmentStart = 0
   for (let index = 0; index <= word.length; index += 1) {
     if (word[index] !== '\u05be' && index !== word.length) continue
-    points.push(...pointsForSegment(word.slice(segmentStart, index), language).map((point) => segmentStart + point))
-    if (isMaqafBreak(word, index)) points.push(index + 1)
+    points.push(
+      ...pointsForSegment(word.slice(segmentStart, index), language, dataByLanguage, cache, leftMinimum, rightMinimum).map((point) => ({
+        index: segmentStart + point.index,
+        hyphen: point.hyphen,
+      })),
+    )
+    if (isMaqafBreak(word, index, letter)) points.push({ index: index + 1, hyphen: false })
     segmentStart = index + 1
   }
   return points
+}
+
+export function hyphenationPoints(word: string, language: string): HyphenationPoint[] {
+  return hyphenationPointsWith(word, language, languageData, hyphenators, LEFT_MINIMUM, RIGHT_MINIMUM, LETTER)
+}
+
+/** Embeds the language hyphenator in an author-document frame. */
+export function hyphenationScript(): string {
+  return `var LEFT_MINIMUM=${LEFT_MINIMUM};var RIGHT_MINIMUM=${RIGHT_MINIMUM};var LETTER=/^\\p{Letter}$/u;
+var languageData=${JSON.stringify(languageData)};
+var hyphenators=new Map();
+${patternParts.toString()}
+${buildTrie.toString()}
+${exceptionPoints.toString()}
+${hyphenator.toString()}
+${patternPoints.toString()}
+${pointsForSegment.toString()}
+${isMaqafBreak.toString()}
+${hyphenationPointsWith.toString()}
+var hyphenationPoints=function(word,language){return ${hyphenationPointsWith.name}(word,language,languageData,hyphenators,LEFT_MINIMUM,RIGHT_MINIMUM,LETTER)};`
 }

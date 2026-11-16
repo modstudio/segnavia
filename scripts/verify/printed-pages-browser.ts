@@ -5,6 +5,13 @@ import path from 'node:path'
 import { Print, paperViewport } from '@segnavia/format'
 import { printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { Page } from 'playwright-core'
+import {
+  LETTER_IMPOSITION,
+  type LegacyPrintedPage,
+  printedDocument,
+  printPagesInBrowser,
+  verifyPrintedComposedParagraphs,
+} from './composed-paragraph-acceptance.ts'
 import { type Harness, ROOT } from './harness.ts'
 import { verifyPrintedPageInlineOverflow } from './printed-page-inline-overflow.ts'
 
@@ -27,56 +34,6 @@ function pdfWords(file: string): PdfWord[][] {
 
 const furnitureWord = (word: string) => ['LETTERHEAD', 'Page', 'of', 'כותרת', 'עמוד', 'מתוך', 'א', 'ב', 'ג'].includes(word)
 const closeWord = (left: PdfWord, right: PdfWord) => left.text === right.text && Math.abs(left.x - right.x) <= 0.5 && Math.abs(left.y - right.y) <= 0.5
-const LETTER_IMPOSITION = { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } }
-
-interface LegacyPrintedPage {
-  [key: string]: unknown
-  html: string
-  lang?: string
-  dir?: string
-  scripts?: string
-  printedPages?: {
-    parents?: Array<{ name: string; margin: unknown }>
-    parentRules?: unknown
-    fragmentation?: unknown
-  }
-}
-
-function printedDocument(page: LegacyPrintedPage) {
-  const { html, lang, dir, scripts, printedPages, ...fields } = page
-  return {
-    type: 'document',
-    kind: 'printed',
-    ...fields,
-    settings: { lang, dir, scripts },
-    parentPages: (printedPages?.parents ?? []).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
-    parentRules: printedPages?.parentRules,
-    fragmentation: printedPages?.fragmentation,
-    children: [{ type: 'page', body: { html } }],
-  }
-}
-
-async function printPagesInBrowser(input: {
-  imposition: unknown
-  motifs?: Array<{ key: string }>
-  output: 'count' | 'html'
-  printedPage: unknown
-}): Promise<number | string> {
-  const bundle = '/segnavia.js'
-  const { printPages } = (await import(bundle)) as {
-    printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void>
-  }
-  let output: number | string = input.output === 'count' ? 0 : ''
-  const source = input.motifs ? { motif: async (key: string) => input.motifs?.find((motif) => motif.key === key) } : undefined
-  await printPages([input.printedPage], input.imposition, {
-    motifs: source ? { source } : undefined,
-    print: (win: Window) => {
-      output = input.output === 'count' ? win.document.querySelectorAll('.paper').length : `<!doctype html>${win.document.documentElement.outerHTML}`
-    },
-  })
-  return output
-}
-
 export async function verifyPrintedParentPages(page: Page, url: string, check: Harness['check']) {
   const work = mkdtempSync(path.join(tmpdir(), 'segnavia-browser-pages-'))
   try {
@@ -151,6 +108,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       parents: [{ name: 'body', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }],
       parentRules: [{ parent: 'body' }],
     }
+    await verifyPrintedComposedParagraphs(page, url, check, parentPages)
     const viewportFixture = {
       type: 'document' as const,
       kind: 'printed' as const,

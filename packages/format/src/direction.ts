@@ -24,8 +24,9 @@ export function textDirection(dir: string | undefined, lang: string | undefined,
   if (dir === 'ltr' || dir === 'rtl') return dir
   if (lang) return rtlLanguages.has(lang.toLowerCase().split('-')[0] ?? '') ? 'rtl' : 'ltr'
   for (const char of sample) {
+    if (!letter.test(char)) continue
     if (rtlLetter.test(char)) return 'rtl'
-    if (letter.test(char)) return 'ltr'
+    return 'ltr'
   }
   return null
 }

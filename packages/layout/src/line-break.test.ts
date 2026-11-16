@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { Box, Glue, Penalty } from './line-break.ts'
-import { breakLines } from './line-break.ts'
+import { breakLines, breakLinesScript } from './line-break.ts'
 
 const box = (width: number): Box => ({ type: 'box', width })
 const glue = (width = 1, stretch = 1, shrink = 1): Glue => ({ type: 'glue', width, stretch, shrink })
@@ -27,6 +27,10 @@ test('uses a forced penalty even when the resulting lines need emergency stretch
   expect(result.breaks).toEqual([1, 3])
   expect(result.ratios).toEqual([Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY])
   expect(result.violations).toEqual([true, true])
+})
+
+test('adds the terminal break after a forced penalty in the middle', () => {
+  expect(breakLines([box(3), penalty(Number.NEGATIVE_INFINITY), box(3)], [10]).breaks).toEqual([1, 3])
 })
 
 test('returns and flags the least-bad set when no feasible set exists', () => {
@@ -137,4 +141,75 @@ test('does not invent a line at the two-thousand-item chunk boundary', () => {
   expect(result.breaks.every((index) => index < items.length)).toBe(true)
   expect(result.ratios).toHaveLength(result.breaks.length)
   expect(result.violations).toHaveLength(result.breaks.length)
+})
+
+test('active-node deactivation preserves frozen generated breaks', () => {
+  let state = 0x5e67a577
+  const random = () => {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0
+    return state / 0x1_0000_0000
+  }
+  const generated = Array.from({ length: 80 }, (_, caseIndex) => {
+    const items: Array<Box | Glue | Penalty> = []
+    const words = 6 + Math.floor(random() * 18)
+    for (let index = 0; index < words; index++) {
+      const first = 2 + Math.floor(random() * 5)
+      const second = 1 + Math.floor(random() * 4)
+      items.push(box(first))
+      if (index % 4 === 2) items.push(penalty(25, true, 1), box(second))
+      if (index < words - 1) items.push(glue(2, 8, 1))
+      if (caseIndex % 9 === 0 && index === Math.floor(words / 2)) items.push(penalty(Number.NEGATIVE_INFINITY))
+    }
+    items.push(penalty(Number.POSITIVE_INFINITY), glue(0, 100_000, 0), penalty(Number.NEGATIVE_INFINITY))
+    const firstMeasure = 15 + Math.floor(random() * 15)
+    const widths = caseIndex % 3 === 0 ? [firstMeasure, firstMeasure + 3, firstMeasure - 2] : [firstMeasure]
+    return { items, widths }
+  })
+  const chunked: Array<Box | Glue | Penalty> = Array.from({ length: 30 }, (_, index) => [box(1 + (index % 3)), glue(1, 8, 1)]).flat()
+  chunked.push(box(2), penalty(Number.NEGATIVE_INFINITY))
+
+  const frozen = new Map([
+    [0, [9, 20, 28, 36]],
+    [1, [9, 19, 29, 43]],
+    [2, [11, 21, 33, 45]],
+    [9, [7, 18, 28, 34]],
+    [23, [3, 11, 17, 21, 27, 33, 41]],
+  ])
+  for (const [index, breaks] of frozen) {
+    const result = breakLines(generated[index]?.items ?? [], generated[index]?.widths ?? [])
+    expect(result.breaks).toEqual(breaks)
+    expect(result.violations).not.toContain(true)
+  }
+  const chunkedBreakLines = new Function(`${breakLinesScript().replace('var CHUNK_ITEMS=2000', 'var CHUNK_ITEMS=20')};return breakLines`)() as typeof breakLines
+  expect(chunkedBreakLines(chunked, [18, 20]).breaks).toEqual([9, 19, 29, 39, 49, 59, 61])
+})
+
+test('keeps a shrinkable active node after its natural width passes the measure', () => {
+  const items = [
+    box(9),
+    glue(2, 4, 2),
+    box(2),
+    glue(4, 3, 5),
+    box(9),
+    glue(1, 1, 3),
+    box(2),
+    glue(5, 2, 3),
+    box(8),
+    glue(3, 1, 3),
+    box(2),
+    glue(1, 4, 1),
+    box(9),
+    penalty(Number.POSITIVE_INFINITY),
+    glue(0, 100_000, 0),
+    penalty(Number.NEGATIVE_INFINITY),
+  ]
+
+  const result = breakLines(items, [23])
+
+  // At breakpoint 5 the first line's natural width is 26, but its 7px shrink
+  // keeps the start node viable. Breakpoint 7 then fits 29px into 23px with
+  // 10px available shrink, producing the optimal -0.6 ratio.
+  expect(result.breaks).toEqual([7, 15])
+  expect(result.ratios).toEqual([-0.6, 0])
+  expect(result.violations).toEqual([false, false])
 })

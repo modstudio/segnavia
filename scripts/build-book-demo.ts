@@ -9,6 +9,7 @@ import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { writeBookFeatureDemos } from './build-book-feature-demos.ts'
 import { writeBookFillDemo } from './build-book-fill-demo.ts'
 import { fixtureIds } from './build-book-fixture-ids.ts'
+import { buildBookSupportDemos } from './build-composition-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
@@ -22,7 +23,6 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { PAGINATED_TABLE_FLOW_IDS, tableFixtureRows, writePaginatedTableBook } from './demo-book-table-fixtures.ts'
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
-import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
 const bookFixtureValue = (input: DocumentInput) => bookFromDocument(parseDocument(input, { newId: fixtureIds() }))
 const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
@@ -255,7 +255,7 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
         children: [
           flowSection(
             hebrew ? 'פתיחה' : 'Preface',
-            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
+            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}:where(.segnavia-chapter p){text-align:justify;--segnavia-composer:paragraph;--segnavia-hyphenate:true}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
           ),
           { type: 'contents', title: hebrew ? 'תוכן' : 'Contents', pageNumbers: false, contentsDepth: 2 },
         ],
@@ -278,9 +278,8 @@ export async function buildNoteCasePdfs(site: string, render: (book: DocumentInp
     writeFileSync(path.join(site, `book-paginated-notes-${hebrew ? 'he' : 'en'}.pdf`), await render(noteCasesFixture(hebrew), css))
   }
 }
-
 export async function buildBookDemo(site: string): Promise<void> {
-  await buildIdmlTableDemo(site)
+  await buildBookSupportDemos(site)
   await writePlacedMediaBook(site)
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(true)))))
@@ -370,7 +369,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     path.join(site, 'book-paginated-large.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Large paginated book elements</title><style>
       html,body{margin:0}body{display:grid;grid-template-columns:1fr 1fr;gap:16px}segnavia-book{display:block;block-size:70vh}
-    </style></head><body><segnavia-book id="book-large-en" src="book-paginated-large-en.json"></segnavia-book><segnavia-book id="book-large-he" src="book-paginated-large-he.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
+    </style></head><body><segnavia-book id="book-large-en" src="book-paginated-large-en.json"></segnavia-book><segnavia-book id="book-large-he"></segnavia-book><script>document.addEventListener('composeprogress',event=>{if(event.target.id!=='book-large-en'||event.detail.total===0||event.detail.pages!==event.detail.total)return;const hebrew=document.getElementById('book-large-he');if(!hebrew.hasAttribute('src'))hebrew.setAttribute('src','book-paginated-large-he.json')})</script><script type="module" src="segnavia.js"></script></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-paginated-notes.html'),
