@@ -1,5 +1,5 @@
 import type { BoardItem } from '@segnavia/format'
-import type { CheckedResolvedBoardItem } from './board-policy.ts'
+import type { BoardResolutionOutcome } from './board-resolutions.ts'
 
 export type BoardItemNames = (items: BoardItem[]) => Promise<Record<string, string>>
 
@@ -18,13 +18,8 @@ export class BoardNames {
 
   update(items: BoardItem[], provider: BoardItemNames | undefined) {
     if (provider !== this.provider) {
-      const hadNames = this.names.size > 0
       this.provider = provider
-      this.generation += 1
-      this.names.clear()
-      this.inFlight.clear()
-      this.failedAddresses.clear()
-      if (hadNames) this.changed()
+      if (this.forget()) this.changed()
     }
     const addresses = new Set(items.map((item) => item.address))
     this.activeAddresses = addresses
@@ -56,7 +51,32 @@ export class BoardNames {
       })
   }
 
-  name(item: BoardItem | undefined, resolved: CheckedResolvedBoardItem | undefined): string {
-    return (item && this.names.get(item.address)) || resolved?.title || ''
+  drop(addresses?: readonly string[]) {
+    if (!addresses) {
+      if (this.forget()) this.changed()
+      return
+    }
+    this.generation += 1
+    this.inFlight.clear()
+    let hadNames = false
+    for (const address of addresses) {
+      hadNames = this.names.delete(address) || hadNames
+      this.failedAddresses.delete(address)
+    }
+    if (hadNames) this.changed()
+  }
+
+  private forget(): boolean {
+    const hadNames = this.names.size > 0
+    this.generation += 1
+    this.inFlight.clear()
+    this.names.clear()
+    this.failedAddresses.clear()
+    return hadNames
+  }
+
+  name(item: BoardItem | undefined, outcome: BoardResolutionOutcome): string {
+    if (outcome.status === 'unavailable') return outcome.value.label ?? ''
+    return (item && this.names.get(item.address)) || (outcome.status === 'resolved' ? outcome.value.title : '') || ''
   }
 }

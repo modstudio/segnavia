@@ -215,7 +215,14 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.names.update(this.value?.items ?? [], value)
   }
   itemName(id: string): string {
-    return this.names.name(this.items.get(id), this.items.get(id) ? this.resolutions.value((this.items.get(id) as BoardItem).address) : undefined)
+    const item = this.items.get(id)
+    return this.names.name(item, this.resolutions.namingOutcome(item?.address ?? ''))
+  }
+  invalidateItems(addresses?: readonly string[]): void {
+    this.resolutions.drop(addresses)
+    this.names.drop(addresses)
+    this.names.update(this.value?.items ?? [], this.nameProvider)
+    this.render()
   }
   [boardEditing](delegate: BoardPointerDelegate, hostValue: BoardEditingHostValue): BoardEditingBridge {
     if (this.input.delegate || this.editingHostValue)
@@ -325,7 +332,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       return
     }
     this.decorations.render(board, this.currentView)
-    this.shapeCache.update(board, (address) => this.resolutions.value(address), this.currentView.zoom)
+    this.shapeCache.update(board, (address) => this.resolutions.outcome(address), this.currentView.zoom)
     const half = new Set(
       visibleItems(board, this.shapeCache.value.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height) / 2).map(
         (item) => item.id,
@@ -350,38 +357,38 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   }
 
   private paintItem(node: HTMLElement, item: BoardItem) {
-    const resolved = this.resolutions.value(item.address)
-    const name = this.names.name(item, resolved)
+    const outcome = this.resolutions.outcome(item.address)
+    const name = this.names.name(item, this.resolutions.namingOutcome(item.address))
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.frameInputs)
+    this.painter.paint(node, item, outcome, tier, (error) => this.fail(item, error), this.frameInputs)
   }
-
   private resolve(item: BoardItem) {
     this.resolutions.request(
       item,
-      (resolvedItem, resolved) => {
-        const shape = resolvedShape(boardPolicy.boardItemFact(resolved))
-        const pendingItem = this.pendingReveal ? this.items.get(this.pendingReveal.id) : undefined
-        const resolvedId = pendingItem?.address === resolvedItem.address ? pendingItem.id : undefined
-        const refit = boardPolicy.shouldRefitReveal(
-          this.pendingReveal?.id,
-          resolvedId,
-          this.pendingReveal?.height ?? 0,
-          pendingItem ? itemHeight(pendingItem, shape) : 0,
-        )
-        if (refit && resolvedId) {
-          const maxZoom = this.pendingReveal?.maxZoom
-          if (this.value) this.shapeCache.update(this.value, (address) => this.resolutions.value(address), this.currentView.zoom)
-          this.revealItem(resolvedId, false, maxZoom)
-        } else this.render()
-        if (resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
-      },
+      (resolvedItem, outcome) => this.resolutionSettled(resolvedItem, outcome),
       (failedItem, error) => this.fail(failedItem, error),
     )
   }
-
+  private resolutionSettled(resolvedItem: BoardItem, outcome: boardPolicy.BoardResolutionOutcome) {
+    const fact = boardPolicy.boardItemFact(outcome)
+    const shape = fact ? resolvedShape(fact) : undefined
+    const pendingItem = this.pendingReveal ? this.items.get(this.pendingReveal.id) : undefined
+    const resolvedId = pendingItem?.address === resolvedItem.address ? pendingItem.id : undefined
+    const refit = boardPolicy.shouldRefitReveal(
+      this.pendingReveal?.id,
+      resolvedId,
+      this.pendingReveal?.height ?? 0,
+      pendingItem && shape ? itemHeight(pendingItem, shape) : (this.pendingReveal?.height ?? 0),
+    )
+    if (refit && resolvedId) {
+      const maxZoom = this.pendingReveal?.maxZoom
+      if (this.value) this.shapeCache.update(this.value, (address) => this.resolutions.outcome(address), this.currentView.zoom)
+      this.revealItem(resolvedId, false, maxZoom)
+    } else this.render()
+    if (outcome.status === 'unavailable' || (outcome.status === 'resolved' && outcome.value.title)) this.dispatchEvent(boardEvent('segnavia-board-names'))
+  }
   private fail(item: BoardItem, error: unknown) {
     if (!this.resolutions.fail(item)) return
     for (const current of this.value?.items ?? []) if (current.address === item.address) this.painter.dispose(current.id)

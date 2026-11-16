@@ -70,6 +70,13 @@ export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
+export interface UnavailableBoardItem {
+  kind: ResolvedBoardItem['kind']
+  state: 'withheld' | 'gone'
+  size?: PixelSize
+  label?: string
+}
+
 type WithoutDesignedCover<T> = T extends { designedCover?: DesignedCover } ? Omit<T, 'designedCover'> : T
 export type ResolvedAsset = ResolvedPlacement | WithoutDesignedCover<Exclude<ResolvedBoardItem, { kind: 'image' | 'page' }>>
 export type AssetResolver = ResolvePlacement<ResolvedAsset>
@@ -85,6 +92,12 @@ export type CheckedResolvedBoardItem =
   | (CheckedResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (CheckedResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
+export type BoardResolutionOutcome =
+  | { status: 'pending' }
+  | { status: 'resolved'; value: CheckedResolvedBoardItem }
+  | { status: 'unavailable'; value: UnavailableBoardItem }
+  | { status: 'failed' }
+
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
 export const BOARD_ZOOM_FACTOR = 1.25
@@ -96,6 +109,23 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: PixelSize) {
   }
 }
 
+function expectedAnswerKind(item: BoardItem): ResolvedBoardItem['kind'] {
+  return item.kind === 'media' ? 'image' : item.kind
+}
+
+function kindMismatch(actual: ResolvedBoardItem['kind'], expected: ResolvedBoardItem['kind']): Error {
+  return new Error(`The resolved item kind is ${actual}, not ${expected}; return a resolved ${expected}.`)
+}
+
+export function checkUnavailable(item: BoardItem, unavailable: UnavailableBoardItem): UnavailableBoardItem {
+  const expected = expectedAnswerKind(item)
+  if (unavailable.kind !== expected) throw kindMismatch(unavailable.kind, expected)
+  if (unavailable.state !== 'withheld' && unavailable.state !== 'gone')
+    throw new Error(`The unavailable item state is ${unavailable.state}, not withheld or gone; return state withheld or gone.`)
+  if (unavailable.size) checkSize(unavailable.kind, unavailable.size)
+  return unavailable
+}
+
 type ResolveBoardBrand = (document?: Document) => Promise<Brand | undefined>
 
 export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem
@@ -105,8 +135,8 @@ export function checkResolved(
   resolved: ResolvedBoardItem,
   resolveItemBrand?: ResolveBoardBrand,
 ): CheckedResolvedBoardItem | Promise<CheckedResolvedBoardItem> {
-  const expected = item.kind === 'media' ? 'image' : item.kind
-  if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
+  const expected = expectedAnswerKind(item)
+  if (resolved.kind !== expected) throw kindMismatch(resolved.kind, expected)
   if (resolved.kind === 'image' || resolved.kind === 'shot') checkSize(resolved.kind, { width: resolved.width, height: resolved.height })
   else if (resolved.kind !== 'deck') checkSize(resolved.kind, resolved.size)
   const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
@@ -148,21 +178,33 @@ function resolvedDocument(item: BoardItem, input: DocumentInput, accepted: reado
   return document
 }
 
-export function boardItemFact(resolved: CheckedResolvedBoardItem): BoardItemFact {
-  if (resolved.kind === 'image') return { kind: 'media', size: { width: resolved.width, height: resolved.height } }
-  if (resolved.kind === 'deck') return { kind: 'deck', deck: resolved.deck }
-  if (resolved.kind === 'shot') return { kind: 'shot', size: { width: resolved.width, height: resolved.height } }
-  return { kind: resolved.kind, size: resolved.size }
+export function boardItemFact(outcome: BoardResolutionOutcome): BoardItemFact | undefined {
+  if (outcome.status !== 'resolved' && outcome.status !== 'unavailable') return undefined
+  let kind: ResolvedBoardItem['kind']
+  let size: PixelSize | undefined
+  let deck: Extract<BoardItemFact, { kind: 'deck' }>['deck'] | undefined
+  if (outcome.status === 'unavailable') {
+    kind = outcome.value.kind
+    size = outcome.value.size
+    if (!size) return undefined
+    if (kind === 'deck') deck = { size }
+  } else {
+    kind = outcome.value.kind
+    if (outcome.value.kind === 'deck') deck = outcome.value.deck
+    else if (outcome.value.kind === 'image' || outcome.value.kind === 'shot') size = { width: outcome.value.width, height: outcome.value.height }
+    else size = outcome.value.size
+  }
+  if (kind === 'deck') return deck ? { kind: 'deck', deck } : undefined
+  if (!size) return undefined
+  const factKind = kind === 'image' ? 'media' : kind
+  return { kind: factKind, size } as BoardItemFact
 }
 
-export function boardShapeFacts(
-  items: readonly BoardItem[],
-  resolved: (address: string) => CheckedResolvedBoardItem | undefined,
-): Record<string, BoardItemFact> {
+export function boardShapeFacts(items: readonly BoardItem[], outcome: (address: string) => BoardResolutionOutcome): Record<string, BoardItemFact> {
   return Object.fromEntries(
     items.flatMap((item) => {
-      const value = resolved(item.address)
-      return value ? [[item.address, boardItemFact(value)]] : []
+      const fact = boardItemFact(outcome(item.address))
+      return fact ? [[item.address, fact]] : []
     }),
   )
 }

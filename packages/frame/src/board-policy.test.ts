@@ -7,6 +7,7 @@ import {
   boardShapeFacts,
   boardTier,
   checkResolved,
+  checkUnavailable,
   effectiveRevealMaxZoom,
   keyToView,
   pinchOf,
@@ -99,8 +100,8 @@ describe('board policy', () => {
     expect(coverPresentation(parsed)).toEqual(expected)
   })
   test('adapts every resolved board item to a shape fact', () => {
-    type Resolved = Parameters<typeof boardItemFact>[0]
-    const fact = (value: unknown) => boardItemFact(value as Resolved)
+    type Resolved = Extract<Parameters<typeof boardItemFact>[0], { status: 'resolved' }>['value']
+    const fact = (value: unknown) => boardItemFact({ status: 'resolved', value: value as Resolved })
     expect(fact({ kind: 'image', width: 640, height: 480 })).toEqual({ kind: 'media', size: { width: 640, height: 480 } })
     expect(fact({ kind: 'shot', width: 1280, height: 720 })).toEqual({ kind: 'shot', size: { width: 1280, height: 720 } })
     expect(fact({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })).toEqual({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })
@@ -109,11 +110,11 @@ describe('board policy', () => {
   })
 
   test('keys resolved facts by address, shares them and omits unresolved addresses', () => {
-    type Resolved = NonNullable<ReturnType<Parameters<typeof boardShapeFacts>[1]>>
+    type Resolved = Extract<ReturnType<Parameters<typeof boardShapeFacts>[1]>, { status: 'resolved' }>['value']
     const shared = { id: 'shared', kind: 'media' as const, address: 'asset', x: 0, y: 0, width: 100 }
     const items = [shared, { ...shared, id: 'also-shared' }, { ...shared, id: 'missing', address: 'missing' }]
     const facts = boardShapeFacts(items, (address) =>
-      address === 'asset' ? ({ kind: 'image', src: 'image.png', width: 640, height: 480 } as Resolved) : undefined,
+      address === 'asset' ? { status: 'resolved', value: { kind: 'image', src: 'image.png', width: 640, height: 480 } as Resolved } : { status: 'pending' },
     )
     expect(facts).toEqual({ asset: { kind: 'media', size: { width: 640, height: 480 } } })
   })
@@ -144,6 +145,31 @@ describe('board policy', () => {
       size: { width: 10, height: 20 },
       designedCover: undefined,
     })
+  })
+
+  test('accepts unavailable values and uses their optional size as a shape fact', () => {
+    const withheld = { kind: 'paper' as const, state: 'withheld' as const, size: { width: 10, height: 20 }, label: 'Private' }
+    expect(checkUnavailable(paperItem, withheld)).toBe(withheld)
+    expect(boardShapeFacts([paperItem], () => ({ status: 'unavailable', value: withheld }))).toEqual({
+      paper: { kind: 'paper', size: { width: 10, height: 20 } },
+    })
+    expect(boardShapeFacts([paperItem], () => ({ status: 'unavailable', value: { kind: 'paper', state: 'withheld' } }))).toEqual({})
+    expect(checkUnavailable(paperItem, { kind: 'paper', state: 'gone' })).toEqual({ kind: 'paper', state: 'gone' })
+  })
+
+  test('refuses unavailable values with a mismatched kind or invalid size', () => {
+    expect(() => checkUnavailable(paperItem, { kind: 'image', state: 'gone' })).toThrow('The resolved item kind is image, not paper; return a resolved paper.')
+    for (const width of [0, Number.NaN]) {
+      expect(() => checkUnavailable(paperItem, { kind: 'paper', state: 'withheld', size: { width, height: 10 } })).toThrow(
+        `The resolved paper size has a width of ${width}; return a positive width.`,
+      )
+    }
+  })
+
+  test('refuses an unavailable value with an unknown state', () => {
+    expect(() => checkUnavailable(paperItem, { kind: 'paper', state: 'hidden' } as never)).toThrow(
+      'The unavailable item state is hidden, not withheld or gone; return state withheld or gone.',
+    )
   })
 
   test('uses the board brand as a whole-item default and lets an item brand win whole', async () => {

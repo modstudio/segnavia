@@ -1,9 +1,20 @@
 import { type BoardItem, type Brand, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
-import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import {
+  type BoardResolutionOutcome,
+  type CheckedResolvedBoardItem,
+  checkResolved,
+  checkUnavailable,
+  type ResolvedAsset,
+  type ResolvedBoardItem,
+  type UnavailableBoardItem,
+} from './board-policy.ts'
+
+export type { BoardResolutionOutcome } from './board-policy.ts'
+
 import type { BrandsOptions } from './brands.ts'
 
-export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
+export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem | UnavailableBoardItem>
 type BoardBrandResolution = { brand: Brand | undefined } | { error: unknown }
 
 export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?: AbortSignal): ResolveBoardItem {
@@ -31,8 +42,12 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
 interface BoardResolutionEntry {
   kind: BoardItem['kind']
   value?: CheckedResolvedBoardItem
+  unavailable?: UnavailableBoardItem
   failed?: boolean
 }
+
+const PENDING: BoardResolutionOutcome = { status: 'pending' }
+const FAILED: BoardResolutionOutcome = { status: 'failed' }
 
 export class BoardResolutions {
   resolver: ResolveBoardItem | undefined
@@ -41,6 +56,7 @@ export class BoardResolutions {
   private controller = new AbortController()
   private boardBrand: Promise<BoardBrandResolution> = Promise.resolve({ brand: undefined })
   private readonly entries = new Map<string, BoardResolutionEntry>()
+  private readonly lastUnavailable = new Map<string, { kind: BoardItem['kind']; value: UnavailableBoardItem }>()
 
   constructor(private readonly boardBrandFailed: (error: unknown) => void = () => {}) {}
 
@@ -62,11 +78,13 @@ export class BoardResolutions {
       if (controller === this.controller && 'error' in result) this.boardBrandFailed(result.error)
     })
     this.entries.clear()
+    this.lastUnavailable.clear()
   }
 
   keep(items: readonly BoardItem[]) {
     const kinds = new Map(items.map((item) => [item.address, item.kind]))
     for (const [address, entry] of this.entries) if (kinds.get(address) !== entry.kind) this.entries.delete(address)
+    for (const [address, remembered] of this.lastUnavailable) if (kinds.get(address) !== remembered.kind) this.lastUnavailable.delete(address)
   }
 
   value(address: string): CheckedResolvedBoardItem | undefined {
@@ -74,13 +92,44 @@ export class BoardResolutions {
     return entry?.failed ? undefined : entry?.value
   }
 
-  request(item: BoardItem, resolved: (item: BoardItem, value: CheckedResolvedBoardItem) => void, failed: (item: BoardItem, error: unknown) => void) {
+  outcome(address: string): BoardResolutionOutcome {
+    const entry = this.entries.get(address)
+    if (!entry) return PENDING
+    if (entry.failed) return FAILED
+    if (entry.value) return { status: 'resolved', value: entry.value }
+    if (entry.unavailable) return { status: 'unavailable', value: entry.unavailable }
+    return PENDING
+  }
+
+  namingOutcome(address: string): BoardResolutionOutcome {
+    const outcome = this.outcome(address)
+    if (outcome.status === 'resolved' || outcome.status === 'unavailable') return outcome
+    const remembered = this.lastUnavailable.get(address)
+    return remembered ? { status: 'unavailable', value: remembered.value } : outcome
+  }
+
+  drop(addresses?: readonly string[]) {
+    if (!addresses) {
+      this.entries.clear()
+      return
+    }
+    for (const address of addresses) this.entries.delete(address)
+  }
+
+  request(item: BoardItem, resolved: (item: BoardItem, outcome: BoardResolutionOutcome) => void, failed: (item: BoardItem, error: unknown) => void) {
     if (!this.resolver || this.entries.has(item.address)) return
     const entry: BoardResolutionEntry = { kind: item.kind }
     this.entries.set(item.address, entry)
     Promise.resolve()
-      .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
+      .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem | UnavailableBoardItem>)
       .then(async (value) => {
+        if (this.entries.get(item.address) !== entry) return
+        if ('state' in value) {
+          entry.unavailable = checkUnavailable(item, value)
+          this.lastUnavailable.set(item.address, { kind: item.kind, value: entry.unavailable })
+          resolved(item, { status: 'unavailable', value: entry.unavailable })
+          return
+        }
         const fallbackBrand = async () => {
           const result = await this.boardBrand
           if ('error' in result) throw result.error
@@ -89,10 +138,14 @@ export class BoardResolutions {
         const checked = await checkResolved(item, value, async (document) =>
           document ? ((await resolveBrand(document, this.brands?.source, this.controller.signal)) ?? (await fallbackBrand())) : fallbackBrand(),
         )
+        if (this.entries.get(item.address) !== entry) return
         entry.value = checked
-        resolved(item, checked)
+        this.lastUnavailable.delete(item.address)
+        resolved(item, { status: 'resolved', value: checked })
       })
-      .catch((error) => failed(item, error))
+      .catch((error) => {
+        if (this.entries.get(item.address) === entry) failed(item, error)
+      })
   }
 
   fail(item: BoardItem): boolean {
