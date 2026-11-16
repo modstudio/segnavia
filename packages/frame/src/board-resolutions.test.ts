@@ -61,6 +61,53 @@ test('marks a failure only once', () => {
   expect(resolutions.fail(failed)).toBe(false)
 })
 
+test('reports an unavailable outcome without routing it through failure', async () => {
+  const resolutions = new BoardResolutions()
+  const unavailable = { kind: 'image' as const, state: 'withheld' as const, label: 'Restricted' }
+  const failures: unknown[] = []
+  resolutions.resolver = async () => unavailable
+  resolutions.request(
+    item('withheld'),
+    () => {},
+    (_item, error) => failures.push(error),
+  )
+  await settle()
+  expect(resolutions.outcome('withheld')).toEqual({ status: 'unavailable', value: unavailable })
+  expect(resolutions.value('withheld')).toBeUndefined()
+  expect(failures).toEqual([])
+})
+
+test('drops only named resolved, unavailable and failed outcomes so they can resolve again', async () => {
+  const resolutions = new BoardResolutions()
+  const answers = new Map<string, typeof image | { kind: 'image'; state: 'withheld' }>([
+    ['failed', image],
+    ['withheld', { kind: 'image' as const, state: 'withheld' as const }],
+    ['kept', image],
+  ])
+  resolutions.resolver = async (requested) => answers.get(requested.address) ?? image
+  for (const address of answers.keys())
+    resolutions.request(
+      item(address),
+      () => {},
+      () => {},
+    )
+  await settle()
+  resolutions.fail(item('failed'))
+  resolutions.drop(['failed', 'withheld'])
+  answers.set('failed', image)
+  answers.set('withheld', image)
+  for (const address of ['failed', 'withheld'])
+    resolutions.request(
+      item(address),
+      () => {},
+      () => {},
+    )
+  await settle()
+  expect(resolutions.outcome('failed').status).toBe('resolved')
+  expect(resolutions.outcome('withheld').status).toBe('resolved')
+  expect(resolutions.outcome('kept').status).toBe('resolved')
+})
+
 test('drops entries outside the kept addresses', async () => {
   const resolutions = new BoardResolutions()
   let calls = 0

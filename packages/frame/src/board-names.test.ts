@@ -1,10 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import type { BoardItem } from '@segnavia/format'
+import { boardListing } from '@segnavia/format'
 import { BoardNames } from './board-names.ts'
+import type { BoardResolutionOutcome } from './board-resolutions.ts'
 
 const a: BoardItem = { id: 'a', kind: 'page', address: 'one', x: 0, y: 0, width: 1 }
 const b: BoardItem = { id: 'b', kind: 'page', address: 'two', x: 0, y: 0, width: 1 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+const pending: BoardResolutionOutcome = { status: 'pending' }
+const resolved = (value: Extract<BoardResolutionOutcome, { status: 'resolved' }>['value']): BoardResolutionOutcome => ({ status: 'resolved', value })
 
 describe('board names', () => {
   test('requests one batch per board value and skips named or in-flight addresses', async () => {
@@ -38,9 +42,9 @@ describe('board names', () => {
     )
     names.update([a, b], async () => ({ a: 'Host', b: 42, unknown: 'No', empty: '' }) as unknown as Record<string, string>)
     await settle()
-    expect(names.name(a, { kind: 'page', page: {} as never, size: { width: 1, height: 1 }, title: 'Resolved' })).toBe('Host')
-    expect(names.name(b, { kind: 'page', page: {} as never, size: { width: 1, height: 1 }, title: 'Resolved' })).toBe('Resolved')
-    expect(names.name(undefined, undefined)).toBe('')
+    expect(names.name(a, resolved({ kind: 'page', page: {} as never, size: { width: 1, height: 1 }, title: 'Resolved' }))).toBe('Host')
+    expect(names.name(b, resolved({ kind: 'page', page: {} as never, size: { width: 1, height: 1 }, title: 'Resolved' }))).toBe('Resolved')
+    expect(names.name(undefined, pending)).toBe('')
   })
 
   test('does not retry a rejected batch', async () => {
@@ -69,9 +73,9 @@ describe('board names', () => {
     )
     names.update([a], async () => ({ a: 'Host' }))
     await settle()
-    expect(names.name(a, undefined)).toBe('Host')
+    expect(names.name(a, pending)).toBe('Host')
     names.update([], undefined)
-    expect(names.name(a, undefined)).toBe('')
+    expect(names.name(a, pending)).toBe('')
   })
 
   test('discards an old provider result and requests current items from the new provider', async () => {
@@ -96,6 +100,50 @@ describe('board names', () => {
     finishOld?.({ a: 'Old' })
     await settle()
     expect(newCalls).toBe(1)
-    expect(names.name(a, undefined)).toBe('New')
+    expect(names.name(a, pending)).toBe('New')
+  })
+
+  test('never exposes a host name or resolved title for an unavailable item', async () => {
+    const names = new BoardNames(
+      () => {},
+      () => {},
+    )
+    names.update([a], async () => ({ a: 'Secret' }))
+    await settle()
+    const labeled: BoardResolutionOutcome = { status: 'unavailable', value: { kind: 'page', state: 'withheld', label: 'Restricted' } }
+    const unlabeled: BoardResolutionOutcome = { status: 'unavailable', value: { kind: 'page', state: 'gone' } }
+    expect(names.name(a, labeled)).toBe('Restricted')
+    expect(names.name(a, unlabeled)).toBe('')
+
+    const board = {
+      items: [a],
+      labels: [],
+      sections: [],
+    } as never
+    expect(boardListing(board, (item) => names.name(item, labeled), '', [])[0]?.items.map((item) => names.name(item, labeled))).toEqual(['Restricted'])
+    expect(boardListing(board, (item) => names.name(item, labeled), 'Secret', [])).toEqual([])
+  })
+
+  test('drops failed and cached names at the requested addresses', async () => {
+    let calls = 0
+    const names = new BoardNames(
+      () => {},
+      () => {},
+    )
+    const provider = async (items: BoardItem[]) => {
+      calls += 1
+      if (items.some((item) => item.id === 'a') && calls === 2) throw new Error('failed')
+      return Object.fromEntries(items.map((item) => [item.id, item.id === 'a' ? 'Restored' : 'Kept']))
+    }
+    names.update([b], provider)
+    await settle()
+    names.update([a, b], provider)
+    await settle()
+    names.drop(['one'])
+    names.update([a, b], provider)
+    await settle()
+    expect(calls).toBe(3)
+    expect(names.name(a, pending)).toBe('Restored')
+    expect(names.name(b, pending)).toBe('Kept')
   })
 })

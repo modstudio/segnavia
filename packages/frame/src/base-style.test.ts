@@ -78,7 +78,8 @@ describe('headless base styles', () => {
   })
 
   test('the board exposes geometry for every documented part without a surface scale', () => {
-    for (const part of ['surface', 'item', 'cover', 'placeholder', 'label', 'section', 'section-title']) expect(BASE_CSS).toContain(`[part~="${part}"]`)
+    for (const part of ['surface', 'item', 'cover', 'placeholder', 'placeholder-label', 'label', 'section', 'section-title'])
+      expect(BASE_CSS).toContain(`[part~="${part}"]`)
     expect(BASE_CSS).toContain(':host(segnavia-board:not([unstyled]))')
     expect(BASE_CSS).not.toMatch(/\[part~="surface"\][^{]*\{[^}]*transform:/)
   })

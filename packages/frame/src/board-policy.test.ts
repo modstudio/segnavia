@@ -7,6 +7,7 @@ import {
   boardShapeFacts,
   boardTier,
   checkResolved,
+  checkUnavailable,
   effectiveRevealMaxZoom,
   keyToView,
   pinchOf,
@@ -144,6 +145,23 @@ describe('board policy', () => {
       size: { width: 10, height: 20 },
       designedCover: undefined,
     })
+  })
+
+  test('accepts unavailable values and uses their optional size as a shape fact', () => {
+    const withheld = { kind: 'paper' as const, state: 'withheld' as const, size: { width: 10, height: 20 }, label: 'Private' }
+    expect(checkUnavailable(paperItem, withheld)).toBe(withheld)
+    expect(boardShapeFacts([paperItem], () => withheld)).toEqual({ paper: { kind: 'paper', size: { width: 10, height: 20 } } })
+    expect(boardShapeFacts([paperItem], () => ({ kind: 'paper', state: 'withheld' }))).toEqual({})
+    expect(checkUnavailable(paperItem, { kind: 'paper', state: 'gone' })).toEqual({ kind: 'paper', state: 'gone' })
+  })
+
+  test('refuses unavailable values with a mismatched kind or invalid size', () => {
+    expect(() => checkUnavailable(paperItem, { kind: 'image', state: 'gone' })).toThrow('The resolved item kind is image, not paper; return a resolved paper.')
+    for (const width of [0, Number.NaN]) {
+      expect(() => checkUnavailable(paperItem, { kind: 'paper', state: 'withheld', size: { width, height: 10 } })).toThrow(
+        `The resolved paper size has a width of ${width}; return a positive width.`,
+      )
+    }
   })
 
   test('uses the board brand as a whole-item default and lets an item brand win whole', async () => {

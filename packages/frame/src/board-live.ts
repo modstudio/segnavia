@@ -34,6 +34,16 @@ export function boardPlaceholder(): HTMLElement {
   return placeholder
 }
 
+export function unavailablePlaceholder(label: string | undefined, kind: string): HTMLElement {
+  const placeholder = boardPlaceholder()
+  const text = document.createElement('span')
+  text.part.add('placeholder-label')
+  text.dir = 'auto'
+  text.textContent = label ?? kind
+  placeholder.append(text)
+  return placeholder
+}
+
 export function boardShield(): HTMLElement {
   const shield = document.createElement('div')
   shield.className = 'shield'

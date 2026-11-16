@@ -1,5 +1,5 @@
 import type { BoardItem } from '@segnavia/format'
-import type { CheckedResolvedBoardItem } from './board-policy.ts'
+import type { BoardResolutionOutcome } from './board-resolutions.ts'
 
 export type BoardItemNames = (items: BoardItem[]) => Promise<Record<string, string>>
 
@@ -56,7 +56,22 @@ export class BoardNames {
       })
   }
 
-  name(item: BoardItem | undefined, resolved: CheckedResolvedBoardItem | undefined): string {
-    return (item && this.names.get(item.address)) || resolved?.title || ''
+  drop(addresses?: readonly string[]) {
+    this.generation += 1
+    this.inFlight.clear()
+    if (!addresses) {
+      this.names.clear()
+      this.failedAddresses.clear()
+      return
+    }
+    for (const address of addresses) {
+      this.names.delete(address)
+      this.failedAddresses.delete(address)
+    }
+  }
+
+  name(item: BoardItem | undefined, outcome: BoardResolutionOutcome): string {
+    if (outcome.status === 'unavailable') return outcome.value.label ?? ''
+    return (item && this.names.get(item.address)) || (outcome.status === 'resolved' ? outcome.value.title : '') || ''
   }
 }

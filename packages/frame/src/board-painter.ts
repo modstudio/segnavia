@@ -1,33 +1,39 @@
 import type { BoardItem } from '@segnavia/format'
 import type { BoardFrameInputs } from './board-frame-inputs.ts'
-import { boardImage, boardPlaceholder, boardShield, liveBoardItem } from './board-live.ts'
+import { boardImage, boardPlaceholder, boardShield, liveBoardItem, unavailablePlaceholder } from './board-live.ts'
 import type { BoardTier, CheckedResolvedBoardItem } from './board-policy.ts'
+import type { BoardResolutionOutcome } from './board-resolutions.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation } from './designed-cover-policy.ts'
 
 export class BoardPainter {
   private readonly tiers = new Map<string, BoardTier>()
-  private readonly painted = new Map<string, CheckedResolvedBoardItem | undefined>()
+  private readonly painted = new Map<string, BoardResolutionOutcome>()
   private readonly frameInputs = new Map<string, BoardFrameInputs>()
   private readonly disposals = new Map<string, () => void>()
 
-  paint(
-    node: HTMLElement,
-    item: BoardItem,
-    resolved: CheckedResolvedBoardItem | undefined,
-    tier: BoardTier,
-    failed: (error: unknown) => void,
-    inputs: BoardFrameInputs,
-  ) {
-    if (this.tiers.get(item.id) === tier && this.painted.get(item.id) === resolved && this.frameInputs.get(item.id) === inputs && node.childElementCount > 0)
+  paint(node: HTMLElement, item: BoardItem, outcome: BoardResolutionOutcome, tier: BoardTier, failed: (error: unknown) => void, inputs: BoardFrameInputs) {
+    if (
+      this.tiers.get(item.id) === tier &&
+      sameOutcome(this.painted.get(item.id), outcome) &&
+      this.frameInputs.get(item.id) === inputs &&
+      node.childElementCount > 0
+    )
       return
     this.dispose(item.id)
     node.replaceChildren()
     this.tiers.set(item.id, tier)
-    this.painted.set(item.id, resolved)
+    this.painted.set(item.id, outcome)
     this.frameInputs.set(item.id, inputs)
     try {
-      const content = resolved ? this.content(item.id, resolved, tier, failed, inputs) : boardPlaceholder()
+      node.removeAttribute('data-board-item-state')
+      const content =
+        outcome.status === 'resolved'
+          ? this.content(item.id, outcome.value, tier, failed, inputs)
+          : outcome.status === 'unavailable'
+            ? unavailablePlaceholder(outcome.value.label, outcome.value.kind)
+            : boardPlaceholder()
+      if (outcome.status === 'unavailable') node.dataset.boardItemState = outcome.value.state
       node.append(content, boardShield())
     } catch (error) {
       failed(error)
@@ -62,4 +68,11 @@ export class BoardPainter {
     this.disposals.set(id, live.dispose)
     return live.element
   }
+}
+
+function sameOutcome(previous: BoardResolutionOutcome | undefined, next: BoardResolutionOutcome): boolean {
+  if (!previous || previous.status !== next.status) return false
+  if (previous.status === 'resolved' && next.status === 'resolved') return previous.value === next.value
+  if (previous.status === 'unavailable' && next.status === 'unavailable') return previous.value === next.value
+  return true
 }

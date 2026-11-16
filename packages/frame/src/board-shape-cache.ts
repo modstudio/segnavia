@@ -1,6 +1,7 @@
 import type { Board, BoardItemFact, ComputedBoardShapes } from '@segnavia/format'
 import type { BoardDecorations } from './board-decorations.ts'
-import { boardShapeFacts, type CheckedResolvedBoardItem } from './board-policy.ts'
+import { boardShapeFacts } from './board-policy.ts'
+import type { BoardResolutionOutcome } from './board-resolutions.ts'
 
 const EMPTY_COMPUTED_SHAPES: ComputedBoardShapes = { shapes: { items: {}, labels: {} }, provisional: [], estimated: [] }
 
@@ -23,8 +24,11 @@ export class BoardShapeCache {
     this.facts = {}
   }
 
-  update(board: Board, resolved: (address: string) => CheckedResolvedBoardItem | undefined, zoom: number) {
-    this.facts = boardShapeFacts(board.items, resolved)
+  update(board: Board, outcome: (address: string) => BoardResolutionOutcome, zoom: number) {
+    this.facts = boardShapeFacts(board.items, (address) => {
+      const result = outcome(address)
+      return result.status === 'resolved' || result.status === 'unavailable' ? result.value : undefined
+    })
     this.value = this.decorations.shapes(board, this.facts, zoom)
   }
 }

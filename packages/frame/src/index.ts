@@ -32,7 +32,7 @@ export type {
 } from './board-events.ts'
 export { type BoardItemSearch, type BoardListLabels, type BoardSearchErrorDetail, type BoardSelectDetail, SegnaviaBoardList } from './board-list.ts'
 export type { BoardItemNames } from './board-names.ts'
-export type { AssetPlacementsOptions, AssetResolver, ResolvedAsset, ResolvedBoardItem } from './board-policy.ts'
+export type { AssetPlacementsOptions, AssetResolver, ResolvedAsset, ResolvedBoardItem, UnavailableBoardItem } from './board-policy.ts'
 export { boardTier, keyToView, shouldMountItem } from './board-policy.ts'
 export { boardItemFrom, type ResolveBoardItem } from './board-resolutions.ts'
 export type { BoardSelectionDetail, BoardSelectionEntry } from './board-selection.ts'
