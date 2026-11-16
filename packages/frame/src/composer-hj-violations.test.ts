@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { hjViolationEntry, worstViolation } from './composer-hj-violations.ts'
+import { embeddedComposerHjViolationFunctions, hjViolationEntry, worstViolation } from './composer-hj-violations.ts'
 
 const spacing = { minimum: 80, desired: 100, maximum: 133 }
 
@@ -30,4 +30,9 @@ test('builds a bounded preflight entry with the paragraph subject and folio', ()
     location: { folio: '12' },
     message: expect.stringContaining('149.5% word spacing'),
   })
+})
+
+test('embeds a self-contained entry builder and message', () => {
+  const embedded = new Function(`${embeddedComposerHjViolationFunctions()};return hjViolationEntry`)() as typeof hjViolationEntry
+  expect(embedded('body', '4', { line: 0, ratio: 1.5, wordSpacing: 149.5 }, spacing).message).toContain('149.5% word spacing')
 })

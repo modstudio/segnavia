@@ -1,8 +1,7 @@
 import type { PreflightCoverage, PreflightCoverageUnit, PreflightEntry, PreflightReport } from './preflight.ts'
 
-const percent = (value: number): string => `${Math.round(value * 10) / 10}%`
-
 export function hjViolationMessage(wordSpacing: number, minimum: number, maximum: number, ratio: number): string {
+  const percent = (value: number): string => `${Math.round(value * 10) / 10}%`
   const remedy = 'Widen the measure, allow hyphenation, widen the word-spacing limits, or edit the text to clear this violation.'
   if (ratio === Number.NEGATIVE_INFINITY) {
     return `The worst line is overfull even at the ${percent(minimum)} minimum word spacing; no word spacing can set it. ${remedy}`
