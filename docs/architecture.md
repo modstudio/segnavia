@@ -2025,6 +2025,7 @@ structured causes when one operation collected several refusals. An empty
 | `as-of` | As-of anchor resolution |
 | `font-face` | Font face parsing |
 | `placement` | Media placement |
+| `sound-print` | Printing placed sounds; subject is the first placement and each placement is a structured cause |
 | `duplicate-id`, `unminted-id` | Document identity |
 | `motif` | Motif expansion |
 | `font-css` | Font CSS generation |

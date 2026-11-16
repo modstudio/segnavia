@@ -14,6 +14,7 @@ import { Motif, MotifInput } from './motif.ts'
 import { PrintSetting, PrintSettingInput } from './paper.ts'
 import { PlacementShape } from './placement.ts'
 import { SlotDeclaration, SlotDeclarationInput } from './slots.ts'
+import { Sound } from './sound.ts'
 
 export const EXPORTED_SCHEMAS = {
   calendarDate: CalendarDate,
@@ -43,6 +44,7 @@ export const EXPORTED_SCHEMAS = {
   motif: Motif,
   motifInput: MotifInput,
   media: Media,
+  sound: Sound,
   placement: PlacementShape,
   cover: Cover,
 } as const

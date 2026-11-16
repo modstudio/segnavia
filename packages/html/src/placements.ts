@@ -8,14 +8,19 @@ import {
   type PreflightEntry,
   placedPdfPage,
   pointsToCssPixels,
+  type Sound,
 } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
+import { refuseSoundsForPrint } from './sound-print-refusal.ts'
 
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
 const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
-export type ResolvedPlacement = { kind: 'media'; media: Media; src: string; bytes?: Uint8Array } | { kind: 'page'; page: DocumentInput }
+export type ResolvedPlacement =
+  | { kind: 'media'; media: Media; src: string; bytes?: Uint8Array }
+  | { kind: 'sound'; sound: Sound; src: string }
+  | { kind: 'page'; page: DocumentInput }
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
   context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal; day?: AsOfDay },
@@ -252,6 +257,32 @@ function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
   })
 }
 
+type PlacementResolution<R extends { kind: string }> = { entry: PlacementPlanEntry; answer: R | undefined } | { entry: PlacementPlanEntry; error: unknown }
+
+function applyPlacementResolution<R extends { kind: string }>(
+  found: Element[],
+  resolved: PlacementResolution<R>,
+  options: {
+    purpose: 'screen' | 'print'
+    report?: PlacementReport
+    pdfSources?: Map<string, PlacedPdfSource>
+  },
+): void {
+  const { entry } = resolved
+  const element = found[entry.index]
+  if (!element) return
+  const classified = 'error' in resolved ? classifyMediaAnswer({ error: resolved.error }) : classifyMediaAnswer({ answer: resolved.answer })
+  const resolvedFailure = classified.status === 'ok' ? applyResolved(element, entry, classified.value, options.purpose, options.pdfSources) : undefined
+  if (classified.status === 'ok' && !resolvedFailure) return
+  placeholder(element)
+  options.report?.({
+    address: entry.placement.address,
+    page: entry.placement.page,
+    reason: resolvedFailure ?? (classified.status === 'ok' ? 'invalid' : classified.status),
+    ...(!('message' in classified) || classified.message === undefined ? {} : { message: classified.message }),
+  })
+}
+
 export async function resolvePlacements<R extends { kind: string }>(
   html: string,
   options: {
@@ -274,12 +305,10 @@ export async function resolvePlacements<R extends { kind: string }>(
     if (element) placeholder(element)
     options.report?.({ address: refusal.address, page: refusal.page, reason: 'invalid', message: refusal.message })
   }
-  await Promise.all(
+  const resolvedEntries = await Promise.all(
     plan.entries.map(async (entry) => {
-      const element = found[entry.index]
-      if (!element) return
       try {
-        const resolved = await abortable(
+        const answer = await abortable(
           () =>
             options.resolvePlacement(entry.placement, {
               purpose: options.purpose,
@@ -290,30 +319,20 @@ export async function resolvePlacements<R extends { kind: string }>(
           options.signal,
         )
         options.signal.throwIfAborted()
-        const classified = classifyMediaAnswer({ answer: resolved })
-        const resolvedFailure = classified.status === 'ok' ? applyResolved(element, entry, classified.value, options.purpose, options.pdfSources) : undefined
-        if (classified.status !== 'ok' || resolvedFailure) {
-          placeholder(element)
-          options.report?.({
-            address: entry.placement.address,
-            page: entry.placement.page,
-            reason: resolvedFailure ?? (classified.status === 'ok' ? 'invalid' : classified.status),
-            ...(!('message' in classified) || classified.message === undefined ? {} : { message: classified.message }),
-          })
-        }
+        return { entry, answer } as const
       } catch (error) {
         if (options.signal.aborted) throw options.signal.reason
-        const classified = classifyMediaAnswer({ error })
-        placeholder(element)
-        options.report?.({
-          address: entry.placement.address,
-          page: entry.placement.page,
-          reason: classified.status,
-          message: classified.message,
-        })
+        return { entry, error } as const
       }
     }),
   )
+  refuseSoundsForPrint(
+    resolvedEntries.map((resolved) => ({ placement: resolved.entry.placement.address, answer: 'answer' in resolved ? resolved.answer : undefined })),
+    options.purpose,
+  )
+  for (const resolved of resolvedEntries) {
+    applyPlacementResolution(found, resolved, { purpose: options.purpose, report: options.report, pdfSources: options.pdfSources })
+  }
   options.signal.throwIfAborted()
   return serialize(document)
 }

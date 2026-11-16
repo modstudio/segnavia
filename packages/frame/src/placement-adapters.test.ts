@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, Document, type DocumentInput, type Media } from '@segnavia/format'
-import { placementPlaceholderSource } from '@segnavia/html'
+import { placementPlaceholderSource, SoundPrintRefusedError } from '@segnavia/html'
 import { boardItemFrom } from './board-resolutions.ts'
 import { DeckController } from './controller.ts'
 import { preparedDeckValuePrint } from './print.ts'
@@ -107,6 +107,36 @@ test('deck media resolution passes the established day to placements', async () 
     day,
   )
   expect(received).toEqual(day)
+})
+
+test('deck print resolution collects sound placements in slide order', async () => {
+  const deck = Deck.parse({
+    title: 'Placed sounds',
+    size: { width: 640, height: 360 },
+    slides: [
+      { id: 'a', content: { media: { kind: 'sound', address: 'opening' } } },
+      { id: 'b', content: { media: { kind: 'sound', address: 'closing' } } },
+    ],
+  })
+  const work = resolveDeckMedia(
+    deck,
+    {
+      resolve: async (placement) => ({
+        kind: 'sound' as const,
+        sound: { format: 'wav' as const, durationMs: 1_000 },
+        src: `data:audio/wav,${placement.address}`,
+      }),
+    },
+    'print',
+    new AbortController().signal,
+  )
+  try {
+    await work
+    throw new Error('expected sound print refusal')
+  } catch (error) {
+    expect(error).toBeInstanceOf(SoundPrintRefusedError)
+    expect((error as SoundPrintRefusedError).placements).toEqual(['opening', 'closing'])
+  }
 })
 
 test('deck media reports each unusable resolver answer and keeps the placeholder', async () => {
