@@ -110,6 +110,7 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: PixelSize) {
 }
 
 function expectedAnswerKind(item: BoardItem): ResolvedBoardItem['kind'] {
+  if (item.kind === 'sound') throw new Error(`The sound at ${item.address} has no board face.`)
   return item.kind === 'media' ? 'image' : item.kind
 }
 

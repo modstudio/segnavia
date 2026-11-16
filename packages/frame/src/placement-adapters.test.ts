@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test'
 import { Deck, Document, type DocumentInput, type Media } from '@segnavia/format'
-import { placementPlaceholderSource } from '@segnavia/html'
+import { placementPlaceholderSource, SoundPrintRefusedError } from '@segnavia/html'
 import { boardItemFrom } from './board-resolutions.ts'
 import { DeckController } from './controller.ts'
 import { preparedDeckValuePrint } from './print.ts'
-import { resolveDeckMedia } from './print-document.ts'
+import { resolveDeckMedia, resolveMediaContent } from './print-document.ts'
 import { slotAssetFrom } from './slot-render.ts'
 
 const media: Media = { format: 'png', size: { width: 40, height: 20 } }
@@ -107,6 +107,46 @@ test('deck media resolution passes the established day to placements', async () 
     day,
   )
   expect(received).toEqual(day)
+})
+
+test('deck print resolution collects sound placements in slide order', async () => {
+  const deck = Deck.parse({
+    title: 'Placed sounds',
+    size: { width: 640, height: 360 },
+    slides: [
+      { id: 'a', content: { media: { kind: 'sound', address: 'opening' } } },
+      { id: 'b', content: { media: { kind: 'sound', address: 'closing' } } },
+    ],
+  })
+  let calls = 0
+  const work = resolveDeckMedia(
+    deck,
+    {
+      resolve: async () => {
+        calls++
+        return undefined
+      },
+    },
+    'print',
+    new AbortController().signal,
+  )
+  try {
+    await work
+    throw new Error('expected sound print refusal')
+  } catch (error) {
+    expect(error).toBeInstanceOf(SoundPrintRefusedError)
+    expect((error as SoundPrintRefusedError).placements).toEqual(['opening', 'closing'])
+  }
+  expect(calls).toBe(0)
+})
+
+test('declared deck sound refuses print without placements while screen keeps its placeholder', async () => {
+  const content = { media: { kind: 'sound' as const, address: 'theme' } }
+  await expect(resolveMediaContent(content, undefined, 'print', 640, new AbortController().signal)).rejects.toBeInstanceOf(SoundPrintRefusedError)
+  await expect(resolveMediaContent(content, undefined, 'screen', 640, new AbortController().signal)).resolves.toMatchObject({
+    kind: 'image',
+    src: placementPlaceholderSource(),
+  })
 })
 
 test('deck media reports each unusable resolver answer and keeps the placeholder', async () => {

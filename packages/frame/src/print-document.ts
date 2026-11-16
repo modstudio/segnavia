@@ -3,7 +3,6 @@
 // annotation shown, and its narration prints as its notes.
 
 import {
-  type AsOfDay,
   type Deck,
   type DocumentInput,
   deckFromDocument,
@@ -29,13 +28,12 @@ import {
   sharedImpositionPress,
 } from '@segnavia/format'
 import {
-  classifyMediaAnswer,
   type HtmlPage,
   isPrintedHtmlPage,
-  type PlacementsOptions,
   pageOrPrintedFromInput,
   parseDocument,
   placementPlaceholderSource,
+  refuseDeclaredSoundsForPrint,
   resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
@@ -51,6 +49,7 @@ import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { htmlSlideDocument, PRINT_COLOR_CSS } from './slide-print-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
+export { resolveDeckMedia, resolveMediaContent } from './deck-placement-resolution.ts'
 export { deckNotesPrint, deckPressSettings, deckSheetGeometry } from './deck-press.ts'
 export { imposedPaperDocument, type PrintablePaperBody } from './imposed-paper.ts'
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
@@ -61,56 +60,6 @@ export const SECTIONED_IMPOSITION_REFUSAL =
 
 export function refuseSectionedImpositionPage(page: Page): void {
   if (isPrintedHtmlPage(page)) throw new RangeError(SECTIONED_IMPOSITION_REFUSAL)
-}
-type MediaSlide = Extract<Slide['content'], { media: unknown }>
-type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
-function missingMedia(content: MediaSlide): ImageSlide {
-  return { kind: 'image', src: placementPlaceholderSource(), alt: content.media.alt?.text ?? '', fit: content.media.fit }
-}
-
-export async function resolveMediaContent<R extends { kind: string }>(
-  content: MediaSlide,
-  placements: PlacementsOptions<R> | undefined,
-  purpose: 'screen' | 'print',
-  width: number,
-  signal: AbortSignal,
-  day?: AsOfDay,
-): Promise<ImageSlide> {
-  const placement = content.media
-  if (!placements) return missingMedia(content)
-  try {
-    const answer = await placements.resolve(placement, { purpose, width, signal, day })
-    signal.throwIfAborted()
-    const classified = classifyMediaAnswer({ answer })
-    if (classified.status === 'ok') {
-      return { kind: 'image', src: classified.value.src, alt: placement.alt?.text ?? classified.value.media.alt?.text ?? '', fit: placement.fit }
-    }
-    placements.report?.({
-      address: placement.address,
-      page: placement.page,
-      reason: classified.status,
-      ...(classified.message === undefined ? {} : { message: classified.message }),
-    })
-  } catch (error) {
-    if (signal.aborted) throw signal.reason
-    const classified = classifyMediaAnswer({ error })
-    placements.report?.({ address: placement.address, page: placement.page, reason: classified.status, message: classified.message })
-  }
-  return missingMedia(content)
-}
-export async function resolveDeckMedia<R extends { kind: string }>(
-  deck: Deck,
-  placements: PlacementsOptions<R> | undefined,
-  purpose: 'screen' | 'print',
-  signal: AbortSignal,
-  day?: AsOfDay,
-): Promise<Deck> {
-  const slides = await Promise.all(
-    deck.slides.map(async (slide) =>
-      'media' in slide.content ? { ...slide, content: await resolveMediaContent(slide.content, placements, purpose, deck.size.width, signal, day) } : slide,
-    ),
-  )
-  return { ...deck, slides }
 }
 
 export interface PrintOptions {
@@ -183,8 +132,10 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
-  if ('media' in content)
+  if ('media' in content) {
+    refuseDeclaredSoundsForPrint([content.media], 'print')
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
+  }
   const frame = (html: string) => {
     const layoutScripts = layoutsForHtml(html, options.layoutScripts ?? [])
     return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`

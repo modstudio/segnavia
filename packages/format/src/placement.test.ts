@@ -11,11 +11,14 @@ describe('Placement', () => {
     ['board', 'paper'],
     ['board', 'book'],
     ['board', 'media'],
+    ['board', 'sound'],
     ['board', 'shot'],
     ['book', 'media'],
     ['book', 'page'],
     ['page', 'media'],
+    ['page', 'sound'],
     ['deck', 'media'],
+    ['deck', 'sound'],
     ['paper', 'media'],
   ] as const)('%s accepts %s through the acceptance table', (container, kind) => {
     expect(Placement.parse({ kind, address: 'asset' }, container)).toEqual({ kind, address: 'asset' })
@@ -24,6 +27,13 @@ describe('Placement', () => {
   test('refuses a deck placed in a book and names both kinds', () => {
     expect(() => Placement.parse({ kind: 'deck', address: 'slides' }, 'book')).toThrow(PlacementRefusedError)
     expect(() => Placement.parse({ kind: 'deck', address: 'slides' }, 'book')).toThrow(/book does not accept deck.*clear this refusal/)
+  })
+
+  test.each(['book', 'paper'] as const)('refuses sound placed in a %s through the placement refusal', (container) => {
+    expect(() => Placement.parse({ kind: 'sound', address: 'audio/theme' }, container)).toThrow(PlacementRefusedError)
+    expect(() => Placement.parse({ kind: 'sound', address: 'audio/theme' }, container)).toThrow(
+      new RegExp(`${container} does not accept sound.*clear this refusal`),
+    )
   })
 
   test('refuses a container absent from the acceptance table', () => {

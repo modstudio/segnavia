@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { DocumentInput, Media } from '@segnavia/format'
 import { PlacementResolutionError, placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
+import { SoundPrintRefusedError } from './sound-print-refusal.ts'
 
 const signal = new AbortController().signal
 const media = (alt?: Media['alt']): Media => ({ format: 'png', size: { width: 20, height: 10 }, ...(alt ? { alt } : {}) })
@@ -32,6 +33,45 @@ describe('placementPlan', () => {
 })
 
 describe('resolvePlacements', () => {
+  test('collects placed sounds in document order before drawing print placeholders', async () => {
+    const reports: unknown[] = []
+    const work = resolvePlacements('<img data-segnavia-media="first"><img data-segnavia-media="second">', {
+      resolvePlacement: async (placement) => ({
+        kind: 'sound' as const,
+        sound: { format: 'mp3' as const, durationMs: 1_000 },
+        src: `data:audio/mpeg,${placement.address}`,
+      }),
+      purpose: 'print',
+      width: 100,
+      signal,
+      report: (entry) => reports.push(entry),
+    })
+    try {
+      await work
+      throw new Error('expected sound print refusal')
+    } catch (error) {
+      expect(error).toBeInstanceOf(SoundPrintRefusedError)
+      expect((error as SoundPrintRefusedError).code).toBe('sound-print')
+      expect((error as SoundPrintRefusedError).subject).toBe('first')
+      expect((error as SoundPrintRefusedError).placements).toEqual(['first', 'second'])
+      expect((error as SoundPrintRefusedError).refusals.map(({ subject }) => subject)).toEqual(['first', 'second'])
+      expect((error as Error).message).toBe(
+        'Placement first holds a sound, which cannot print. Remove the placement, or place an image of its cover instead, to clear this refusal.',
+      )
+    }
+    expect(reports).toEqual([])
+  })
+
+  test('leaves a placed sound for the screen fallback path', async () => {
+    const output = await resolvePlacements('<img data-segnavia-media="theme">', {
+      resolvePlacement: async () => ({ kind: 'sound' as const, sound: { format: 'ogg' as const, durationMs: 500 }, src: 'data:audio/ogg,x' }),
+      purpose: 'screen',
+      width: 100,
+      signal,
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+  })
+
   test('reports a non-media answer as invalid and draws the placeholder', async () => {
     const reports: unknown[] = []
     const output = await resolvePlacements('<img data-segnavia-media="a">', {
@@ -127,6 +167,29 @@ describe('resolvePlacements', () => {
     })
     expect(output).toContain('data-segnavia-placement="missing"')
     expect(reports).toEqual([{ address: 'a', page: 'Missing', reason: 'no-page' }])
+  })
+
+  test('contains an application failure to its placement and continues applying answers', async () => {
+    const reports: unknown[] = []
+    const output = await resolvePlacements('<img data-segnavia-media="broken"><img data-segnavia-media="working">', {
+      resolvePlacement: async (placement) =>
+        placement.address === 'broken'
+          ? {
+              kind: 'media' as const,
+              media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: {} }] },
+              src: png,
+              bytes: new Uint8Array([1]),
+            }
+          : { kind: 'media' as const, media: media(), src: png },
+      purpose: 'print',
+      width: 100,
+      signal,
+      pdfSources: new Map(),
+      report: (entry) => reports.push(entry),
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+    expect(output).toContain(`<img src="${png}">`)
+    expect(reports).toEqual([{ address: 'broken', page: undefined, reason: 'failed', message: expect.any(String) }])
   })
 
   test('accepts a line-wrapped base64 image source as the sanitizer does', async () => {
