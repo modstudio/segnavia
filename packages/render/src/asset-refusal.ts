@@ -24,6 +24,7 @@ export function collectedAssetRefusal(
       code: 'unanswered',
       subject: url,
       message: `${url} was not answered by the host assets option; answer the approved asset to clear this refusal`,
+      adviceFor: 'host',
     })),
   })
 }

@@ -9,6 +9,7 @@ export function scriptsOffRefusal(value: string): AssetRefusal {
     reason: 'scripts-off',
     message: `${value} is refused because scripts are off`,
     advice: 'enable scripts to clear this refusal',
+    adviceFor: 'host',
   }
 }
 
@@ -27,6 +28,7 @@ export function srcsetAssetRefusal(
       reason: 'unreadable-srcset',
       message: 'srcset could not establish a readable candidate list',
       advice: 'use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+      adviceFor: 'author',
     }
   }
   for (const candidate of candidates) {

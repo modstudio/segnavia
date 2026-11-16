@@ -48,3 +48,10 @@ test('a URL named by several causes contributes its limit fact once', () => {
 test('no collected asset problem returns no error', () => {
   expect(collectedAssetRefusal(new Map(), new Map(), [])).toBeUndefined()
 })
+
+test('unanswered asset advice is addressed to the host', () => {
+  const url = 'https://one.example/a'
+  expect(collectedAssetRefusal(new Map(), new Map(), [url])).toMatchObject({
+    refusals: [{ code: 'unanswered', subject: url, adviceFor: 'host' }],
+  })
+})

@@ -34,7 +34,7 @@ test('an unapproved watermark image refuses before overlay injection', async () 
   const tab = { evaluateHandle: () => Promise.reject(new Error('overlay injection should not run')) }
   const message = `${url} at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal`
   await expect(injectImageWatermark(tab as never, markup ?? '', { scripts: true })).rejects.toEqual(
-    new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message }] }),
+    new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message, adviceFor: 'host' }] }),
   )
 })
 

@@ -2,6 +2,7 @@ export interface RefusalCause {
   code: string
   subject?: string
   message: string
+  adviceFor?: 'author' | 'host'
 }
 
 export interface RefusalOptions {

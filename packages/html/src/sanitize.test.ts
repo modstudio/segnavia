@@ -88,6 +88,7 @@ describe('srcset image origins', () => {
         reason: 'unreadable-srcset',
         message: 'srcset could not establish a readable candidate list',
         advice: 'use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+        adviceFor: 'author',
       },
     ])
   })
@@ -120,6 +121,7 @@ test('an opaque script source refusal has no origin', () => {
       reason: 'scripts-off',
       message: 'data:text/javascript,alert(1) is refused because scripts are off',
       advice: 'enable scripts to clear this refusal',
+      adviceFor: 'host',
     },
   ])
 })

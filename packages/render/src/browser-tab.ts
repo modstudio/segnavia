@@ -105,7 +105,12 @@ export function markupAssetRefusal(html: string, options: Pick<BrowserTabSetup, 
   const refusals = assetOriginRefusals(html, { keepScripts: options.scripts, origins: options.origins }).filter((refusal) => refusal.reason !== 'scripts-off')
   if (refusals.length === 0) return undefined
   const unique = new Map(refusals.map((refusal) => [assetRefusalKey(refusal), refusal]))
-  return [...unique.values()].map((refusal) => ({ code: refusal.reason, subject: refusal.url, message: assetRefusalText(refusal) }))
+  return [...unique.values()].map((refusal) => ({
+    code: refusal.reason,
+    subject: refusal.url,
+    message: assetRefusalText(refusal),
+    adviceFor: refusal.adviceFor,
+  }))
 }
 
 export async function assetRouteDecision(
@@ -121,7 +126,10 @@ export async function assetRouteDecision(
     return { action: 'abort', cause: { code: 'unsupported-fetch', subject: url, message: `${url} uses unsupported fetching; no asset kind can approve it` } }
   const policy = originDecision(url, kind, origins, scripts)
   if (!policy.allowed) {
-    return { action: 'abort', cause: { code: policy.refusal.reason, subject: url, message: assetRefusalText(policy.refusal) } }
+    return {
+      action: 'abort',
+      cause: { code: policy.refusal.reason, subject: url, message: assetRefusalText(policy.refusal), adviceFor: policy.refusal.adviceFor },
+    }
   }
   let answer: AssetAnswer | undefined
   try {
@@ -213,7 +221,7 @@ export async function renderInBrowserTab<T>(
       const bytes = decision.body.byteLength
       const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
       if (limitRefusal) {
-        refused.set(limitRefusal.message, { code: 'asset-limit', subject: url, message: limitRefusal.message })
+        refused.set(limitRefusal.message, { code: 'asset-limit', subject: url, message: limitRefusal.message, adviceFor: 'host' })
         exceeded.set(url, limitRefusal)
         await route.abort('blockedbyclient')
       } else {
