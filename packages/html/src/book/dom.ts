@@ -117,3 +117,7 @@ export function headingText(node: ChildNode): string {
   if (headingTextBlock(node)) return ` ${content} `
   return content
 }
+
+export function plainHeadingText(node: ChildNode): string {
+  return headingText(node).replace(/\s+/g, ' ').trim()
+}

@@ -1,7 +1,18 @@
-import { type Book, type BookDivision, noteMarker, type ResolvedNoteSeries, type RunText } from '@segnavia/format'
+import {
+  type Book,
+  type BookDivision,
+  type BookSectionEntry,
+  MAX_NOTE_HEADING_LEVEL,
+  MIN_NOTE_HEADING_LEVEL,
+  noteHeadingLevel,
+  noteMarker,
+  type ResolvedNoteSeries,
+  type RunText,
+} from '@segnavia/format'
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import { append, element, insertAfter, replace, text } from './dom.ts'
+import { headingRunText } from './heading-run-text.ts'
 import { noteBody } from './note-body.ts'
 
 const BLOCKS = new Set(['p', 'li', 'blockquote', 'dd', 'dt', 'figcaption', 'td', 'th', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article'])
@@ -9,6 +20,7 @@ const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
 
 export interface NoteSectionContext {
   chapter: number
+  headingScopeKey: string
   title?: RunText
   division: BookDivision
   targetId: string
@@ -18,7 +30,10 @@ export interface NoteSectionContext {
 
 export interface CollectedNoteRun {
   scopeKey: string
+  groupKey?: string
+  groupHeading?: RunText
   heading?: RunText
+  headingScope?: boolean
   paragraphs: Element[]
 }
 
@@ -45,12 +60,43 @@ export interface NoteState {
   collected: Map<string, CollectedNotes>
   pageParagraphs: Map<string, Element[]>
   authored: Map<string, AuthoredNote>
+  headingScopes: Map<string, { ordinal: number; heading: RunText | undefined }>
   repeatCount: number
   issues: string[]
 }
 
 export function noteState(): NoteState {
-  return { used: new Set(), counters: new Map(), collected: new Map(), pageParagraphs: new Map(), authored: new Map(), repeatCount: 0, issues: [] }
+  return {
+    used: new Set(),
+    counters: new Map(),
+    collected: new Map(),
+    pageParagraphs: new Map(),
+    authored: new Map(),
+    headingScopes: new Map(),
+    repeatCount: 0,
+    issues: [],
+  }
+}
+
+export function noteSectionContext(
+  sectionEntry: BookSectionEntry,
+  targetId: string,
+  chapter: number,
+  title: RunText | undefined,
+  partTargets: Map<string, string>,
+  headingScopeKey = chapter === 0 ? `s:${targetId}` : String(chapter),
+): NoteSectionContext {
+  const ancestry = sectionEntry.ancestry.at(-1)
+  for (const part of sectionEntry.ancestry) partTargets.set(part.id, targetId)
+  return {
+    chapter,
+    headingScopeKey,
+    title,
+    division: sectionEntry.division,
+    targetId,
+    ...(chapter === 0 && sectionEntry.division !== 'front' ? { placementKey: targetId.replace(/^segnavia-/, '') } : {}),
+    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title } } : {}),
+  }
 }
 
 function nearestBlock(note: Element): Element | undefined {
@@ -106,7 +152,20 @@ function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, ref
   })
 }
 
-function scopeKey(series: ResolvedNoteSeries, context: NoteSectionContext): string {
+function headingStateKey(context: NoteSectionContext, level: number): string {
+  return `${context.headingScopeKey}:${level}`
+}
+
+function headingScopeState(state: NoteState, context: NoteSectionContext, level: number) {
+  return state.headingScopes.get(headingStateKey(context, level))
+}
+
+function scopeKey(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): string {
+  const headingLevel = noteHeadingLevel(series.numbering)
+  if (headingLevel !== undefined) {
+    const ordinal = headingScopeState(state, context, headingLevel)?.ordinal ?? 0
+    return `${context.headingScopeKey}-${ordinal}`
+  }
   if (series.numbering === 'book') return 'book'
   if (series.numbering === 'part') return context.part?.id ?? 'book'
   return String(context.chapter)
@@ -118,10 +177,16 @@ function placementKey(series: ResolvedNoteSeries, context: NoteSectionContext): 
   return context.placementKey ?? String(context.chapter)
 }
 
-const SCOPE_RANK = { page: -1, chapter: 0, part: 1, book: 2 } as const
+const SCOPE_RANK = { page: -1, heading: -0.5, chapter: 0, part: 1, book: 2 } as const
 
-function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext): RunText | undefined {
-  if (series.numbering === 'book' || SCOPE_RANK[series.numbering] > SCOPE_RANK[series.placement]) return undefined
+function numberingRank(numbering: ResolvedNoteSeries['numbering']): number {
+  return noteHeadingLevel(numbering) === undefined ? SCOPE_RANK[numbering as 'chapter' | 'part' | 'book'] : SCOPE_RANK.heading
+}
+
+function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): RunText | undefined {
+  const headingLevel = noteHeadingLevel(series.numbering)
+  if (headingLevel !== undefined) return headingScopeState(state, context, headingLevel)?.heading
+  if (series.numbering === 'book' || numberingRank(series.numbering) > SCOPE_RANK[series.placement]) return undefined
   if (series.numbering === 'part') return context.part?.title
   // Chapter scope zero is shared by every front-matter and held section, so it has no single title to name.
   if (context.chapter === 0) return undefined
@@ -129,7 +194,7 @@ function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext): Ru
 }
 
 function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): { number: number; scope: string } {
-  const scope = scopeKey(series, context)
+  const scope = scopeKey(series, context, state)
   const key = `${series.name}:${scope}`
   const number = (state.counters.get(key) ?? 0) + 1
   state.counters.set(key, number)
@@ -137,7 +202,8 @@ function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, sta
 }
 
 function noteIds(series: ResolvedNoteSeries, scope: string, chapter: number, number: number): { noteId: string; refId: string } {
-  const scopePart = series.idScope === 'chapter' ? `-${chapter}` : series.numbering === 'book' ? '' : `-${scope}`
+  const headingLevel = noteHeadingLevel(series.numbering)
+  const scopePart = headingLevel !== undefined ? `-${scope}` : series.idScope === 'chapter' ? `-${chapter}` : series.numbering === 'book' ? '' : `-${scope}`
   return { noteId: `segnavia-${series.idStem}${scopePart}-${number}`, refId: `segnavia-${series.idStem}ref${scopePart}-${number}` }
 }
 
@@ -196,6 +262,24 @@ function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext,
   return collected
 }
 
+function addCollectedParagraph(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState, scope: string, paragraph: Element): void {
+  const collected = collectedNotes(series, context, state)
+  const run = collected.runs.at(-1)
+  if (run?.scopeKey === scope) {
+    run.paragraphs.push(paragraph)
+    return
+  }
+  const headingScoped = noteHeadingLevel(series.numbering) !== undefined
+  const grouped = headingScoped && (series.placement === 'part' || series.placement === 'book') && context.chapter > 0
+  collected.runs.push({
+    scopeKey: scope,
+    ...(grouped ? { groupKey: context.headingScopeKey, groupHeading: context.title } : {}),
+    heading: runHeading(series, context, state),
+    ...(headingScoped ? { headingScope: true } : {}),
+    paragraphs: [paragraph],
+  })
+}
+
 function transformAuthoredNote(
   note: Element,
   series: ResolvedNoteSeries,
@@ -230,12 +314,7 @@ function transformAuthoredNote(
       paragraphs.push(paragraph)
       state.pageParagraphs.set(series.name, paragraphs)
     } else addPageBlock(block, paragraph, blocks, series, seriesOrder)
-  } else {
-    const collected = collectedNotes(series, context, state)
-    const run = collected.runs.at(-1)
-    if (run?.scopeKey === scope) run.paragraphs.push(paragraph)
-    else collected.runs.push({ scopeKey: scope, heading: runHeading(series, context), paragraphs: [paragraph] })
-  }
+  } else addCollectedParagraph(series, context, state, scope, paragraph)
   if (authoredId) state.authored.set(authoredId, { noteId, refId, marker, series: series.name, key: series.key })
   state.used.add(series.name)
 }
@@ -266,10 +345,30 @@ export function transformNotes(root: Element, book: Book, context: NoteSectionCo
   const blocks = new Map<Element, Map<string, Element>>()
   const byName = new Map(book.notes.map((series) => [series.name, series]))
   const seriesOrder = new Map(book.notes.map((series, index) => [series.name, index]))
-  const nodes = elements(root.children).filter(
-    (node) => (node.name === 'span' && node.attribs['data-note'] !== undefined) || (node.name === 'a' && node.attribs['data-note-ref'] !== undefined),
+  const headingLevels = new Set(
+    book.notes.flatMap((series) => {
+      const level = noteHeadingLevel(series.numbering)
+      return level === undefined ? [] : [level]
+    }),
   )
-  for (const node of nodes) {
+  const nodes = elements(root.children).flatMap((node) => {
+    const match = /^h([0-9]+)$/.exec(node.name)
+    const headingLevel = match === null ? undefined : Number(match[1])
+    const matchingHeading =
+      headingLevel !== undefined && headingLevel >= MIN_NOTE_HEADING_LEVEL && headingLevel <= MAX_NOTE_HEADING_LEVEL && headingLevels.has(headingLevel)
+    return matchingHeading ||
+      (node.name === 'span' && node.attribs['data-note'] !== undefined) ||
+      (node.name === 'a' && node.attribs['data-note-ref'] !== undefined)
+      ? [{ node, headingLevel: matchingHeading ? headingLevel : undefined }]
+      : []
+  })
+  for (const { node, headingLevel } of nodes) {
+    if (headingLevel !== undefined) {
+      const key = headingStateKey(context, headingLevel)
+      const ordinal = (headingScopeState(state, context, headingLevel)?.ordinal ?? 0) + 1
+      state.headingScopes.set(key, { ordinal, heading: headingRunText(node) })
+      continue
+    }
     if (node.name === 'a') {
       transformRepeat(node, state)
       continue

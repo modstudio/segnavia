@@ -96,6 +96,23 @@ describe('note series', () => {
     ])
   })
 
+  test('accepts heading numbering and refuses levels outside h2 through h6 at the Book edge', () => {
+    const base = {
+      title: 'Book',
+      mode: 'paginated' as const,
+      page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+    }
+    expect(
+      Book.parse({ ...base, footnotes: { restart: { heading: 2 } }, notes: [{ name: 'sources', placement: 'book', numbering: { heading: 6 } }] }).notes,
+    ).toMatchObject([{ name: 'footnote', numbering: { heading: 2 } }, { name: 'endnote' }, { name: 'sources', numbering: { heading: 6 } }])
+    for (const heading of [1, 7]) {
+      expect(() => Book.parse({ ...base, notes: [{ name: 'sources', placement: 'book', numbering: { heading } }] })).toThrow(
+        `heading note numbering level ${heading} is outside 2 to 6`,
+      )
+    }
+  })
+
   test('overrides defaults and chooses the first unused marker for a third series', () => {
     expect(
       resolveNoteSeries({

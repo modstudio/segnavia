@@ -1,7 +1,7 @@
 import { type Book, bookFromDocument, type Document, type OutlineHeading, type OutlineSource, printedFromDocument, resolveDirection } from '@segnavia/format'
 import { type ChildNode, isTag } from 'domhandler'
 import { bookDocument } from './book/book-document.ts'
-import { headingText } from './book/dom.ts'
+import { plainHeadingText } from './book/dom.ts'
 import { type BookDocument, numberedHeadingLabel } from './book/types.ts'
 import { headingListing } from './heading-listing.ts'
 import { printedPageDirection, resolvePrintedPageHtml } from './markdown.ts'
@@ -20,7 +20,7 @@ function sourceFacts(html: string): { blocks: string[]; headings: OutlineHeading
       if (match && block) {
         headings.push({
           id: node.attribs.id ?? block,
-          title: headingText(node).replace(/\s+/g, ' ').trim(),
+          title: plainHeadingText(node),
           level: Number(match[1]),
           listed: headingListing(node),
           block,
