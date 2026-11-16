@@ -254,7 +254,7 @@ export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDo
 export type PdfRewritePhase = 'read' | 'rewrite'
 
 export function classifyPdfRewriteFailure(phase: PdfRewritePhase, error: unknown, step: string): RenderRefusedError {
-  if (phase === 'rewrite' && error instanceof RenderRefusedError) return error
+  if (error instanceof RenderRefusedError) return error
   if (phase === 'rewrite') {
     const message = error instanceof Error ? error.message : String(error)
     return new RenderRefusedError(`The ${step} failed after the PDF was read: ${message}`, { cause: error })
