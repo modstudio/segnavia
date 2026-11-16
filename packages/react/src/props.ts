@@ -292,6 +292,7 @@ export interface BoardProps extends ElementProps<SegnaviaBoard> {
   itemActions?: SegnaviaBoard['itemActions']
   labels?: SegnaviaBoard['labels']
   liveWidth?: SegnaviaBoard['liveWidth']
+  revealMaxZoom?: SegnaviaBoard['revealMaxZoom']
   resolveItem?: SegnaviaBoard['resolveItem']
   itemNames?: SegnaviaBoard['itemNames']
   onSegnaviaBoardChange?: CustomEventProp<BoardChangeDetail>

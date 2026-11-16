@@ -90,6 +90,7 @@ export const ELEMENT_PROPERTIES = {
       'itemActions',
       'labels',
       'liveWidth',
+      'revealMaxZoom',
       'resolveItem',
       'itemNames',
     ],

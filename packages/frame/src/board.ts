@@ -6,7 +6,6 @@ import {
   itemAt,
   itemHeight,
   resolvedShape,
-  revealView,
   screenToBoard,
   visibleItems,
   zoomToFit,
@@ -45,7 +44,8 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   private items = new Map<string, BoardItem>()
   private readonly painter = new BoardPainter()
   private readonly viewEvents = new BoardViewEventDispatcher(this)
-  private pendingReveal: { id: string; height: number } | undefined
+  private pendingReveal: boardPolicy.PendingReveal | undefined
+  private maximumRevealZoom: number | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
   private editingHostValue: BoardEditingHostValue | null = null
@@ -194,6 +194,12 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.threshold = value
     this.render()
   }
+  get revealMaxZoom(): number | undefined {
+    return this.maximumRevealZoom
+  }
+  set revealMaxZoom(value: number | undefined) {
+    this.maximumRevealZoom = value === undefined ? undefined : boardPolicy.checkRevealMaxZoom(value)
+  }
   get resolveItem(): ResolveBoardItem | undefined {
     return this.resolutions.resolver
   }
@@ -274,15 +280,16 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     if (!this.value || this.currentView.viewport.width <= 0 || this.currentView.viewport.height <= 0) return
     this.setView(boardPolicy.zoomView(this.currentView, zoom))
   }
-  reveal(id: string): boolean {
-    return this.revealItem(id, true)
+  reveal(id: string, options?: { maxZoom?: number }): boolean {
+    return this.revealItem(id, true, options?.maxZoom)
   }
-  private revealItem(id: string, focus: boolean): boolean {
+  private revealItem(id: string, focus: boolean, maxZoom?: number): boolean {
+    const effectiveMaxZoom = boardPolicy.effectiveRevealMaxZoom(maxZoom, this.revealMaxZoom)
     const target = this.value && this.canReveal ? revealTarget(this.value, this.shapeCache.value.shapes, id) : undefined
     if (!target) return false
-    this.pendingReveal = undefined
-    this.setView(revealView(target.bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
-    if (target.kind === 'item') this.pendingReveal = { id: target.item.id, height: target.bounds.height }
+    const request = boardPolicy.revealRequest(target, { width: this.clientWidth, height: this.clientHeight }, effectiveMaxZoom)
+    this.setView(request.view)
+    this.pendingReveal = request.pendingReveal
     if (focus) this.boardFocus.afterReveal(id)
     return true
   }
@@ -365,8 +372,9 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
           pendingItem ? itemHeight(pendingItem, shape) : 0,
         )
         if (refit && resolvedId) {
+          const maxZoom = this.pendingReveal?.maxZoom
           if (this.value) this.shapeCache.update(this.value, (address) => this.resolutions.value(address), this.currentView.zoom)
-          this.revealItem(resolvedId, false)
+          this.revealItem(resolvedId, false, maxZoom)
         } else this.render()
         if (resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
       },
