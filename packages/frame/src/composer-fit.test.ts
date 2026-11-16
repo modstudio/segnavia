@@ -20,10 +20,7 @@ function stagedFitAreas(): Array<{ width: number; height: number }> {
     attribute: string,
   ) => unknown
   const template = { getAttribute: (name: string) => (name === 'data-segnavia-template' ? 'practice' : null) }
-  const holders = [
-    [{ parent: 'segnavia:verso' }],
-    [{ when: { face: 'verso' }, parent: 'segnavia:verso' }, { parent: 'segnavia:recto' }],
-  ].map((rules) => ({
+  const holders = [[{ parent: 'segnavia:verso' }], [{ when: { face: 'verso' }, parent: 'segnavia:verso' }, { parent: 'segnavia:recto' }]].map((rules) => ({
     getAttribute: (name: string) => (name === 'data-template' ? 'practice' : null),
     closest: () => ({
       getAttribute: (name: string) =>
