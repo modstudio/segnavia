@@ -98,6 +98,23 @@ test('WebP capture clears its transparent background override when capture throw
   expect(methods).toEqual(['Emulation.setDefaultBackgroundColorOverride', 'Page.captureScreenshot', 'Emulation.setDefaultBackgroundColorOverride'])
 })
 
+test('WebP background cleanup does not mask a capture failure', async () => {
+  const session = {
+    send: async (method: string, parameters?: unknown) => {
+      if (method === 'Page.captureScreenshot') throw new Error('capture failed')
+      if (method === 'Emulation.setDefaultBackgroundColorOverride' && parameters && Object.keys(parameters).length === 0) throw new Error('cleanup failed')
+      return {}
+    },
+    detach: async () => {},
+  }
+  const tab = {
+    context: () => ({ newCDPSession: async () => session }),
+    evaluate: async () => ({ x: 0, y: 0, width: 10, height: 10, scale: 1 }),
+  } as unknown as Tab
+
+  await expect(captureImage(tab, { format: 'webp', omitBackground: true, quality: [90] }, false)).rejects.toThrow('capture failed')
+})
+
 test('WebP capture leaves the default background untouched when omitBackground is absent', async () => {
   const calls: Array<{ method: string; parameters: unknown }> = []
   const session = {

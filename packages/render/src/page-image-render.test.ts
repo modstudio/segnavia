@@ -69,3 +69,47 @@ test('a plain page refuses a selection above its one page before opening a tab',
   await expect(rendered).rejects.toThrow("pageImage page 2 is beyond this page's 1 page")
   expect(opened).toBeFalse()
 })
+
+test.each([
+  { pages: [3], watermarked: true },
+  { pages: [1], watermarked: false },
+])('page 3 watermark selection injects markup: $watermarked for pages $pages', async ({ pages, watermarked }) => {
+  let watermarkMarkup = ''
+  const root = { evaluate: async () => [], dispose: async () => {} }
+  const tab = {
+    viewportSize: () => ({ width: 605, height: 800 }),
+    waitForFunction: async () => {},
+    evaluate: async (callback: unknown, input?: unknown) => {
+      if (String(callback).includes('getComputedStyle')) return { fontFamily: 'serif', fontFaceCss: '' }
+      if (typeof input === 'string') return null
+      return undefined
+    },
+    evaluateHandle: async (_callback: unknown, input: { html: string }) => {
+      watermarkMarkup = input.html
+      return root
+    },
+    screenshot: async () => new Uint8Array([1, 2, 3]),
+  }
+  const page = resolvePageHtml(
+    Page.parse({
+      html: '<p>Printed page</p>',
+      print: { paper: 'letter' },
+      printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+    }),
+  )
+
+  await renderPreparedPageImage(
+    {
+      page,
+      options: { format: 'png' },
+      fontCss: '',
+      fontFailures: [],
+      established: { day: undefined, slots: undefined },
+    } as never,
+    { format: 'png', page: 3, watermark: { text: 'Draft', pages: [...pages] } },
+    { signal: AbortSignal.any([]), remaining: () => 1_000 },
+    async (_setup, body) => body(tab as never),
+  )
+
+  expect(Boolean(watermarkMarkup)).toBe(watermarked)
+})

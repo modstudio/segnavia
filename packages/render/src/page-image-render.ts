@@ -34,6 +34,7 @@ export async function renderPreparedPageImage(
   const pageHtml = printedPageAuthorHtml(page)
   const resolvedLayoutScripts = await resolveRenderLayoutScripts(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
+  const imagePage = opts.page ?? 1
   return withTab(
     {
       viewport,
@@ -47,7 +48,7 @@ export async function renderPreparedPageImage(
         prepared.fontCss,
         prepared.fontFailures,
         resolvedLayoutScripts,
-        opts.page,
+        imagePage,
       ),
       readiness: renderReadiness(page.scripts, opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
       boundMs: opts.boundMs,
@@ -65,7 +66,7 @@ export async function renderPreparedPageImage(
       const fontFamily = opts.watermark ? (await pageFontFacts(tab, Boolean(page.printedPages))).fontFamily : undefined
       const watermark = selectedImageWatermarkMarkup(
         opts.watermark,
-        1,
+        imagePage,
         imageWatermarkPage({
           viewport: captureViewport,
           direction: printedPageDirection(page),

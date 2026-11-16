@@ -235,7 +235,11 @@ ${embeddedBookPresentationFunctions()}`
 }
 
 export function selectedPageRefusal(only: number | null | undefined, pageCount: number): string | undefined {
-  if (only === null || only === undefined || only <= pageCount) return undefined
+  if (only === null || only === undefined) return undefined
+  if (!Number.isInteger(only) || only < 1) {
+    return `page ${only} is outside the composed run's ${pageCount} pages; pass a page from 1 through ${pageCount} to clear this refusal`
+  }
+  if (only <= pageCount) return undefined
   return `page ${only} is beyond the composed run's ${pageCount} pages; pass a page from 1 through ${pageCount} to clear this refusal`
 }
 

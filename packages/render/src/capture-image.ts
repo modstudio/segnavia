@@ -6,11 +6,17 @@ import type { ImageOptions } from './options.ts'
 async function withTransparentBackground<T>(session: CDPSession, omitBackground: boolean | undefined, capture: () => Promise<T>): Promise<T> {
   if (!omitBackground) return capture()
   await session.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } })
+  let captured: T
   try {
-    return await capture()
-  } finally {
-    await session.send('Emulation.setDefaultBackgroundColorOverride', {})
+    captured = await capture()
+  } catch (error) {
+    try {
+      await session.send('Emulation.setDefaultBackgroundColorOverride', {})
+    } catch {}
+    throw error
   }
+  await session.send('Emulation.setDefaultBackgroundColorOverride', {})
+  return captured
 }
 
 // One image of what a tab shows. Shared with capture, so a shot and a
