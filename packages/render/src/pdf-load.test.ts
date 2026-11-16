@@ -4,7 +4,7 @@ import { deflateSync } from 'node:zlib'
 import { resolveLimits } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { createPdf, loadPdf, MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
+import { classifyPdfRewriteFailure, createPdf, loadPdf, MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
 
 const receivedLimits = (input?: { bytes?: number; streamBytes?: number }) => resolveLimits(undefined, input ? { input } : undefined)
 
@@ -64,6 +64,23 @@ test('loads a normal generated PDF', async () => {
   generated.addPage([612, 792])
   const loaded = await loadPdf(await generated.save())
   expect(loaded.getPageCount()).toBe(1)
+})
+
+test.each(['press conversion', 'effects rewrite'] as const)('classifies read and rewrite failures for %s', (step) => {
+  const refusal = new RenderRefusedError('rewrite refused')
+  const readError = new Error('catalog failed')
+  const readRefusal = classifyPdfRewriteFailure('read', refusal, step)
+  expect(readRefusal).not.toBe(refusal)
+  expect(readRefusal.message).toContain('malformed structure')
+  const malformed = classifyPdfRewriteFailure('read', readError, step)
+  expect(malformed.message).toContain('malformed structure')
+
+  expect(classifyPdfRewriteFailure('rewrite', refusal, step)).toBe(refusal)
+  const rewriteError = new Error('decoder crashed')
+  const rendererError = classifyPdfRewriteFailure('rewrite', rewriteError, step)
+  expect(rendererError.message).toBe(`The ${step} failed after the PDF was read: decoder crashed`)
+  expect(rendererError.message).not.toContain('malformed')
+  expect(rendererError.cause).toBe(rewriteError)
 })
 
 test('received input is refused above its byte limit before parsing', async () => {

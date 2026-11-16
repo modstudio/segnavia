@@ -70,3 +70,13 @@ test('keeps a broken PDF distinct from a color-profile refusal', async () => {
     expect((error as Error).message).toContain('malformed structure')
   }
 })
+
+test('refuses a PDF whose catalog and page tree cannot be resolved as malformed', async () => {
+  try {
+    await rewritePressPdf(new TextEncoder().encode('%PDF-1.7\n%%EOF'), profile)
+    throw new Error('Expected the PDF to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    expect((error as Error).message).toContain('malformed structure')
+  }
+})

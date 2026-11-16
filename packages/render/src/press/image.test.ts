@@ -4,6 +4,7 @@ import { decodePDFRawStream, PDFArray, PDFDict, PDFDocument, PDFHexString, PDFNa
 import { toGray } from '../color/engine.ts'
 import { readProfile } from '../color/profile.ts'
 import { buildGrayProfile } from '../color/profile-fixture.test-helper.ts'
+import { RenderRefusedError } from '../errors.ts'
 import { rewritePressPdf } from './adapter.ts'
 import { buildGrayImageLookup, convertSuppliedImage, createImageState, MAX_TOTAL_IMAGE_BYTES, MAX_TOTAL_IMAGE_PIXELS } from './image.ts'
 
@@ -255,6 +256,23 @@ test('reports an injected JPEG decoder failure', async () => {
       throw new Error('JPEG decode unavailable')
     }),
   ).rejects.toThrow(/JPEG decoding failure: JPEG decode unavailable.*JPEG the renderer's browser can decode/)
+})
+
+test('reports a decoder returning no RGB samples as a press conversion failure', async () => {
+  const document = await PDFDocument.create()
+  const image = addImage(document, Uint8Array.of(1, 2, 3), { filter: 'DCTDecode' })
+  paint(document, { I: image })
+  try {
+    await rewritePressPdf(await document.save(), profileBytes, 3, async () => ({ width: 1, height: 1, rgb: undefined as unknown as Uint8Array }), 'convert')
+    throw new Error('Expected the press conversion to fail')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    const failure = error as RenderRefusedError
+    expect(failure.message).toContain('press conversion failed after the PDF was read')
+    expect(failure.message).toContain((failure.cause as Error).message)
+    expect(failure.message).not.toContain('malformed')
+    expect(failure.cause).toBeInstanceOf(Error)
+  }
 })
 
 test.each([
