@@ -131,6 +131,33 @@ describe('origin policy', () => {
     })
   })
 
+  test('default approvals passed by a host do not repeat path refusal prefixes', () => {
+    const url = 'https://cdn.jsdelivr.net/gh/x/y.css'
+    expect(originDecision(url, 'style', DEFAULT_ORIGINS, true)).toEqual(originDecision(url, 'style', [], true))
+    const decision = originDecision(url, 'style', DEFAULT_ORIGINS, true)
+    expect(decision.allowed).toBe(false)
+    if (!decision.allowed) {
+      expect(decision.refusal.message).toBe(
+        'https://cdn.jsdelivr.net/gh/x/y.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource/css"',
+      )
+    }
+  })
+
+  test('normalized host grants do not repeat built-in path refusal prefixes', () => {
+    const decision = originDecision(
+      'https://cdn.jsdelivr.net/gh/x/y.css',
+      'style',
+      [{ origin: 'https://CDN.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource/css/' }],
+      true,
+    )
+    expect(decision.allowed).toBe(false)
+    if (!decision.allowed) {
+      expect(decision.refusal.message).toBe(
+        'https://cdn.jsdelivr.net/gh/x/y.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource/css"',
+      )
+    }
+  })
+
   test('path refusal advice falls back to an unscoped approval when the first segment is unreadable', () => {
     const url = 'https://cdn.jsdelivr.net/a;b/x.css'
     const decision = originDecision(url, 'style', [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/fontsource' }], true)
