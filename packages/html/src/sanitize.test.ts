@@ -46,6 +46,30 @@ test('pairs a CSS refusal once when its removed unit names nested constructs', (
   expect(findings.flatMap(({ refusals }) => refusals)).toEqual(assetOriginRefusals(html))
 })
 
+test('pairs repeated CSS constructs with every refusal in source order', () => {
+  const html = '<style>a{background:url(https://outside.example/one.png)}b{background:url(https://outside.example/two.png)}</style>'
+  expect(findActiveContent(html)).toEqual(['<style> url()'])
+  const findings = activeContentFindings(html)
+  expect(findings).toHaveLength(1)
+  expect(findings[0]?.refusals.map(({ url }) => url)).toEqual(['https://outside.example/one.png', 'https://outside.example/two.png'])
+})
+
+test('attributes an import refusal to only the import construct', () => {
+  const html = '<div style="@import url(https://outside.example/a.css);">x</div>'
+  const findings = activeContentFindings(html)
+  expect(findings.map(({ construct, refusals }) => ({ construct, urls: refusals.map(({ url }) => url) }))).toEqual([
+    { construct: '@import', urls: ['https://outside.example/a.css'] },
+    { construct: 'url()', urls: [] },
+  ])
+  expect(findings.flatMap(({ refusals }) => refusals)).toEqual(assetOriginRefusals(html))
+})
+
+test('deduplicates removed CSS constructs before restoring authored URLs', () => {
+  const html = '<style>a{--segnavia-keep-with:url(https://bad.example/a.png)}b{--segnavia-keep-with:url(https://bad.example/a.png)}</style>'
+  const keepWith = '<style> --segnavia-keep-with: url(https://bad.example/a.png); the accepted values are next and previous'
+  expect(findActiveContent(html)).toEqual(['<style> url()', keepWith, keepWith])
+})
+
 test('restores authored URLs in removed CSS labels', () => {
   const options = { origins: [{ origin: 'https://ok.example', kinds: ['image'] as const }] }
   const cases = [

@@ -149,21 +149,23 @@ function applyCssEdits(source: string, edits: CssEdit[]): string {
 function removedFindings(
   units: readonly CssRemovedUnit[],
   refusals: readonly AssetRefusal[],
+  refusalLabels: readonly string[],
   refusedPattern: RegExp,
   restore: (value: string) => string,
 ): AssetCssFinding[] {
   const findings = new Map<string, AssetCssFinding>()
   for (const unit of units) {
-    const label = restore(unit.label)
-    let finding = findings.get(label)
+    let finding = findings.get(unit.label)
     if (!finding) {
-      finding = { label, refusals: [] }
-      findings.set(label, finding)
+      finding = { label: restore(unit.label), refusals: [] }
+      findings.set(unit.label, finding)
     }
     if (unit.label !== 'url()' && unit.label !== '@import') continue
     refusedPattern.lastIndex = 0
     for (const match of unit.source.matchAll(refusedPattern)) {
-      const refusal = refusals[Number(match[1])]
+      const index = Number(match[1])
+      if (refusalLabels[index] !== unit.label) continue
+      const refusal = refusals[index]
       if (refusal && !finding.refusals.includes(refusal)) finding.refusals.push(refusal)
     }
   }
@@ -178,6 +180,7 @@ export function assetCss(
   const restores: string[] = []
   const refusedRestores: string[] = []
   const refusals: AssetRefusal[] = []
+  const refusalLabels: string[] = []
   let refusedMarker = REFUSED_ASSET_MARKER
   while (source.includes(refusedMarker)) refusedMarker += 'x-'
   let marker = 'segnavia-held-import'
@@ -188,6 +191,7 @@ export function assetCss(
     const decision = originDecision(reference.url, reference.kind, options.origins, options.keepScripts === true)
     if (!decision.allowed) {
       refusals.push(decision.refusal)
+      refusalLabels.push(reference.importStart === undefined ? 'url()' : '@import')
       const index = refusedRestores.push(reference.url) - 1
       edits.push({ start: reference.start, end: reference.end, value: `${refusedMarker}${index}` })
     } else if (reference.importStart !== undefined && reference.importEnd !== undefined) {
@@ -204,7 +208,7 @@ export function assetCss(
     value
       .replace(ASSET_MARKER_PATTERN, (_, index: string) => restores[Number(index)] ?? '')
       .replace(refusedPattern, (_, index: string) => refusedRestores[Number(index)] ?? '')
-  const removed = removedFindings(result.removed, refusals, refusedPattern, restore)
+  const removed = removedFindings(result.removed, refusals, refusalLabels, refusedPattern, restore)
   let css = restore(result.css)
   for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
   return { css, removed, refusals }

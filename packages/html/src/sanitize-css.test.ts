@@ -42,6 +42,10 @@ describe('CSS sanitizer', () => {
       { label: 'url()', source: 'background:url(first)' },
       { label: 'url()', source: 'background:url(second)' },
     ])
+    expect(sanitizeCss('@supports (background:url(first)){a{color:red}}@supports (background:url(second)){b{color:red}}', false, false).removed).toEqual([
+      { label: 'url()', source: '@supports (background:url(first)){a{color:red}}' },
+      { label: 'url()', source: '@supports (background:url(second)){b{color:red}}' },
+    ])
   })
 
   test('keeps data images and gates data fonts to font-face and the option', () => {
