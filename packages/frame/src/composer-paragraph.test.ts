@@ -24,13 +24,162 @@ function tokens(text: string, width = 5): ParagraphToken[] {
 }
 
 const base = { measure: 32, language: 'en-US', hyphenate: true, spacing: { minimum: 80, desired: 100, maximum: 133 } }
+const violationSpacing = { minimum: 80, desired: 100, maximum: 120 }
+
+function compositionParagraph(text: string, width: () => number): Element {
+  const paragraph = {
+    nodeType: 1,
+    childElementCount: 0,
+    childNodes: [] as Node[],
+    textContent: text,
+    getBoundingClientRect: () => ({ width: width(), height: 20 }),
+    getAttribute: () => null,
+    closest: () => null,
+    querySelectorAll: () => [],
+    hasAttribute: () => false,
+    setAttribute: () => undefined,
+    removeAttribute: () => undefined,
+    append: () => undefined,
+    replaceChildren(...children: Node[]) {
+      this.childNodes = children
+    },
+  }
+  const node = { nodeType: 3, data: text, parentElement: paragraph, parentNode: paragraph } as unknown as Text
+  paragraph.childNodes = [node]
+  return paragraph as unknown as Element
+}
+
+function compositionDocument(): Document {
+  const fragment = () => ({ append: () => undefined, querySelectorAll: () => [] })
+  const element = () => ({
+    nodeType: 1,
+    style: { cssText: '' },
+    setAttribute: () => undefined,
+    append: () => undefined,
+    querySelectorAll: () => [],
+    getBoundingClientRect: () => ({ width: 1, height: 1 }),
+    remove: () => undefined,
+    cloneNode: () => element(),
+  })
+  return {
+    documentElement: { lang: 'en' },
+    createRange: () => ({
+      setStart: () => undefined,
+      setEnd: () => undefined,
+      setStartBefore: () => undefined,
+      setEndAfter: () => undefined,
+      getBoundingClientRect: () => ({ width: 5, height: 10 }),
+      cloneContents: fragment,
+    }),
+    createDocumentFragment: fragment,
+    createTextNode: (data: string) => ({ data }),
+    createElement: element,
+  } as unknown as Document
+}
+
+function composeForViolationTest(
+  paragraphs: Element[],
+  composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
+  composedHjViolations: Map<Element, { spacing: typeof violationSpacing; violation: { line: number; ratio: number; wordSpacing: number } }>,
+  linesFor: (measure: number) => ReturnType<typeof planParagraphLines>,
+): void {
+  const style = {
+    textAlign: 'justify',
+    unicodeBidi: 'normal',
+    direction: 'ltr',
+    textIndent: '0px',
+    writingMode: 'horizontal-tb',
+    font: '16px serif',
+    fontKerning: 'auto',
+    fontFeatureSettings: 'normal',
+    fontVariationSettings: 'normal',
+    letterSpacing: 'normal',
+    textTransform: 'none',
+  } as CSSStyleDeclaration
+  composeParagraphs(
+    { querySelectorAll: () => paragraphs } as unknown as ParentNode,
+    compositionDocument(),
+    () => style,
+    composedParagraphs,
+    () => ({ composer: 'paragraph', hyphenate: false, wordSpacing: violationSpacing }),
+    (_tokens, settings) => linesFor(settings.measure),
+    () => ({ breaks: [], ratios: [], violations: [] }),
+    () => [],
+    (rect) => rect.width,
+    'data-identity',
+    'data-continuation',
+    'data-variable-value',
+    composedHjViolations,
+  )
+}
 
 test('plans explicit lines and leaves a one-line paragraph as one line', () => {
   expect(planParagraphLines(tokens('one two three'), base).length).toBeGreaterThan(1)
-  expect(planParagraphLines(tokens('one'), base)).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false }])
+  expect(planParagraphLines(tokens('one'), base)).toEqual([{ start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: false }])
   const short = planParagraphLines(tokens('one two three'), { ...base, measure: 100 })
   expect(short).toHaveLength(1)
   expect(short[0]?.end).toBe(13)
+})
+
+test('composeParagraphs records the worst violation and omits a clean paragraph', () => {
+  const width = () => 40
+  const violating = compositionParagraph('aa', width)
+  const clean = compositionParagraph('bb', width)
+  const composedHjViolations = new Map()
+  let calls = 0
+  composeForViolationTest([violating, clean], new WeakMap(), composedHjViolations, () => {
+    calls++
+    return calls === 1
+      ? [
+          { start: 0, end: 1, wordSpacing: -3, ratio: -1.5, hyphen: false, forced: false },
+          { start: 1, end: 2, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
+        ]
+      : [
+          { start: 0, end: 1, wordSpacing: 1, ratio: 0.5, hyphen: false, forced: false },
+          { start: 1, end: 2, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
+        ]
+  })
+  expect(composedHjViolations.get(violating)).toEqual({
+    spacing: violationSpacing,
+    violation: { line: 0, ratio: -1.5, wordSpacing: 70 },
+  })
+  expect(composedHjViolations.has(clean)).toBe(false)
+})
+
+test('composeParagraphs copies a violation to a reused paragraph', () => {
+  const width = () => 40
+  const first = compositionParagraph('aa', width)
+  const reused = compositionParagraph('aa', width)
+  const composedHjViolations = new Map()
+  let planned = 0
+  composeForViolationTest([first, reused], new WeakMap(), composedHjViolations, () => {
+    planned++
+    return [
+      { start: 0, end: 1, wordSpacing: 3, ratio: 1.5, hyphen: false, forced: false },
+      { start: 1, end: 2, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
+    ]
+  })
+  expect(planned).toBe(1)
+  expect(composedHjViolations.get(reused)).toEqual({
+    spacing: violationSpacing,
+    violation: { line: 0, ratio: 1.5, wordSpacing: 130 },
+  })
+})
+
+test('composeParagraphs drops an earlier violation when a changed measure sets cleanly', () => {
+  let measure = 40
+  const paragraph = compositionParagraph('aa', () => measure)
+  const composedParagraphs = new WeakMap()
+  const composedHjViolations = new Map()
+  const linesFor = (width: number) => [
+    { start: 0, end: 1, wordSpacing: width < 80 ? -3 : 1, ratio: width < 80 ? -1.5 : 0.5, hyphen: false, forced: false },
+    { start: 1, end: 2, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
+  ]
+  composeForViolationTest([paragraph], composedParagraphs, composedHjViolations, linesFor)
+  expect(composedHjViolations.has(paragraph)).toBe(true)
+  measure = 100
+  composeForViolationTest([paragraph], composedParagraphs, composedHjViolations, linesFor)
+  expect(composedHjViolations.has(paragraph)).toBe(false)
 })
 
 test('plans a library hyphen marker but a maqaf break without one', () => {
@@ -69,8 +218,8 @@ test('plans br as a forced start-aligned break and counts an atomic inline box',
   const forced: ParagraphToken[] = [...tokens('one'), { kind: 'forced', text: '', width: 0 }, ...tokens('two')]
   const lines = planParagraphLines(forced, { ...base, measure: 100 })
   expect(lines).toEqual([
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
-    { start: 4, end: 7, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
+    { start: 4, end: 7, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
   expect(lines.map((line) => line.ratio)).toEqual([0, 0])
   const withAtomic: ParagraphToken[] = [...tokens('one '), { kind: 'atomic', text: '', width: 30 }, ...tokens(' two')]
@@ -122,7 +271,7 @@ test('builds a plain-text line without cloning a DOM range', () => {
       { kind: 'text', text: 'e', width: 1, node: text, start: 2, end: 3 },
       { kind: 'space', text: ' ', width: 1, node: text, start: 3, end: 4 },
     ],
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
     doc,
   )
   expect(appended).toEqual([{ data: 'ne ' }])
@@ -268,21 +417,23 @@ test('classifies collapsible, non-breaking and zero-width spaces for line planni
 test('keeps browser line boxes for leading and consecutive br but not a trailing br', () => {
   const br = (): ParagraphToken => ({ kind: 'forced', text: '', width: 0 })
   expect(planParagraphLines([br(), ...tokens('one')], { ...base, measure: 100 })).toEqual([
-    { start: 0, end: 0, wordSpacing: 0, hyphen: false, forced: true, blank: true },
-    { start: 1, end: 4, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 0, wordSpacing: 0, ratio: 0, hyphen: false, forced: true, blank: true },
+    { start: 1, end: 4, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
   expect(planParagraphLines([...tokens('one'), br(), br(), ...tokens('two')], { ...base, measure: 100 })).toEqual([
-    { start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true },
-    { start: 4, end: 4, wordSpacing: 0, hyphen: false, forced: true, blank: true },
-    { start: 5, end: 8, wordSpacing: 0, hyphen: false, forced: false },
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
+    { start: 4, end: 4, wordSpacing: 0, ratio: 0, hyphen: false, forced: true, blank: true },
+    { start: 5, end: 8, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
-  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: true }])
+  expect(planParagraphLines([...tokens('one'), br()], { ...base, measure: 100 })).toEqual([
+    { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
+  ])
   const appended: unknown[] = []
   const doc = {
     createDocumentFragment: () => ({ append: (node: unknown) => appended.push(node) }),
     createElement: (name: string) => ({ name }),
   } as unknown as Document
-  lineFragment([], { start: 0, end: 0, wordSpacing: 0, hyphen: false, forced: true, blank: true }, doc)
+  lineFragment([], { start: 0, end: 0, wordSpacing: 0, ratio: 0, hyphen: false, forced: true, blank: true }, doc)
   expect(appended).toEqual([{ name: 'br' }])
 })
 

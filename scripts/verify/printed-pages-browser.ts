@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { Print, paperViewport } from '@segnavia/format'
+import { PREFLIGHT_PRESETS, Print, paperViewport } from '@segnavia/format'
 import { printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { Page } from 'playwright-core'
 import {
@@ -109,6 +109,56 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       parentRules: [{ parent: 'body' }],
     }
     await verifyPrintedComposedParagraphs(page, url, check, parentPages)
+    const hjViolationSource = printedPageDocument(
+      {
+        type: 'document',
+        kind: 'printed',
+        settings: { lang: 'en' },
+        print: { paper: 'letter' },
+        parentPages: [
+          {
+            type: 'parentPage',
+            name: 'body',
+            geometry: { margin: { blockStart: 132, blockEnd: 132, inlineStart: 90, inlineEnd: 90 } },
+          },
+        ],
+        parentRules: [{ parent: 'body' }],
+        children: [
+          {
+            type: 'page',
+            body: {
+              html: `<style>p{margin:0;font:16px/20px sans-serif;text-align:justify;--segnavia-composer:paragraph;--segnavia-hyphenate:false;--segnavia-word-spacing:80% 100% 120%}</style><p data-segnavia-id="hj-demo">a<br>a<br>a<br><span style="display:inline-block;inline-size:400px"></span><br>tail</p>`,
+            },
+          },
+        ],
+      },
+      { nonce: 'hj-violation-preflight', profile: PREFLIGHT_PRESETS.default },
+    )
+    const hjViolationReport = await page.evaluate(async (source) => {
+      return new Promise<{ issues?: Array<{ check?: string; subject?: string; location?: { folio?: string } }> }>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('The H&J preflight report did not arrive.')), 20_000)
+        const frame = document.createElement('iframe')
+        frame.setAttribute('sandbox', 'allow-scripts')
+        window.addEventListener(
+          'message',
+          (event) => {
+            const message = event.data as { type?: string; report?: { issues?: Array<{ check?: string; subject?: string; location?: { folio?: string } }> } }
+            if (event.source !== frame.contentWindow || message.type !== 'segnavia:preflight' || !message.report) return
+            window.clearTimeout(timeout)
+            resolve(message.report)
+          },
+          { once: false },
+        )
+        document.body.replaceChildren(frame)
+        frame.srcdoc = source
+      })
+    }, hjViolationSource)
+    const hjViolations = (hjViolationReport.issues ?? []).filter((issue) => issue.check === 'hj-violations')
+    check(
+      'a split composed paragraph reports one H&J violation at its worst line on the second page',
+      hjViolations.length === 1 && hjViolations[0]?.subject === 'hj-demo' && hjViolations[0]?.location?.folio === '2',
+      JSON.stringify(hjViolations),
+    )
     const viewportFixture = {
       type: 'document' as const,
       kind: 'printed' as const,

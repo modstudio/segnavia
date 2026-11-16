@@ -36,12 +36,12 @@ export function hjViolationFolio(paragraph: Element, lineIndex: number, pages: r
 }
 
 export function appendHjViolationEntries(
-  composedParagraphs: ReadonlyMap<Element, ComposedHjViolation>,
+  composedHjViolations: ReadonlyMap<Element, ComposedHjViolation>,
   pages: readonly HjPlanPage[],
   folios: readonly (string | null)[],
   entries: PreflightEntry[],
 ): void {
-  for (const [paragraph, composed] of composedParagraphs) {
+  for (const [paragraph, composed] of composedHjViolations) {
     const flow = paragraph.closest('[data-segnavia-flow]')
     const flowId = flow?.getAttribute('data-segnavia-flow') ?? ''
     const block = flow ? Array.prototype.indexOf.call(flow.children, paragraph) + 1 : 0

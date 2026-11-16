@@ -38,7 +38,7 @@ export interface ParagraphLine {
   start: number
   end: number
   wordSpacing: number
-  ratio?: number
+  ratio: number
   hyphen: boolean
   forced: boolean
   blank?: boolean
@@ -114,9 +114,7 @@ export function planParagraphLinesWith(
   pointsForWord: typeof hyphenationPoints,
 ): ParagraphLine[] {
   if (paragraphFitsOneLine(tokens, settings)) {
-    const line = { start: 0, end: tokens.length, wordSpacing: 0, hyphen: false, forced: false } as ParagraphLine
-    Object.defineProperty(line, 'ratio', { value: 0 })
-    return [line]
+    return [{ start: 0, end: tokens.length, wordSpacing: 0, ratio: 0, hyphen: false, forced: false }]
   }
   const { items, metadata, tokenItems } = paragraphItems(tokens, settings)
   addHyphenationItems(items, metadata, tokenItems, tokens, settings, markerWidth, pointsForWord)
@@ -217,11 +215,11 @@ function plannedLines(
       start,
       end: meta.end,
       wordSpacing: natural === 0 || !Number.isFinite(percent) ? 0 : natural * (percent / 100 - 1),
+      ratio: adjustmentRatio,
       hyphen: meta.hyphen,
       forced: meta.forced,
       ...(start === meta.end && meta.forced ? { blank: true } : {}),
-    } as ParagraphLine
-    Object.defineProperty(line, 'ratio', { value: adjustmentRatio })
+    }
     lines.push(line)
     start = meta.next
   }
@@ -354,7 +352,7 @@ export function composeParagraphs(
 }
 
 export function paragraphComposerScript(): string {
-  return `var paragraphCompositions=new WeakMap(),composedParagraphs=new Map();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
+  return `var composedParagraphs=new WeakMap(),composedHjViolations=new Map();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
 ${embedFunction('graphemes', graphemes)}
 ${embedFunction('verticalWritingMode', verticalWritingMode)}
 ${embedFunction('logicalExtent', logicalExtent)}
