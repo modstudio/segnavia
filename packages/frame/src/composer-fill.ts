@@ -5,6 +5,8 @@ import {
   PREFLIGHT_REGION_FIELD_LIMIT,
   type PreflightEntry,
   type PreflightRegion,
+  TEMPLATED_PARENT_RULES,
+  textHoldingParentRules,
 } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import {
@@ -17,11 +19,11 @@ import {
   runFillStageOnce,
   truncatedRegion,
 } from './composer-fill-policy.ts'
+import { flowTextArea } from './composer-measure.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
+import { parentsOf, type SourceGeometry, templateStagingArea } from './composer-source-staging.ts'
 
-interface FillGeometry {
-  parents: Array<{ textArea: { width: number; height: number } }>
-}
+type FillGeometry = Pick<SourceGeometry, 'parents'>
 
 function regionSubject(region: HTMLElement): string {
   const name = region.getAttribute('data-region') ?? region.getAttribute('data-segnavia-region') ?? ''
@@ -94,8 +96,7 @@ function fillTemplateHolder(
   defaultLang: string,
 ): PreflightRegion[] {
   const flow = holder.closest<HTMLElement>('[data-segnavia-flow]')
-  const area = geometry(flow?.getAttribute('data-page-geometry')).parents[0]?.textArea
-  if (!area) throw new Error(`Template ${templateName} has no definite text area; configure a page parent to clear this refusal.`)
+  const area = templateStagingArea(holder, template, geometry(flow?.getAttribute('data-page-geometry')), templateName)
   const clone = template.cloneNode(true) as HTMLElement
   clone.removeAttribute('hidden')
   clone.removeAttribute('data-segnavia-template')
@@ -250,6 +251,11 @@ ${embedFunction('recordTruncatedRegion', recordTruncatedRegion)}
 ${embedFunction('regionSubject', regionSubject)}
 ${embedFunction('fillBlockExtent', fillBlockExtent)}
 ${embedFunction('repeatFill', repeatFill)}
+var TEMPLATED_PARENT_RULES=${JSON.stringify(TEMPLATED_PARENT_RULES)};
+${embedFunction('textHoldingParentRules', textHoldingParentRules)}
+${embedFunction('flowTextArea', flowTextArea)}
+${embedFunction('parentsOf', parentsOf)}
+${embedFunction('templateStagingArea', templateStagingArea)}
 ${embedFunction('fillTemplateHolder', fillTemplateHolder)}
 ${embedFunction('fillTemplateSourceRegions', fillTemplateSourceRegions)}
 ${embedFunction('truncateLastLine', truncateLastLine)}

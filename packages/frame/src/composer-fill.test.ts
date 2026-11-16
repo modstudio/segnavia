@@ -1,5 +1,66 @@
 import { expect, test } from 'bun:test'
-import { applyRegionOverflow, repeatFill } from './composer-fill.ts'
+import { applyRegionOverflow, embeddedComposerFillFunctions, repeatFill } from './composer-fill.ts'
+
+const stagingGeometry = {
+  parents: [
+    { name: 'segnavia:recto', textArea: { width: 320, height: 520 } },
+    { name: 'segnavia:verso', textArea: { width: 280, height: 480 } },
+  ],
+}
+
+function stagedFillCss(rules: unknown): string {
+  const fillTemplateHolder = new Function(`var fillTemplateRegions=function(){};${embeddedComposerFillFunctions()};return fillTemplateHolder`)() as (
+    root: ParentNode,
+    template: HTMLElement,
+    holder: HTMLElement,
+    name: string,
+    geometry: () => typeof stagingGeometry,
+    direction: string,
+    lang: string,
+  ) => unknown
+  const flow = {
+    getAttribute: (name: string) =>
+      name === 'data-segnavia-parent-rules' ? JSON.stringify(rules) : name === 'data-page-geometry' ? 'book' : name === 'dir' ? 'ltr' : null,
+  }
+  const clone = {
+    style: { cssText: '' },
+    removeAttribute: () => {},
+    setAttribute: () => {},
+    querySelectorAll: () => [],
+    remove: () => {},
+  }
+  const template = {
+    cloneNode: () => clone,
+    getAttribute: () => null,
+  }
+  const holder = {
+    closest: () => flow,
+    querySelectorAll: () => [],
+  }
+  const root = { body: { append: () => {} } }
+  fillTemplateHolder(
+    root as unknown as ParentNode,
+    template as unknown as HTMLElement,
+    holder as unknown as HTMLElement,
+    'practice',
+    () => stagingGeometry,
+    'ltr',
+    '',
+  )
+  return clone.style.cssText
+}
+
+test('template fill stages holders at their parent-rule areas', () => {
+  const css = [
+    stagedFillCss([{ parent: 'segnavia:verso' }]),
+    stagedFillCss([{ when: { face: 'verso' }, parent: 'segnavia:verso' }, { parent: 'segnavia:recto' }]),
+  ]
+  expect(css).toHaveLength(2)
+  for (const value of css) {
+    expect(value).toContain('inline-size:280px')
+    expect(value).toContain('block-size:480px')
+  }
+})
 
 function fillRegion(options: { min?: string; max?: string; blockSize: (count: number) => number }) {
   const children: Array<{ remove(): void; setAttribute(name: string, value: string): void; getAttribute(name: string): string | null; cloneNode(): unknown }> =
