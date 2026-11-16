@@ -2,7 +2,7 @@ import { type Book, type BookSectionEntry, DEFAULT_HEADING_LISTING, isPart, plai
 import type { DocumentBuild } from './book-document.ts'
 import { partSection } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
-import { runTextNodes } from './run-text.ts'
+import { runTextNodes } from './run-nodes.ts'
 
 type PartFact = BookSectionEntry['ancestry'][number]
 

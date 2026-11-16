@@ -72,17 +72,45 @@ test('writes title, contents label and subtitle runs with their own languages', 
   expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['בראשית Genesis', 'פרק Genesis'])
 })
 
-test('unwraps links and removes note calls from authored heading contents entries', () => {
+test('writes authored heading text while unwrapping links and removing note calls', () => {
   const book = parseBookFixture({
     title: 'Book',
     mode: 'continuous',
     frontMatter: [{ kind: 'contents', title: 'Contents' }],
-    chapters: [{ title: 'Chapter', html: '<h2 id="source"><a href="/elsewhere"><em id="em">Linked</em></a><span data-note="footnote">note</span></h2>' }],
+    chapters: [
+      {
+        title: 'Chapter',
+        html: '<p>Text<span id="n1" data-note="footnote">note</span></p><h2 id="source"><a href="/elsewhere"><em id="em">Linked</em></a> One<br>Two<a data-note-ref="n1">ibid</a></h2>',
+      },
+    ],
   })
   const html = bookDocument(book).html
-  expect(html).toContain('<a href="#source" dir="ltr"><em>Linked</em></a>')
-  expect(html).not.toContain('<a href="#source" dir="ltr"><a')
+  const entry = html.match(/<a href="#source"[^>]*>.*?<\/a>/)?.[0]
+  expect(entry).toBe('<a href="#source" dir="ltr"><em>Linked</em> One Two</a>')
+  expect(entry).not.toContain('<br>')
+  expect(entry).not.toContain('ibid')
   expect(html).not.toContain('<em id="em">Linked</em></a><a class="segnavia-contents-page"')
+})
+
+test('keeps language runs in a generated part heading and its notes scope', () => {
+  const title = [
+    { text: 'שער ', lang: 'he' },
+    { text: 'Gate', lang: 'en' },
+  ]
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    body: [
+      { title: 'Before', html: '<p>Before</p>' },
+      { name: 'part', title, opens: 'continue', children: [{ title: 'Chapter', html: '<p>Text<span data-note="sources">Source</span></p>' }] },
+    ],
+    notes: [{ name: 'sources', placement: 'part', numbering: 'part' }],
+  })
+  const html = bookDocument(book).html
+  const runs = '<span lang="he" dir="rtl">שער </span><span lang="en" dir="ltr">Gate</span>'
+  expect(html).toContain(`<span class="segnavia-part-heading-title" dir="rtl"><bdi>${runs}</bdi></span>`)
+  expect(html).toContain(`<p class="segnavia-notes-scope" dir="rtl">${runs}</p>`)
 })
 
 test('prints chapter numbers in contents and outline only when opted in', () => {

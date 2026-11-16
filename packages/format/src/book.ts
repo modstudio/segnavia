@@ -270,7 +270,7 @@ function refineNamedPageGeometries(book: ResolvedBookValue, ctx: z.RefinementCtx
   const declaredNames = Object.keys(book.style?.pageGeometries ?? {})
   const facts = bookSections(book).flatMap((section) => {
     if (!('pageGeometry' in section.entry) || section.entry.pageGeometry === undefined) return []
-    const title = section.entry.title ?? section.id
+    const title = plainText(section.entry.title) ?? section.id
     return [{ label: `${title} (${section.id})`, path: section.path, pageGeometry: section.entry.pageGeometry, declaredNames, mode: book.mode }]
   })
   for (const issue of pageGeometryIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
@@ -364,7 +364,7 @@ export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx
   }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
     !isPart(entry) && 'numbering' in entry && entry.numbering !== undefined
-      ? [{ id, title: entry.title === undefined ? undefined : plainText(entry.title), division, path, numbering: entry.numbering }]
+      ? [{ id, title: plainText(entry.title), division, path, numbering: entry.numbering }]
       : [],
   )
   for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections })) {

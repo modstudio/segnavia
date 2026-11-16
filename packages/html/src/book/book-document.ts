@@ -47,7 +47,7 @@ import { decorateSection } from './book-section-decoration.ts'
 import { appendChapterHeadings, appendHeldHeadings, withSectionDepth } from './book-section-headings.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
-import { runTextNodes } from './run-text.ts'
+import { runTextNodes } from './run-nodes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
 function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parentRules' | 'numbering'>, build: BookBuild): BuiltSection {
@@ -59,7 +59,7 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
       id,
       kind: 'contents',
       division: 'front',
-      title: title === undefined ? undefined : plainText(title),
+      title: plainText(title),
       opens: entry.opens,
       parentRules: entry.parentRules,
     },

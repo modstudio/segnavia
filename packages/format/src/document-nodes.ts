@@ -19,7 +19,7 @@ import {
 } from './document-nodes-common.ts'
 import type { ParentRules } from './parent-rules.ts'
 import { parentRules } from './parent-rules.ts'
-import { RunText, type RunText as RunTextValue } from './text-run.ts'
+import { type RunText as RunTextValue, runTextField } from './text-run.ts'
 
 export interface DivisionNode {
   type: 'division'
@@ -98,7 +98,7 @@ export const PartNodeFields = {
   type: z.literal('part'),
   id: z.string().optional(),
   name: z.string().min(1),
-  title: RunText.optional(),
+  title: runTextField('title', { emptyString: 'allowed' }).optional(),
   contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
   number: StructureNumber.optional(),

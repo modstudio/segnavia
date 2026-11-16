@@ -1,4 +1,4 @@
-import { plainText, type RunText, resolveDirection } from '@segnavia/format'
+import { type RunText, resolveDirection } from '@segnavia/format'
 import type { ChildNode } from 'domhandler'
 import { element, text } from './dom.ts'
 
@@ -16,5 +16,3 @@ export function runTextNodes(value: RunText): ChildNode[] {
     )
   })
 }
-
-export { plainText }

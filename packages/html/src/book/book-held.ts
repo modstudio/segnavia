@@ -49,7 +49,7 @@ export function authoredSection(
       id,
       kind: 'front',
       division: 'front',
-      title: section.title === undefined ? undefined : plainText(section.title),
+      title: plainText(section.title),
       opens: section.opens,
       numbering: section.numbering,
       parentRules: section.parentRules,
@@ -119,7 +119,7 @@ export function partSection(
       id,
       kind: 'part',
       division,
-      title: entry.title === undefined ? undefined : plainText(entry.title),
+      title: plainText(entry.title),
       opens: entry.opens,
       parts,
       partNumbers,
@@ -223,7 +223,7 @@ export function designedSection(
         id,
         kind,
         division,
-        title: entry.title === undefined ? undefined : plainText(entry.title),
+        title: plainText(entry.title),
         opens: entry.opens,
         numbering: entry.numbering,
         parentRules: entry.parentRules,
@@ -264,7 +264,7 @@ export function templateRegionIssues(templates: BookTemplate[]): string[] {
 }
 
 function templatedPageRegionAttributeIssues(entry: TemplatedSection, id: string): string[] {
-  const label = entry.title ?? id
+  const label = plainText(entry.title) ?? id
   return entry.pages.flatMap((page, index) =>
     Object.entries(page.regions).flatMap(([name, html]) => {
       const where = `section ${label} page ${index + 1} region "${name}"`
@@ -278,7 +278,7 @@ function templatedPageRegionAttributeIssues(entry: TemplatedSection, id: string)
 }
 
 export function designedSectionAttributeIssues(entry: DesignedSection, id: string): string[] {
-  const label = entry.title ?? id
+  const label = plainText(entry.title) ?? id
   return entry.pages.flatMap((page, index) => {
     const children = parse(page.html).children
     const where = `section ${label} page ${index + 1}`
@@ -290,11 +290,11 @@ export function designedSectionAttributeIssues(entry: DesignedSection, id: strin
 }
 
 export function authoredSectionAttributeIssues(entry: Pick<BookSection, 'html' | 'title'>, id: string): string[] {
-  return fillAttributeIssues(parse(entry.html).children, `section ${entry.title ?? id}`)
+  return fillAttributeIssues(parse(entry.html).children, `section ${plainText(entry.title) ?? id}`)
 }
 
 function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
-  const label = entry.title ?? id
+  const label = plainText(entry.title) ?? id
   return entry.pages.flatMap((page, index) => {
     const name = page.template ?? entry.template
     const template = templates.get(name)
@@ -370,7 +370,7 @@ export function templatedSection(
         id,
         kind,
         division,
-        title: entry.title === undefined ? undefined : plainText(entry.title),
+        title: plainText(entry.title),
         opens: entry.opens,
         numbering: entry.numbering,
         parentRules: entry.parentRules,

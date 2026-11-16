@@ -15,7 +15,7 @@ export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: RunTe
       id,
       kind: 'chapter',
       division,
-      title: chapter.title === undefined ? undefined : plainText(chapter.title),
+      title: plainText(chapter.title),
       opens: chapter.opens,
       values: recordValues,
       record,

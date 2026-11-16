@@ -11,7 +11,7 @@ import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
-import { plainText, RunText, type RunText as RunTextValue, runTextField } from './text-run.ts'
+import { plainText, type RunText as RunTextValue, runTextField } from './text-run.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
@@ -43,12 +43,13 @@ export type BookTemplate = z.infer<typeof BookTemplate>
 const designedPagesRefusal = 'a designed section needs at least one page; add a page or remove the section to clear this refusal'
 const templatedPagesRefusal = 'a templated section needs at least one page; add a page or remove the section to clear this refusal'
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
-export const ContentsLabel = runTextField('contentsLabel')
-export const Subtitle = runTextField('subtitle')
+const Title = runTextField('title', { emptyString: 'allowed' })
+export const ContentsLabel = runTextField('contentsLabel', { emptyString: 'refused' })
+export const Subtitle = runTextField('subtitle', { emptyString: 'refused' })
 
 const sectionFields = {
   id: z.string(),
-  title: RunText.optional(),
+  title: Title.optional(),
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
@@ -70,7 +71,7 @@ const sectionFields = {
 const partFields = {
   id: z.string(),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
-  title: RunText.optional(),
+  title: Title.optional(),
   contentsLabel: ContentsLabel.optional(),
   html: z.string().optional(),
   number: StructureNumber.optional(),
@@ -105,7 +106,7 @@ export type BookSection = z.infer<typeof BookSection>
 export const BookContents = closedObject({
   id: z.string(),
   kind: z.literal('contents'),
-  title: RunText.optional(),
+  title: Title.optional(),
   opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
@@ -121,7 +122,7 @@ const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
 export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, BookContents, PlacedSection, flowingFront])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
-export const Chapter = BookSection.omit({ contents: true }).extend({ title: RunText })
+export const Chapter = BookSection.omit({ contents: true }).extend({ title: Title })
 export type Chapter = z.infer<typeof Chapter>
 
 const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
@@ -215,7 +216,7 @@ export function flowingSection(entry: BookItem): boolean {
 export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
   return bookSections(book).map(({ entry, id, path }) => ({
     id,
-    title: entry.title === undefined ? undefined : plainText(entry.title),
+    title: plainText(entry.title),
     path,
     sequence: path.slice(0, -1).join('.'),
     flowing: flowingSection(entry) || (isPart(entry) && (entry.html !== undefined || entry.opens === 'continue')),

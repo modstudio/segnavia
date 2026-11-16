@@ -141,7 +141,7 @@ function documentNumberedSections(document: DocumentShapeValue): SectionNumberin
       const nodePath = [...path, index]
       const heldDivision = node.type === 'division' ? node.name : division
       if ((node.type === 'section' || node.type === 'contents') && node.numbering !== undefined) {
-        const title = node.title === undefined ? undefined : plainText(node.title)
+        const title = plainText(node.title)
         const id = node.id ?? title ?? nodePath.join('.')
         sections.push({ id, title, division: heldDivision, path: nodePath, numbering: node.numbering })
       }

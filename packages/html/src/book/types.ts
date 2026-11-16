@@ -37,10 +37,12 @@ export interface BookHeading {
   id: string
   block: string
   level: number
+  /** The normalized plain label for authored headings, or the section heading's language runs. */
   text: RunText
   number?: string
   contentsLabel?: RunText
   subtitle?: RunText
+  /** Authored inline nodes with ids, library data, and note calls removed and links unwrapped; contents prefer these when no contentsLabel is set. */
   content?: ChildNode[]
   sectionId: string
   depth?: number

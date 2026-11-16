@@ -3,7 +3,7 @@ import { isTag } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
 import { CONTENTS_PAGE_REFERENCE_ATTRIBUTE, CONTENTS_PAGE_REFERENCE_CLASS, PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_VALUE } from './book-page-reference.ts'
 import { element, linkChildren, text } from './dom.ts'
-import { runTextNodes } from './run-text.ts'
+import { runTextNodes } from './run-nodes.ts'
 import { type BookDocumentOptions, type BookHeading, headingLabel } from './types.ts'
 
 export function listedInContents(heading: BookHeading, bookDepth: number): boolean {
