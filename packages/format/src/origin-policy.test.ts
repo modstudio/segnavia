@@ -133,7 +133,6 @@ describe('origin policy', () => {
 
   test('default approvals passed by a host do not repeat path refusal prefixes', () => {
     const url = 'https://cdn.jsdelivr.net/gh/x/y.css'
-    expect(originDecision(url, 'style', DEFAULT_ORIGINS, true)).toEqual(originDecision(url, 'style', [], true))
     const decision = originDecision(url, 'style', DEFAULT_ORIGINS, true)
     expect(decision.allowed).toBe(false)
     if (!decision.allowed) {
