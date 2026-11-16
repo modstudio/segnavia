@@ -1,3 +1,5 @@
+import type { AdviceFor } from './refusal.ts'
+
 export type FetchKind = 'script' | 'style' | 'font' | 'image'
 export const FETCH_KINDS = ['script', 'style', 'font', 'image'] as const satisfies readonly FetchKind[]
 
@@ -16,6 +18,7 @@ export interface AssetRefusal {
   reason: AssetRefusalReason
   message: string
   advice: string
+  adviceFor: AdviceFor
 }
 
 export function assetRefusalText(refusal: AssetRefusal): string {
@@ -173,6 +176,7 @@ function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, c
       : suggestedPathname
         ? `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}], pathname: ${JSON.stringify(suggestedPathname)} } to origins to clear this refusal`
         : `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+    adviceFor: separator ? 'author' : 'host',
   }
 }
 
@@ -185,6 +189,7 @@ function unapprovedOriginRefusal(value: string, url: URL, origin: string | undef
       reason: 'unapproved-origin',
       message: `${url.href} is not https`,
       advice: 'serve it over https from an approved origin to clear this refusal',
+      adviceFor: 'author',
     }
   }
   if (origin !== undefined) {
@@ -195,6 +200,7 @@ function unapprovedOriginRefusal(value: string, url: URL, origin: string | undef
       reason: 'unapproved-origin',
       message: `${url.href} at origin ${origin} is not approved for ${kind}`,
       advice: `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+      adviceFor: 'host',
     }
   }
   return {
@@ -203,6 +209,7 @@ function unapprovedOriginRefusal(value: string, url: URL, origin: string | undef
     reason: 'unapproved-origin',
     message: `${url.href} has no origin approved for ${kind}`,
     advice: 'use an absolute https URL at an approved origin to clear this refusal',
+    adviceFor: 'author',
   }
 }
 
@@ -219,6 +226,7 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
         reason: 'not-absolute',
         message: `${JSON.stringify(value)} is not an absolute https URL`,
         advice: 'an absolute URL at an approved origin clears this refusal',
+        adviceFor: 'author',
       },
     }
   }
@@ -240,6 +248,7 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
         reason: 'unversioned-script',
         message: `${url.href} does not name an exact x.y.z package version`,
         advice: 'use an exact version to clear this refusal',
+        adviceFor: 'author',
       },
     }
   }

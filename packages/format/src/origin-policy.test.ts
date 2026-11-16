@@ -127,6 +127,7 @@ describe('origin policy', () => {
         reason: 'outside-approved-path',
         message: 'https://assets.example/outside/x.css is outside the approved style path prefixes at https://assets.example: "/approved"',
         advice: 'add { origin: "https://assets.example", kinds: ["style"], pathname: "/outside/x.css" } to origins to clear this refusal',
+        adviceFor: 'host',
       },
     })
   })
@@ -256,6 +257,7 @@ describe('origin policy', () => {
         reason: 'not-absolute',
         message: '"images/a.png" is not an absolute https URL',
         advice: 'an absolute URL at an approved origin clears this refusal',
+        adviceFor: 'author',
       },
     })
     expect(originDecision('https://outside.example/a.png', 'image', [], false)).toEqual({
@@ -267,6 +269,7 @@ describe('origin policy', () => {
         reason: 'unapproved-origin',
         message: 'https://outside.example/a.png at origin https://outside.example is not approved for image',
         advice: 'add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+        adviceFor: 'host',
       },
     })
     expect(originDecision('http://outside.example/a.png', 'image', [{ origin: 'http://outside.example', kinds: ['image'] }], false)).toEqual({
@@ -278,6 +281,7 @@ describe('origin policy', () => {
         reason: 'unapproved-origin',
         message: 'http://outside.example/a.png is not https',
         advice: 'serve it over https from an approved origin to clear this refusal',
+        adviceFor: 'author',
       },
     })
     expect(originDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', [], true)).toEqual({
@@ -289,7 +293,25 @@ describe('origin policy', () => {
         reason: 'unversioned-script',
         message: 'https://cdn.jsdelivr.net/npm/example/index.js does not name an exact x.y.z package version',
         advice: 'use an exact version to clear this refusal',
+        adviceFor: 'author',
       },
     })
+  })
+
+  test('identifies who can act on every origin-policy refusal advice variant', () => {
+    const approvals: OriginApproval[] = [{ origin: 'https://assets.example', kinds: ['image'], pathname: '/approved' }]
+    const cases: [string, ReturnType<typeof originDecision>, 'author' | 'host'][] = [
+      ['not absolute', originDecision('images/a.png', 'image', [], false), 'author'],
+      ['not https', originDecision('http://assets.example/a.png', 'image', [], false), 'author'],
+      ['origin not approved', originDecision('https://outside.example/a.png', 'image', [], false), 'host'],
+      ['opaque', originDecision('data:image/png,x', 'image', [], false), 'author'],
+      ['encoded separator', originDecision('https://assets.example/approved/a%2Fb.png', 'image', approvals, false), 'author'],
+      ['outside prefixes', originDecision('https://assets.example/outside/a.png', 'image', approvals, false), 'host'],
+      ['unversioned script', originDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', [], true), 'author'],
+    ]
+    for (const [variant, decision, adviceFor] of cases) {
+      expect(decision.allowed, variant).toBe(false)
+      if (!decision.allowed) expect(decision.refusal.adviceFor, variant).toBe(adviceFor)
+    }
   })
 })

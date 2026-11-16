@@ -35,9 +35,25 @@ describe('asset route decision', () => {
         subject: 'https://evil.example/a.js',
         message:
           'https://evil.example/a.js at origin https://evil.example is not approved for script; add { origin: "https://evil.example", kinds: ["script"] } to origins to clear this refusal',
+        adviceFor: 'host',
       },
     })
     expect(lookups).toBe(0)
+  })
+
+  test('directs unsupported and unversioned requests to the author', async () => {
+    expect(await assetRouteDecision('https://example.test/data', undefined, origins, undefined, new AbortController().signal)).toEqual({
+      action: 'abort',
+      cause: {
+        code: 'unsupported-fetch',
+        subject: 'https://example.test/data',
+        message: 'https://example.test/data uses unsupported fetching; no asset kind can approve it',
+        adviceFor: 'author',
+      },
+    })
+    expect(await assetRouteDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', origins, undefined, new AbortController().signal)).toMatchObject(
+      { action: 'abort', cause: { code: 'unversioned-script', adviceFor: 'author' } },
+    )
   })
 
   test('answers only requests under an approved path prefix', async () => {
@@ -57,6 +73,7 @@ describe('asset route decision', () => {
         subject: refused,
         message:
           'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource/css", "/fontsource"; add { origin: "https://cdn.jsdelivr.net", kinds: ["style"], pathname: "/npm/x@1.2.3/x.css" } to origins to clear this refusal',
+        adviceFor: 'host',
       },
     })
     expect(requested).toEqual([allowed])
@@ -79,6 +96,7 @@ describe('asset route decision', () => {
         code: 'host-rejected',
         subject: url,
         message: `The host assets option rejected ${url}: storage unavailable; answer the approved asset to clear this refusal`,
+        adviceFor: 'host',
       },
     })
 
@@ -100,6 +118,7 @@ describe('asset route decision', () => {
         code: 'late-answer',
         subject: url,
         message: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal`,
+        adviceFor: 'host',
       },
     })
   })
@@ -125,8 +144,10 @@ test('markup preflight ignores scripts-off sources and refuses unapproved images
       subject: 'https://outside.example/a.png',
       message:
         'https://outside.example/a.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+      adviceFor: 'host',
     },
   ])
+  expect(markupAssetRefusal('<img src="images/a.png">', { scripts: false })).toMatchObject([{ code: 'not-absolute', adviceFor: 'author' }])
 })
 
 test('markup asset refusals expose their asset code and structured causes', async () => {
@@ -139,7 +160,9 @@ test('markup asset refusals expose their asset code and structured causes', asyn
     { settled: () => false, opened: () => {}, crashed: () => {} },
     async () => undefined,
   )
-  await expect(rendering).rejects.toEqual(new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message }] }))
+  await expect(rendering).rejects.toEqual(
+    new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message, adviceFor: 'host' }] }),
+  )
 })
 
 test('the browser tab exposes and re-bounds the progress reporter only when supplied', async () => {
@@ -254,8 +277,8 @@ test('asset limits stay structured when another asset refusal precedes them', as
       message: `${originReason}; ${limitReason}`,
       exceeded: [{ measure: 'assets.each', limit: 5, actual: 6, where: oversized, message: limitReason }],
       refusals: [
-        { code: 'unapproved-origin', subject: blocked, message: originReason },
-        { code: 'asset-limit', subject: oversized, message: limitReason },
+        { code: 'unapproved-origin', subject: blocked, message: originReason, adviceFor: 'host' },
+        { code: 'asset-limit', subject: oversized, message: limitReason, adviceFor: 'host' },
       ],
     }),
   )
@@ -304,6 +327,7 @@ test("a missing asset refusal takes precedence over the body's resulting error",
           code: 'unanswered',
           subject: url,
           message: `${url} was not answered by the host assets option; answer the approved asset to clear this refusal`,
+          adviceFor: 'host',
         },
       ],
     }),

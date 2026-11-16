@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { assetOriginRefusals, classify, fill, findActiveContent, safeMarkdownUrl, sanitize } from './index.ts'
 
 const prefix = 'demo'
+const advice = (text: string, adviceFor: 'author' | 'host') => ({ advice: text, adviceFor })
 
 describe('sanitize', () => {
   test('asset preflight names unapproved markup and CSS image origins', () => {
@@ -15,7 +16,7 @@ describe('sanitize', () => {
       kind: 'image',
       reason: 'unapproved-origin',
       message: `${url} at origin https://outside.example is not approved for image`,
-      advice: 'add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+      ...advice('add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal', 'host'),
     })
   })
 
@@ -57,28 +58,28 @@ describe('sanitize', () => {
         kind: 'script',
         reason: 'scripts-off',
         message: `${script} is refused because scripts are off`,
-        advice: 'enable scripts to clear this refusal',
+        ...advice('enable scripts to clear this refusal', 'host'),
       },
       {
         url: 'theme.css',
         kind: 'style',
         reason: 'not-absolute',
         message: '"theme.css" is not an absolute https URL',
-        advice: 'an absolute URL at an approved origin clears this refusal',
+        ...advice('an absolute URL at an approved origin clears this refusal', 'author'),
       },
       {
         url: 'images/a.png',
         kind: 'image',
         reason: 'not-absolute',
         message: '"images/a.png" is not an absolute https URL',
-        advice: 'an absolute URL at an approved origin clears this refusal',
+        ...advice('an absolute URL at an approved origin clears this refusal', 'author'),
       },
       {
         url: '//cdn.example/a.png',
         kind: 'image',
         reason: 'not-absolute',
         message: '"//cdn.example/a.png" is not an absolute https URL',
-        advice: 'an absolute URL at an approved origin clears this refusal',
+        ...advice('an absolute URL at an approved origin clears this refusal', 'author'),
       },
     ])
   })

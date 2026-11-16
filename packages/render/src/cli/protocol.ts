@@ -94,7 +94,12 @@ export function outcomeFromError(error: unknown): RenderOutcome {
           code: refusal.code,
           subject: refusal.subject ?? null,
           message: error.message,
-          refusals: refusal.refusals.map((cause) => ({ code: cause.code, subject: cause.subject ?? null, message: cause.message })),
+          refusals: refusal.refusals.map((cause) => ({
+            code: cause.code,
+            subject: cause.subject ?? null,
+            message: cause.message,
+            adviceFor: cause.adviceFor ?? null,
+          })),
         },
       })}\n`,
     }
