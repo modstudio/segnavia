@@ -2015,7 +2015,7 @@ structured causes when one operation collected several refusals. An empty
 | `style-sheet` | Style sheet compilation |
 | `font` | Font resolution |
 | `printed-pages` | Printed-page geometry |
-| `lexicon` | Voice lexicon publication |
+| `lexicon`, `lexicon-collision` | Voice lexicon publication; a collision names each folded form as its subject |
 | `render`, `render-limit`, `render-overset`, `render-color-profile` | Rendering |
 | `asset` | Collected non-limit asset refusal or unanswered asset request |
 
