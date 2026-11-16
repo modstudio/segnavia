@@ -92,16 +92,18 @@ function readablePathname(value: string, origin: string): string | undefined {
 
 function readableApprovals(approvals: Iterable<OriginApproval> | undefined): OriginApproval[] {
   const result: OriginApproval[] = []
+  const seen = new Set<string>()
   for (const approval of [...DEFAULT_ORIGINS, ...(approvals ?? [])]) {
     const origin = [...strictOriginSet([approval.origin])][0]
     if (!origin) continue
-    if (approval.pathname === undefined) {
-      result.push({ origin, kinds: approval.kinds })
-      continue
+    const pathname = approval.pathname === undefined ? undefined : readablePathname(approval.pathname, origin)
+    if (approval.pathname !== undefined && pathname === undefined && approval.pathname !== '/') continue
+    for (const kind of approval.kinds) {
+      const key = JSON.stringify([origin, kind, pathname])
+      if (seen.has(key)) continue
+      seen.add(key)
+      result.push(pathname === undefined ? { origin, kinds: [kind] } : { origin, kinds: [kind], pathname })
     }
-    const pathname = readablePathname(approval.pathname, origin)
-    if (pathname) result.push({ origin, kinds: approval.kinds, pathname })
-    else if (approval.pathname === '/') result.push({ origin, kinds: approval.kinds })
   }
   return result
 }

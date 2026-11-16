@@ -48,7 +48,7 @@ export interface SanitizeOptions {
   linkOrigins?: Iterable<string>
   // Keep the author's scripts, for a document that will run sandboxed.
   keepScripts?: boolean
-  // Additional https origins author assets may use, by fetch kind.
+  // https origins author assets may use in addition to DEFAULT_ORIGINS, by fetch kind.
   origins?: Iterable<OriginApproval>
   // Keep data: font faces written by the author.
   dataFonts?: boolean
