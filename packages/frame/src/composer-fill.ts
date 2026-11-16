@@ -5,8 +5,6 @@ import {
   PREFLIGHT_REGION_FIELD_LIMIT,
   type PreflightEntry,
   type PreflightRegion,
-  TEMPLATED_PARENT_RULES,
-  textHoldingParentRules,
 } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import {
@@ -19,9 +17,8 @@ import {
   runFillStageOnce,
   truncatedRegion,
 } from './composer-fill-policy.ts'
-import { flowTextArea } from './composer-measure.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
-import { parentsOf, type SourceGeometry, templateStagingArea } from './composer-source-staging.ts'
+import { type SourceGeometry, templateStagingArea } from './composer-source-staging.ts'
 
 type FillGeometry = Pick<SourceGeometry, 'parents'>
 
@@ -251,11 +248,6 @@ ${embedFunction('recordTruncatedRegion', recordTruncatedRegion)}
 ${embedFunction('regionSubject', regionSubject)}
 ${embedFunction('fillBlockExtent', fillBlockExtent)}
 ${embedFunction('repeatFill', repeatFill)}
-var TEMPLATED_PARENT_RULES=${JSON.stringify(TEMPLATED_PARENT_RULES)};
-${embedFunction('textHoldingParentRules', textHoldingParentRules)}
-${embedFunction('flowTextArea', flowTextArea)}
-${embedFunction('parentsOf', parentsOf)}
-${embedFunction('templateStagingArea', templateStagingArea)}
 ${embedFunction('fillTemplateHolder', fillTemplateHolder)}
 ${embedFunction('fillTemplateSourceRegions', fillTemplateSourceRegions)}
 ${embedFunction('truncateLastLine', truncateLastLine)}

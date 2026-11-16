@@ -1,10 +1,9 @@
-import { type FitStrategy, TEMPLATED_PARENT_RULES, textHoldingParentRules } from '@segnavia/format'
+import type { FitStrategy } from '@segnavia/format'
 import { embedFunction, fitList, fittedSlotModes, parseCssLength, readSlotOverflowMarker } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
 import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue } from './composer-fit-policy.ts'
-import { flowTextArea } from './composer-measure.ts'
 import { embeddedInkFunctions, fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
-import { blockSubject, parentsOf, type SourceGeometry, type StagedSource, stagedSourceExcluded, templateStagingArea } from './composer-source-staging.ts'
+import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded, templateStagingArea } from './composer-source-staging.ts'
 import { runStageOnce } from './composer-stage-policy.ts'
 
 interface FitResult {
@@ -250,11 +249,6 @@ ${embedFunction('fitList', fitList)}
 ${embedFunction('applyFitStyles', applyFitStyles)}
 ${embedFunction('fillTemplateRegions', fillTemplateRegions)}
 ${embeddedInkFunctions()}
-var TEMPLATED_PARENT_RULES=${JSON.stringify(TEMPLATED_PARENT_RULES)};
-${embedFunction('textHoldingParentRules', textHoldingParentRules)}
-${embedFunction('flowTextArea', flowTextArea)}
-${embedFunction('parentsOf', parentsOf)}
-${embedFunction('templateStagingArea', templateStagingArea)}
 ${embedFunction('blockSubject', blockSubject)}
 ${embedFunction('stagedSourceExcluded', stagedSourceExcluded)}
 ${embedFunction('templatePageFits', templatePageFits)}

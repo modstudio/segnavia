@@ -1,5 +1,6 @@
-import { type ParentRules, TEMPLATED_PARENT_RULES } from '@segnavia/format'
-import { flowTextArea } from './composer-measure.ts'
+import { type ParentRules, TEMPLATED_PARENT_RULES, textHoldingParentRules } from '@segnavia/format'
+import { embedFunction } from '@segnavia/html'
+import { flowTextArea, flowTextAreas } from './composer-measure.ts'
 
 export interface StagedSource {
   clone: HTMLElement
@@ -19,6 +20,14 @@ export function parentsOf(element: Element | null | undefined): ParentRules | nu
   return rules ? JSON.parse(rules) : null
 }
 
+export function mergeParents(section: ParentRules | null, template: ParentRules | null): ParentRules | undefined {
+  return section || template || undefined
+}
+
+export function templateParentRules(flow: Element | null | undefined, template: Element | null | undefined): ParentRules | undefined {
+  return mergeParents(parentsOf(flow), parentsOf(template))
+}
+
 export function templateStagingArea(
   holder: HTMLElement,
   template: HTMLElement,
@@ -26,13 +35,28 @@ export function templateStagingArea(
   templateName: string,
 ): { width: number; height: number } {
   const flow = holder.closest<HTMLElement>('[data-segnavia-flow]')
-  const rules = parentsOf(flow) ?? parentsOf(template) ?? undefined
+  const rules = templateParentRules(flow, template)
   const areas = Object.fromEntries(geometry.parents.map((parent) => [parent.name, parent.textArea]))
   try {
-    return flowTextArea(rules, areas, 'fixed', 'body', () => TEMPLATED_PARENT_RULES)
+    const selected = flowTextAreas(rules, areas, 'fixed', 'body', () => TEMPLATED_PARENT_RULES)
+    return {
+      width: Math.min(...selected.map((area) => area.width)),
+      height: Math.min(...selected.map((area) => area.height)),
+    }
   } catch {
     throw new Error(`template "${templateName}" has no text area; configure a page parent to clear this refusal`)
   }
+}
+
+export function embeddedComposerStagingFunctions(): string {
+  return `var TEMPLATED_PARENT_RULES=${JSON.stringify(TEMPLATED_PARENT_RULES)};
+${embedFunction('textHoldingParentRules', textHoldingParentRules)}
+${embedFunction('flowTextAreas', flowTextAreas)}
+${embedFunction('flowTextArea', flowTextArea)}
+${embedFunction('parentsOf', parentsOf)}
+${embedFunction('mergeParents', mergeParents)}
+${embedFunction('templateParentRules', templateParentRules)}
+${embedFunction('templateStagingArea', templateStagingArea)}`
 }
 
 export function stagedSourceExcluded(element: HTMLElement): boolean {

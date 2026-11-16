@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { applyRegionOverflow, embeddedComposerFillFunctions, repeatFill } from './composer-fill.ts'
+import { embeddedComposerStagingFunctions } from './composer-source-staging.ts'
 
 const stagingGeometry = {
   parents: [
@@ -8,8 +9,10 @@ const stagingGeometry = {
   ],
 }
 
-function stagedFillCss(rules: unknown): string {
-  const fillTemplateHolder = new Function(`var fillTemplateRegions=function(){};${embeddedComposerFillFunctions()};return fillTemplateHolder`)() as (
+function stagedFillCss(flowRules?: unknown, templateRules?: unknown): string {
+  const fillTemplateHolder = new Function(
+    `var fillTemplateRegions=function(){};${embeddedComposerStagingFunctions()};${embeddedComposerFillFunctions()};return fillTemplateHolder`,
+  )() as (
     root: ParentNode,
     template: HTMLElement,
     holder: HTMLElement,
@@ -20,7 +23,13 @@ function stagedFillCss(rules: unknown): string {
   ) => unknown
   const flow = {
     getAttribute: (name: string) =>
-      name === 'data-segnavia-parent-rules' ? JSON.stringify(rules) : name === 'data-page-geometry' ? 'book' : name === 'dir' ? 'ltr' : null,
+      name === 'data-segnavia-parent-rules' && flowRules !== undefined
+        ? JSON.stringify(flowRules)
+        : name === 'data-page-geometry'
+          ? 'book'
+          : name === 'dir'
+            ? 'ltr'
+            : null,
   }
   const clone = {
     style: { cssText: '' },
@@ -31,7 +40,7 @@ function stagedFillCss(rules: unknown): string {
   }
   const template = {
     cloneNode: () => clone,
-    getAttribute: () => null,
+    getAttribute: (name: string) => (name === 'data-segnavia-parent-rules' && templateRules !== undefined ? JSON.stringify(templateRules) : null),
   }
   const holder = {
     closest: () => flow,
@@ -54,11 +63,18 @@ test('template fill stages holders at their parent-rule areas', () => {
   const css = [
     stagedFillCss([{ parent: 'segnavia:verso' }]),
     stagedFillCss([{ when: { face: 'verso' }, parent: 'segnavia:verso' }, { parent: 'segnavia:recto' }]),
+    stagedFillCss([{ parent: 'segnavia:recto' }]),
+    stagedFillCss(undefined, [{ parent: 'segnavia:recto' }]),
+    stagedFillCss([{ when: { position: 'sectionFirst' }, parent: 'segnavia:recto' }, { parent: 'segnavia:verso' }]),
   ]
-  expect(css).toHaveLength(2)
-  for (const value of css) {
+  expect(css).toHaveLength(5)
+  for (const value of [css[0], css[1], css[4]]) {
     expect(value).toContain('inline-size:280px')
     expect(value).toContain('block-size:480px')
+  }
+  for (const value of [css[2], css[3]]) {
+    expect(value).toContain('inline-size:320px')
+    expect(value).toContain('block-size:520px')
   }
 })
 
