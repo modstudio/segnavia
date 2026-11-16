@@ -10,17 +10,51 @@ import {
   deckFromDocument,
   type ImpositionInput,
   MAX_BOARD_ZOOM,
+  type MeasuredSize,
   MIN_BOARD_ZOOM,
   PAGE_OR_PRINTED_KINDS,
   type Page,
   type PixelSize,
   type Point,
   pageOrPrintedFromDocument,
+  revealView,
   zoomAt,
 } from '@segnavia/format'
 import { type PlacementsOptions, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
+import type { RevealTarget } from './board-reveal.ts'
 import type { ControllerOptions } from './controller.ts'
 import { type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
+
+export interface PendingReveal {
+  id: string
+  height: number
+  maxZoom: number
+}
+
+export interface RevealRequest {
+  view: BoardView
+  pendingReveal: PendingReveal | undefined
+}
+
+export function checkRevealMaxZoom(value: number): number {
+  if (!Number.isFinite(value) || value < MIN_BOARD_ZOOM || value > MAX_BOARD_ZOOM) {
+    throw new RangeError(`Reveal maxZoom is ${value}; provide a finite value from ${MIN_BOARD_ZOOM} through ${MAX_BOARD_ZOOM}.`)
+  }
+  return value
+}
+
+export function effectiveRevealMaxZoom(callMaxZoom?: number, boardMaxZoom?: number): number {
+  const maxZoom = callMaxZoom !== undefined ? callMaxZoom : boardMaxZoom !== undefined ? boardMaxZoom : MAX_BOARD_ZOOM
+  return checkRevealMaxZoom(maxZoom)
+}
+
+export function revealRequest(target: RevealTarget, viewport: MeasuredSize, maxZoom: number): RevealRequest {
+  const checkedMaxZoom = checkRevealMaxZoom(maxZoom)
+  return {
+    view: revealView(target.bounds, viewport, 48, { maxZoom: checkedMaxZoom }),
+    pendingReveal: target.kind === 'item' ? { id: target.item.id, height: target.bounds.height, maxZoom: checkedMaxZoom } : undefined,
+  }
+}
 
 interface ResolvedBase {
   title?: string

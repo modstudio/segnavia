@@ -7,8 +7,10 @@ import {
   boardShapeFacts,
   boardTier,
   checkResolved,
+  effectiveRevealMaxZoom,
   keyToView,
   pinchOf,
+  revealRequest,
   shouldMountItem,
   shouldRefitReveal,
   zoomView,
@@ -43,6 +45,48 @@ const documentInputForBoard = () => ({
 })
 
 describe('board policy', () => {
+  test('bounds a reveal, centers it and preserves the fitted zoom below the cap', () => {
+    const label = { kind: 'label' as const, bounds: { x: 20, y: 30, width: 20, height: 10 } }
+    const bounded = revealRequest(label, { width: 500, height: 300 }, 1)
+    const unbounded = revealRequest(label, { width: 500, height: 300 }, effectiveRevealMaxZoom())
+    expect(bounded).toEqual({
+      view: { zoom: 1, pan: { x: 220, y: 115 }, viewport: { width: 500, height: 300 } },
+      pendingReveal: undefined,
+    })
+    expect(unbounded.view.zoom).toBeGreaterThan(1)
+
+    const large = { kind: 'section' as const, bounds: { x: 0, y: 0, width: 1000, height: 500 } }
+    expect(revealRequest(large, { width: 500, height: 300 }, 1).view).toEqual(revealRequest(large, { width: 500, height: 300 }, effectiveRevealMaxZoom()).view)
+  })
+
+  test('prefers a per-call reveal bound, then the board bound, then the existing maximum', () => {
+    expect(effectiveRevealMaxZoom(2, 1)).toBe(2)
+    expect(effectiveRevealMaxZoom(undefined, 1)).toBe(1)
+    expect(effectiveRevealMaxZoom()).toBe(MAX_BOARD_ZOOM)
+    expect(() => effectiveRevealMaxZoom(null as unknown as number, 1)).toThrow(RangeError)
+  })
+
+  test('carries a reveal bound through an item refit', () => {
+    const item = { id: 'item', kind: 'page' as const, address: 'item', x: 10, y: 20, width: 100 }
+    const initial = revealRequest({ kind: 'item', item, bounds: { x: 10, y: 20, width: 100, height: 20 } }, { width: 500, height: 300 }, 1)
+    expect(initial.pendingReveal).toEqual({ id: 'item', height: 20, maxZoom: 1 })
+    const refit = revealRequest(
+      { kind: 'item', item, bounds: { x: 10, y: 20, width: 100, height: 200 } },
+      { width: 500, height: 300 },
+      initial.pendingReveal?.maxZoom ?? effectiveRevealMaxZoom(),
+    )
+    expect(refit.view.zoom).toBeLessThanOrEqual(1)
+    expect(refit.pendingReveal?.maxZoom).toBe(1)
+  })
+
+  test.each([0, Number.NaN, -1, MIN_BOARD_ZOOM / 2, Number.POSITIVE_INFINITY, MAX_BOARD_ZOOM + 1])(
+    'refuses an invalid reveal maxZoom of %s before producing a request',
+    (maxZoom) => {
+      const target = { kind: 'label' as const, bounds: { x: 0, y: 0, width: 20, height: 10 } }
+      expect(() => revealRequest(target, { width: 500, height: 300 }, maxZoom)).toThrow(RangeError)
+    },
+  )
+
   test.each([
     [
       { cover: { page: pageDocument('designed') }, picture: 'kept.webp' },
