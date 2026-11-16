@@ -100,6 +100,34 @@ describe('pre-push review gate', () => {
     expect(result.output).toContain('require a recorded review tier of at least 2')
   })
 
+  it('accepts a test-only risk-surface diff reviewed at tier 0', () => {
+    const { repository, base } = makeRepository()
+    commit(repository, 'packages/format/src/x.test.ts', 'test\n', 'format test')
+    recordReview(repository, 0)
+
+    expect(push(repository, base).status).toBe(0)
+  })
+
+  it('accepts a sanitizer test reviewed at tier 1', () => {
+    const { repository, base } = makeRepository()
+    commit(repository, 'packages/html/src/sanitize.test.ts', 'test\n', 'sanitizer test')
+    recordReview(repository, 1)
+
+    expect(push(repository, base).status).toBe(0)
+  })
+
+  it('refuses and names only the product file in a mixed risk-surface diff', () => {
+    const { repository, base } = makeRepository()
+    commit(repository, 'packages/format/src/x.test.ts', 'test\n', 'format test')
+    commit(repository, 'packages/format/src/x.ts', 'product\n', 'format product')
+    recordReview(repository, 1)
+
+    const result = push(repository, base)
+    expect(result.status).toBe(1)
+    expect(result.output).toContain('packages/format/src/x.ts')
+    expect(result.output).not.toContain('packages/format/src/x.test.ts')
+  })
+
   it('accepts rewritten history when the reviewed tree is unchanged', () => {
     const { repository, base } = makeRepository()
     commit(repository, 'ordinary.txt', 'reviewed\n', 'reviewed work')
