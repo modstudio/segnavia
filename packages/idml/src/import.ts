@@ -1,6 +1,6 @@
-import type { Book } from '@segnavia/format'
+import type { Document } from '@segnavia/format'
 import { conversionFor, inspectModel } from './conversion.ts'
-import { modelToBook } from './map-book.ts'
+import { modelToDocument } from './map-document.ts'
 import { idmlModel } from './model.ts'
 import { refusal } from './refusal.ts'
 import { type IdmlReportData, ReportCollector } from './report.ts'
@@ -14,7 +14,7 @@ export interface IdmlImportReport extends IdmlReportData {
 }
 
 export interface IdmlImportResult {
-  book: Book
+  document: Document
   report: IdmlImportReport
 }
 
@@ -37,6 +37,6 @@ export async function importIdml(bytes: Uint8Array, options: IdmlImportOptions =
   const model = await readModel(bytes)
   const conversion = conversionFor(model, options.answers)
   const collector = new ReportCollector(model.report)
-  const book = modelToBook(model, collector, options, conversion)
-  return { book, report: { partsRead: model.partsRead, ...collector.data() } }
+  const document = modelToDocument(model, collector, options, conversion)
+  return { document, report: { partsRead: model.partsRead, ...collector.data() } }
 }

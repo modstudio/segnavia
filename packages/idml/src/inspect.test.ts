@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { bookFromDocument } from '@segnavia/format'
 import { importIdml, inspectIdml } from './import.ts'
 import { testZip } from './zip.test-helper.ts'
 
@@ -60,7 +61,7 @@ test('inspects ambiguity, refuses it by id and labels, then imports answered par
   const titles = await inspectIdml(bytes, { parts: { master: 'Open' } })
   expect(titles.questions[0]?.id).toBe('titles')
   const result = await importIdml(bytes, { answers: { parts: { master: 'Open' }, titles: { list: ['First part', 'Second part'] } } })
-  expect(result.book.body.map((entry) => ('name' in entry ? [entry.name, entry.title, entry.children.length] : []))).toEqual([
+  expect(bookFromDocument(result.document).body.map((entry) => ('name' in entry ? [entry.name, entry.title, entry.children.length] : []))).toEqual([
     ['part-1', 'First part', 0],
     ['part-2', 'Second part', 1],
   ])

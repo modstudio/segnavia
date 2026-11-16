@@ -12,7 +12,3 @@ export function orderedStories(model: IdmlModel, anchoredOnly = new Set<string>(
     .filter((story) => !masterStories.has(story.id) && !anchoredOnly.has(story.id))
     .sort((left, right) => (order.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.id) ?? Number.MAX_SAFE_INTEGER))
 }
-
-export function plainChapter<T extends { story: string }>({ story: _story, ...chapter }: T): Omit<T, 'story'> {
-  return chapter
-}

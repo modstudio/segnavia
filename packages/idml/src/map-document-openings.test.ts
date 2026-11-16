@@ -1,8 +1,11 @@
 import { expect, test } from 'bun:test'
-import { modelToBook } from './map-book.ts'
+import { bookFromDocument } from '@segnavia/format'
+import { modelToDocument } from './map-document.ts'
 import type { IdmlModel } from './model.ts'
 import { ReportCollector } from './report.ts'
 import type { IdmlStory } from './types.ts'
+
+const loweredModel = (...args: Parameters<typeof modelToDocument>) => bookFromDocument(modelToDocument(...args))
 
 const story = (id: string, text = id): IdmlStory => ({
   id,
@@ -39,7 +42,7 @@ function model(
 
 test('disables recto openings and reports each chapter that starts on a verso', () => {
   const report = new ReportCollector()
-  const book = modelToBook(
+  const book = loweredModel(
     model(
       [
         { id: 'recto-page', name: 'recto-page', stories: ['recto'], side: 'right' },
@@ -56,7 +59,7 @@ test('disables recto openings and reports each chapter that starts on a verso', 
 
 test('treats a left page as recto for right-to-left binding', () => {
   const report = new ReportCollector()
-  const book = modelToBook(
+  const book = loweredModel(
     model([{ id: 'left-page', name: 'left-page', stories: ['chapter'], side: 'left' }], [story('chapter')], { binding: 'right-to-left' }),
     report,
   )
@@ -82,7 +85,7 @@ test('ignores a verso-opening story claimed into a title block', () => {
     },
   ]
   const report = new ReportCollector()
-  const book = modelToBook(model(pages, [header, body]), report)
+  const book = loweredModel(model(pages, [header, body]), report)
 
   expect(book.body.map((chapter) => chapter.title)).toEqual(['body'])
   expect(book.rectoOpenings).toBe(true)
@@ -91,7 +94,7 @@ test('ignores a verso-opening story claimed into a title block', () => {
 
 test('keeps recto openings off and reports no ordinal verso in a single-sided document', () => {
   const report = new ReportCollector()
-  const book = modelToBook(
+  const book = loweredModel(
     model(
       [
         { id: 'first-page', name: 'first-page', stories: [] },
@@ -109,7 +112,7 @@ test('keeps recto openings off and reports no ordinal verso in a single-sided do
 
 test('ignores a page-less chapter when located chapters open on rectos', () => {
   const report = new ReportCollector()
-  const book = modelToBook(
+  const book = loweredModel(
     model([{ id: 'recto-page', name: 'recto-page', stories: ['located'], side: 'right' }], [story('located'), story('page-less')]),
     report,
   )

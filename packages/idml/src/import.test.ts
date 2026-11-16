@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { bookFromDocument } from '@segnavia/format'
 import { fontReferenceRefusals } from '@segnavia/html'
 import { idmlAssetFrom } from './asset-from-placement.ts'
 import { importIdml } from './import.ts'
@@ -30,13 +31,65 @@ describe('importIdml', () => {
       { name: 'Stories/Story_master.xml', content: '<Story Self="master-story"/>' },
     ])
     const result = await importIdml(bytes)
-    expect(result.book.body.map((chapter) => chapter.title)).toEqual(['story', 'later', 'off-page'])
-    expect(result.book.dir).toBe('ltr')
-    expect(result.book.page?.margin.inlineStart).toBeCloseTo(30 * (25.4 / 72))
-    expect(result.book.page?.margin.inlineEnd).toBeCloseTo(40 * (25.4 / 72))
+    expect(result.document).toMatchObject({ type: 'document', kind: 'book', children: [{ type: 'division', name: 'body' }] })
+    expect(bookFromDocument(result.document).body.map((chapter) => chapter.title)).toEqual(['story', 'later', 'off-page'])
+    expect(bookFromDocument(result.document).dir).toBe('ltr')
+    expect(bookFromDocument(result.document).page?.margin.inlineStart).toBeCloseTo(30 * (25.4 / 72))
+    expect(bookFromDocument(result.document).page?.margin.inlineEnd).toBeCloseTo(40 * (25.4 / 72))
     expect(result.report.partsRead).toHaveLength(7)
     expect(result.report.partsRead).not.toContain('mimetype')
     expect(result.report.unsupportedElements).toMatchObject({ 'TextFrame off page': 1, 'master story': 1 })
+  })
+
+  test('reports named features with no document carrier', async () => {
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      {
+        name: 'designmap.xml',
+        content: designmap.replace(
+          '</Document>',
+          '<Section Self="section" PageStart="p1" AlternateLayout="Letter V"/><idPkg:Styles src="Resources/Styles.xml"/></Document>',
+        ),
+      },
+      { name: 'Spreads/Spread_s.xml', content: `<Spread Self="s"><Page Self="p1" GeometricBounds="0 0 100 100"/>${frame('story', 0)}</Spread>` },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'Resources/Styles.xml',
+        content:
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" Composer="HL Composer Optyca"/></RootParagraphStyleGroup><RootObjectStyleGroup><ObjectStyle Self="object" Name="Text frame"/></RootObjectStyleGroup></idPkg:Styles>',
+      },
+      { name: 'Stories/Story_story.xml', content: '<Story Self="story"><ParagraphStyleRange><Content>Words</Content></ParagraphStyleRange></Story>' },
+    ])
+
+    const result = await importIdml(bytes)
+
+    expect(result.report.unmappedFeatures).toEqual({
+      alternateLayout: ['Letter V'],
+      composer: ['HL Composer Optyca'],
+      objectStyle: ['Text frame'],
+    })
+  })
+
+  test('does not report a reproduced composer as an unmapped feature', async () => {
+    const bytes = await testZip([
+      { name: 'mimetype', content: mimetype },
+      {
+        name: 'designmap.xml',
+        content: designmap.replace('</Document>', '<idPkg:Styles src="Resources/Styles.xml"/></Document>'),
+      },
+      { name: 'Spreads/Spread_s.xml', content: `<Spread Self="s"><Page Self="p1" GeometricBounds="0 0 100 100"/>${frame('story', 0)}</Spread>` },
+      { name: 'MasterSpreads/MasterSpread_m.xml', content: '<MasterSpread Self="m"/>' },
+      {
+        name: 'Resources/Styles.xml',
+        content:
+          '<idPkg:Styles><RootParagraphStyleGroup><ParagraphStyle Self="root" Name="$ID/[No paragraph style]" Composer="$ID/Adobe Paragraph Composer"/></RootParagraphStyleGroup></idPkg:Styles>',
+      },
+      { name: 'Stories/Story_story.xml', content: '<Story Self="story"><ParagraphStyleRange><Content>Words</Content></ParagraphStyleRange></Story>' },
+    ])
+
+    const result = await importIdml(bytes)
+
+    expect(result.report.unmappedFeatures).not.toHaveProperty('composer')
   })
 
   test('refuses a missing or wrong IDML identity entry by name', async () => {
@@ -79,15 +132,15 @@ describe('importIdml', () => {
       },
     ])
     const result = await importIdml(bytes)
-    const chapter = result.book.body[0]
+    const chapter = bookFromDocument(result.document).body[0]
     if (!chapter || !('html' in chapter)) throw new Error('Expected an imported chapter.')
-    expect(result.book).toMatchObject({ dir: 'ltr', lang: 'he', page: { columnGap: 12 * (25.4 / 72) } })
+    expect(bookFromDocument(result.document)).toMatchObject({ dir: 'ltr', lang: 'he', page: { columnGap: 12 * (25.4 / 72) } })
     expect(chapter.html).toContain('class="idml-p-body" dir="rtl" data-columns="2"')
     expect(chapter.html).toContain('&lt;script&gt;שלום')
-    expect(result.book.style?.css).toContain('font-size:12pt')
-    expect(result.book.style?.css).not.toContain('font-family')
-    expect(result.book.style?.css).toContain('font-weight:400')
-    expect(result.book.style?.css).not.toContain('font-style')
+    expect(bookFromDocument(result.document).style?.css).toContain('font-size:12pt')
+    expect(bookFromDocument(result.document).style?.css).not.toContain('font-family')
+    expect(bookFromDocument(result.document).style?.css).toContain('font-weight:400')
+    expect(bookFromDocument(result.document).style?.css).not.toContain('font-style')
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
     expect(result.report.unmappedFonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
     expect(result.report.unsupportedElements).toMatchObject({ Note: 1 })
@@ -129,11 +182,17 @@ describe('importIdml', () => {
       { family: 'Book Face', style: 'Semi Bold', postscriptName: 'BookFace-SemiBold' },
       { family: 'Display Face', style: 'Bold Italic', postscriptName: 'Display-BoldItalic' },
     ])
-    expect(result.book.style?.fonts).toEqual({ body: { faces: [{}] }, 'local-0': { local: 'Installed Display', fallback: 'body' } })
-    expect(result.book.style?.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
-    expect(result.book.style?.css).toContain('font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic')
+    expect(bookFromDocument(result.document).style?.fonts).toEqual({ body: { faces: [{}] }, 'local-0': { local: 'Installed Display', fallback: 'body' } })
+    expect(bookFromDocument(result.document).style?.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
+    expect(bookFromDocument(result.document).style?.css).toContain(
+      'font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic',
+    )
     expect(
-      fontReferenceRefusals(`<style>${result.book.style?.css}</style>`, [{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }], new Set(['body'])),
+      fontReferenceRefusals(
+        `<style>${bookFromDocument(result.document).style?.css}</style>`,
+        [{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }],
+        new Set(['body']),
+      ),
     ).toEqual([])
   })
 
@@ -182,11 +241,11 @@ describe('importIdml', () => {
       },
     ])
     const result = await importIdml(bytes)
-    expect(result.book.lang).toBe('he')
-    const chapter = result.book.body[0]
+    expect(bookFromDocument(result.document).lang).toBe('he')
+    const chapter = bookFromDocument(result.document).body[0]
     if (!chapter || !('html' in chapter)) throw new Error('Expected an imported chapter.')
     expect(chapter.html).toContain('dir="ltr"')
-    expect(result.book.style?.css).toContain('.idml-p-body{line-height:18pt}')
+    expect(bookFromDocument(result.document).style?.css).toContain('.idml-p-body{line-height:18pt}')
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face' }])
   })
 
@@ -221,11 +280,13 @@ describe('importIdml', () => {
       },
     ])
     const result = await importIdml(bytes)
-    expect(result.book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-book-recto', 'idml-h-book-verso'])
-    expect(result.book.parentPages[0]?.regions.head?.html).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:first"')
-    expect(result.book.variables.map((variable) => variable.name)).toContain('Siman')
-    expect(result.book.headTemplates.map((template) => template.name)).toContain('idml:Siman:first')
-    const chapter = result.book.body[0]
+    expect(bookFromDocument(result.document).parentPages.map((parent) => parent.name)).toEqual(['idml-h-book-recto', 'idml-h-book-verso'])
+    expect(bookFromDocument(result.document).parentPages[0]?.regions.head?.html).toContain(
+      'data-motif="segnavia:head-template" data-motif-name="idml:Siman:first"',
+    )
+    expect(bookFromDocument(result.document).variables.map((variable) => variable.name)).toContain('Siman')
+    expect(bookFromDocument(result.document).headTemplates.map((template) => template.name)).toContain('idml:Siman:first')
+    const chapter = bookFromDocument(result.document).body[0]
     expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-variable="Siman">')
     expect(result.report.unsupportedElements).not.toHaveProperty('master story')
   })
@@ -257,9 +318,9 @@ describe('importIdml', () => {
         return '<svg><script>bad()</script><path d="M0 0"/></svg>'
       },
     })
-    expect(result.book.body.map((chapter) => chapter.title)).toEqual(['body-1', 'body-2'])
-    const first = result.book.body[0]
-    const second = result.book.body[1]
+    expect(bookFromDocument(result.document).body.map((chapter) => chapter.title)).toEqual(['body-1', 'body-2'])
+    const first = bookFromDocument(result.document).body[0]
+    const second = bookFromDocument(result.document).body[1]
     const firstHtml = first && 'html' in first ? (first.html ?? '') : ''
     const secondHtml = second && 'html' in second ? (second.html ?? '') : ''
     expect(firstHtml.startsWith('<div class="idml-title-block"')).toBe(true)
@@ -283,7 +344,7 @@ describe('importIdml', () => {
       { purpose: 'print', width: 20, signal: new AbortController().signal },
     )
     const adapted = await importIdml(bytes, { asset })
-    const adaptedChapter = adapted.book.body[0]
+    const adaptedChapter = bookFromDocument(adapted.document).body[0]
     const adaptedHtml = adaptedChapter && 'html' in adaptedChapter ? (adaptedChapter.html ?? '') : ''
     expect(adaptedHtml).toContain(`<img src="${src}" alt="Ornament">`)
   })
@@ -304,7 +365,7 @@ describe('importIdml', () => {
       { name: 'Stories/body.xml', content: '<Story Self="body"><ParagraphStyleRange><Content>Body</Content></ParagraphStyleRange></Story>' },
     ])
     const result = await importIdml(bytes)
-    const chapter = result.book.body[0]
+    const chapter = bookFromDocument(result.document).body[0]
     const html = chapter && 'html' in chapter ? chapter.html : ''
     expect(html).toContain('inset-inline-start:-5pt;inline-size:20pt')
     expect(html).toContain('block-size:20pt"></div>')
