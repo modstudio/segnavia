@@ -169,6 +169,29 @@ describe('resolvePlacements', () => {
     expect(reports).toEqual([{ address: 'a', page: 'Missing', reason: 'no-page' }])
   })
 
+  test('contains an application failure to its placement and continues applying answers', async () => {
+    const reports: unknown[] = []
+    const output = await resolvePlacements('<img data-segnavia-media="broken"><img data-segnavia-media="working">', {
+      resolvePlacement: async (placement) =>
+        placement.address === 'broken'
+          ? {
+              kind: 'media' as const,
+              media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: {} }] },
+              src: png,
+              bytes: new Uint8Array([1]),
+            }
+          : { kind: 'media' as const, media: media(), src: png },
+      purpose: 'print',
+      width: 100,
+      signal,
+      pdfSources: new Map(),
+      report: (entry) => reports.push(entry),
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+    expect(output).toContain(`<img src="${png}">`)
+    expect(reports).toEqual([{ address: 'broken', page: undefined, reason: 'failed', message: expect.any(String) }])
+  })
+
   test('accepts a line-wrapped base64 image source as the sanitizer does', async () => {
     const src = 'data:image/png;base64,AA\nBB'
     const output = await resolvePlacements('<img data-segnavia-media="a">', {

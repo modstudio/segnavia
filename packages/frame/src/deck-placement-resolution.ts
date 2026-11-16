@@ -1,5 +1,5 @@
 import type { AsOfDay, Deck, Slide } from '@segnavia/format'
-import { classifyMediaAnswer, type PlacementsOptions, placementPlaceholderSource, refuseSoundsForPrint } from '@segnavia/html'
+import { classifyMediaAnswer, type PlacementsOptions, placementPlaceholderSource, refuseDeclaredSoundsForPrint, refuseSoundsForPrint } from '@segnavia/html'
 
 type MediaSlide = Extract<Slide['content'], { media: unknown }>
 type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
@@ -57,6 +57,7 @@ export async function resolveMediaContent<R extends { kind: string }>(
   day?: AsOfDay,
 ): Promise<ImageSlide> {
   const placement = content.media
+  refuseDeclaredSoundsForPrint([placement], purpose)
   if (!placements) return missingMedia(content)
   const resolved = await resolveMediaPlacement(content, placements, purpose, width, signal, day)
   refuseSoundsForPrint([{ placement: placement.address, answer: 'answer' in resolved ? resolved.answer : undefined }], purpose)
@@ -70,6 +71,10 @@ export async function resolveDeckMedia<R extends { kind: string }>(
   signal: AbortSignal,
   day?: AsOfDay,
 ): Promise<Deck> {
+  refuseDeclaredSoundsForPrint(
+    deck.slides.flatMap((slide) => ('media' in slide.content ? [slide.content.media] : [])),
+    purpose,
+  )
   if (!placements)
     return { ...deck, slides: deck.slides.map((slide) => ('media' in slide.content ? { ...slide, content: missingMedia(slide.content) } : slide)) }
   const resolutions = await Promise.all(

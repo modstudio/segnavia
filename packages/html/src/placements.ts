@@ -264,6 +264,7 @@ function applyPlacementResolution<R extends { kind: string }>(
   resolved: PlacementResolution<R>,
   options: {
     purpose: 'screen' | 'print'
+    signal: AbortSignal
     report?: PlacementReport
     pdfSources?: Map<string, PlacedPdfSource>
   },
@@ -272,7 +273,16 @@ function applyPlacementResolution<R extends { kind: string }>(
   const element = found[entry.index]
   if (!element) return
   const classified = 'error' in resolved ? classifyMediaAnswer({ error: resolved.error }) : classifyMediaAnswer({ answer: resolved.answer })
-  const resolvedFailure = classified.status === 'ok' ? applyResolved(element, entry, classified.value, options.purpose, options.pdfSources) : undefined
+  let resolvedFailure: 'no-page' | undefined
+  try {
+    resolvedFailure = classified.status === 'ok' ? applyResolved(element, entry, classified.value, options.purpose, options.pdfSources) : undefined
+  } catch (error) {
+    if (options.signal.aborted) throw options.signal.reason
+    placeholder(element)
+    const failure = classifyMediaAnswer({ error })
+    options.report?.({ address: entry.placement.address, page: entry.placement.page, reason: failure.status, message: failure.message })
+    return
+  }
   if (classified.status === 'ok' && !resolvedFailure) return
   placeholder(element)
   options.report?.({
@@ -331,7 +341,12 @@ export async function resolvePlacements<R extends { kind: string }>(
     options.purpose,
   )
   for (const resolved of resolvedEntries) {
-    applyPlacementResolution(found, resolved, { purpose: options.purpose, report: options.report, pdfSources: options.pdfSources })
+    applyPlacementResolution(found, resolved, {
+      purpose: options.purpose,
+      signal: options.signal,
+      report: options.report,
+      pdfSources: options.pdfSources,
+    })
   }
   options.signal.throwIfAborted()
   return serialize(document)

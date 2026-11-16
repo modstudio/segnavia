@@ -1,4 +1,4 @@
-import { Refusal } from '@segnavia/format'
+import { type Placement, Refusal } from '@segnavia/format'
 
 function placementMessage(id: string): string {
   return `Placement ${id} holds a sound, which cannot print. Remove the placement, or place an image of its cover instead, to clear this refusal.`
@@ -23,4 +23,10 @@ export function refuseSoundsForPrint(answers: readonly { placement: string; answ
   if (purpose !== 'print') return
   const placements = answers.flatMap(({ placement, answer }) => (answer?.kind === 'sound' ? [placement] : []))
   if (placements.length > 0) throw new SoundPrintRefusedError(placements)
+}
+
+export function refuseDeclaredSoundsForPrint(placements: readonly Placement[], purpose: 'screen' | 'print'): void {
+  if (purpose !== 'print') return
+  const sounds = placements.flatMap((placement) => (placement.kind === 'sound' ? [placement.address] : []))
+  if (sounds.length > 0) throw new SoundPrintRefusedError(sounds)
 }

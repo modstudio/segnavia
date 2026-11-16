@@ -33,6 +33,7 @@ import {
   pageOrPrintedFromInput,
   parseDocument,
   placementPlaceholderSource,
+  refuseDeclaredSoundsForPrint,
   resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
@@ -131,8 +132,10 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const { width, height } = deck.size
   const inline = options.inline ?? ((src: string) => src)
   const content = slide.content
-  if ('media' in content)
+  if ('media' in content) {
+    refuseDeclaredSoundsForPrint([content.media], 'print')
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
+  }
   const frame = (html: string) => {
     const layoutScripts = layoutsForHtml(html, options.layoutScripts ?? [])
     return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
