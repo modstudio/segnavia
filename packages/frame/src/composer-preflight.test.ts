@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { appendSlotOversetEntries, boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import { composerScript } from './composer.ts'
 import { mergeRegionFact } from './composer-fill-policy.ts'
-import { embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
+import { appendHjViolationEntries, embeddedPreflightFunctions, hjViolationFolio, markFurnitureInvalidVariables } from './composer-preflight.ts'
 import { embeddedSurfacePreflight, slotMarkCoverage } from './embedded-preflight.ts'
 
 test('waits for slot fit before publishing its one report', () => {
@@ -195,4 +195,40 @@ test('embedded custom property messages carry their font remedy', () => {
 
 test('seeds every compose from a fresh copy', () => {
   expect(composerScript('{}')).toContain('preflightEntries=(config.preflightSeed||[]).slice()')
+})
+
+test('reports one composed paragraph at the folio showing its worst line', () => {
+  const flow = { getAttribute: () => 'body', children: [] as unknown[] }
+  const lines = [
+    { getBoundingClientRect: () => ({ top: 110, bottom: 120 }) },
+    { getBoundingClientRect: () => ({ top: 210, bottom: 220 }) },
+  ]
+  const paragraph = {
+    getAttribute: (name: string) => (name === 'data-segnavia-id' ? 'paragraph-2' : null),
+    closest: () => flow,
+    querySelectorAll: () => lines,
+  } as unknown as Element
+  flow.children.push(paragraph)
+  const pages = [
+    { windows: [{ flow: 'body', start: 0, end: 150 }] },
+    { windows: [{ flow: 'body', start: 150, end: 300 }] },
+  ]
+  Object.assign(flow, { getBoundingClientRect: () => ({ top: 10 }) })
+  expect(hjViolationFolio(paragraph, 1, pages, ['10', '11'])).toBe('11')
+
+  const entries: PreflightEntry[] = []
+  appendHjViolationEntries(
+    new Map([[paragraph, { children: [], inlineSize: 100, spacing: { minimum: 80, desired: 100, maximum: 133 }, violation: { line: 1, ratio: 1.5, wordSpacing: 149.5 } }]]),
+    pages,
+    ['10', '11'],
+    entries,
+  )
+  expect(entries).toHaveLength(1)
+  expect(entries[0]).toMatchObject({ check: 'hj-violations', subject: 'paragraph-2', location: { folio: '11' } })
+})
+
+test('does not collect H&J entries when the profile turns the check off', () => {
+  expect(composerScript(JSON.stringify({ preflight: { ...PREFLIGHT_PRESETS.default, 'hj-violations': 'off' } }))).toContain(
+    "if(config.preflight&&config.preflight['hj-violations']!=='off')appendHjViolationEntries",
+  )
 })

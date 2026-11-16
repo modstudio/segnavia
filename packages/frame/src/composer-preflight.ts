@@ -12,9 +12,45 @@ import { embedFunction, fittedSlotModes, readSlotOverflowMarker } from '@segnavi
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
+import { hjViolationEntry } from './composer-hj-violations.ts'
+import type { ComposedParagraph } from './composer-paragraph-policy.ts'
+import { blockSubject } from './composer-source-staging.ts'
 import { embeddedPreflightBounds, PREFLIGHT_ATTRIBUTE, publishPreflightReport, slotMarkCoverage } from './embedded-preflight.ts'
 
 export { PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
+
+interface HjPlanPage {
+  windows: readonly { flow: string; start: number; end: number }[]
+}
+
+export function hjViolationFolio(paragraph: Element, lineIndex: number, pages: readonly HjPlanPage[], folios: readonly (string | null)[]): string {
+  const flow = paragraph.closest('[data-segnavia-flow]')
+  const line = paragraph.querySelectorAll(':scope > [data-segnavia-line]')[lineIndex]
+  if (!flow || !line) return ''
+  const flowId = flow.getAttribute('data-segnavia-flow') ?? ''
+  const origin = flow.getBoundingClientRect().top
+  const box = line.getBoundingClientRect()
+  const top = box.top - origin
+  const bottom = box.bottom - origin
+  const page = pages.findIndex(({ windows }) => windows.some((window) => window.flow === flowId && bottom > window.start && top < window.end))
+  return page < 0 ? '' : (folios[page] ?? '')
+}
+
+export function appendHjViolationEntries(
+  composedParagraphs: ReadonlyMap<Element, ComposedParagraph>,
+  pages: readonly HjPlanPage[],
+  folios: readonly (string | null)[],
+  entries: PreflightEntry[],
+): void {
+  for (const [paragraph, composed] of composedParagraphs) {
+    if (!composed.violation) continue
+    const flow = paragraph.closest('[data-segnavia-flow]')
+    const flowId = flow?.getAttribute('data-segnavia-flow') ?? ''
+    const block = flow ? Array.prototype.indexOf.call(flow.children, paragraph) + 1 : 0
+    const subject = blockSubject(paragraph as HTMLElement, `${flowId} p block ${block}`)
+    entries.push(hjViolationEntry(subject, hjViolationFolio(paragraph, composed.violation.line, pages, folios), composed.violation, composed.spacing))
+  }
+}
 
 function inlineVarHasFallback(style: string, start: number): boolean {
   let depth = 1
@@ -53,6 +89,8 @@ ${embedFunction('preflightRefusal', preflightRefusal)}
 ${embedFunction('cssVarInvalidMessage', cssVarInvalidMessage)}
 ${embedFunction('pageBlockRange', pageBlockRange)}
 ${embedFunction('preflightPageFacts', preflightPageFacts)}
+${embedFunction('hjViolationFolio', hjViolationFolio)}
+${embedFunction('appendHjViolationEntries', appendHjViolationEntries)}
 ${embedFunction('unmeasuredSlotsRefusalMessage', unmeasuredSlotsRefusalMessage)}
 ${embedFunction('appendSlotOversetEntries', appendSlotOversetEntries)}
 ${embedFunction('inlineVarHasFallback', inlineVarHasFallback)}

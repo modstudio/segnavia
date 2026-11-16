@@ -3,6 +3,7 @@ import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
+import { type HjSpacing, type HjViolation, worstViolation } from './composer-hj-violations.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
   COMPOSITION_IDENTITY_ATTRIBUTE,
@@ -37,6 +38,7 @@ export interface ParagraphLine {
   start: number
   end: number
   wordSpacing: number
+  ratio?: number
   hyphen: boolean
   forced: boolean
   blank?: boolean
@@ -61,6 +63,8 @@ interface ParagraphRewrite {
   tokens: ParagraphToken[]
   lines: ParagraphLine[]
   direction: string
+  spacing: HjSpacing
+  violation?: HjViolation
   source?: ParagraphRewrite
   output?: Node[]
 }
@@ -110,7 +114,9 @@ export function planParagraphLinesWith(
   pointsForWord: typeof hyphenationPoints,
 ): ParagraphLine[] {
   if (paragraphFitsOneLine(tokens, settings)) {
-    return [{ start: 0, end: tokens.length, wordSpacing: 0, hyphen: false, forced: false }]
+    const line = { start: 0, end: tokens.length, wordSpacing: 0, hyphen: false, forced: false } as ParagraphLine
+    Object.defineProperty(line, 'ratio', { value: 0 })
+    return [line]
   }
   const { items, metadata, tokenItems } = paragraphItems(tokens, settings)
   addHyphenationItems(items, metadata, tokenItems, tokens, settings, markerWidth, pointsForWord)
@@ -206,14 +212,16 @@ function plannedLines(
     const wordSpaces = spaces.filter((token) => token.text !== '\u200b')
     const natural = wordSpaces.length ? wordSpaces.reduce((sum, token) => sum + token.width, 0) / wordSpaces.length : 0
     if (start === tokens.length && meta.end === tokens.length) continue
-    lines.push({
+    const line = {
       start,
       end: meta.end,
       wordSpacing: natural === 0 || !Number.isFinite(percent) ? 0 : natural * (percent / 100 - 1),
       hyphen: meta.hyphen,
       forced: meta.forced,
       ...(start === meta.end && meta.forced ? { blank: true } : {}),
-    })
+    } as ParagraphLine
+    Object.defineProperty(line, 'ratio', { value: ratio })
+    lines.push(line)
     start = meta.next
   }
   return lines
@@ -270,6 +278,8 @@ function paragraphRewriteForFact(
       tokens: [],
       lines: source.lines,
       direction,
+      spacing: source.spacing,
+      ...(source.violation ? { violation: source.violation } : {}),
       source,
     }
   }
@@ -288,7 +298,7 @@ function paragraphRewriteForFact(
   )
   const action = paragraphCompositionAction(previous?.inlineSize, style.textAlign, composer, lines.length)
   if (action === 'leave' || action === 'restore') return undefined
-  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction }
+  const rewrite = { paragraph, original, inlineSize, tokens, lines, direction, spacing: wordSpacing, violation: worstViolation(lines, wordSpacing) }
   if (reuseKey) reusable.set(reuseKey, rewrite)
   return rewrite
 }
@@ -297,7 +307,7 @@ export function composeParagraphs(
   root: ParentNode,
   doc: Document,
   styleFor: typeof getComputedStyle,
-  composedParagraphs: WeakMap<Element, ComposedParagraph>,
+  composedParagraphs: Map<Element, ComposedParagraph>,
   readStyle: typeof readCompositionStyle,
   planLines: typeof planParagraphLinesWith,
   breakForLines: typeof breakLines,
@@ -333,14 +343,14 @@ export function composeParagraphs(
       rewrite.output = paragraphLineNodes(paragraph, tokens, lines, doc, direction, identityAttribute, continuationAttribute, variableValueAttribute)
     }
   }
-  for (const { paragraph, original, inlineSize, output } of rewrites) {
+  for (const { paragraph, original, inlineSize, output, spacing, violation } of rewrites) {
     paragraph.replaceChildren(...(output ?? []))
-    composedParagraphs.set(paragraph, { children: original, inlineSize })
+    composedParagraphs.set(paragraph, { children: original, inlineSize, spacing, ...(violation ? { violation } : {}) })
   }
 }
 
 export function paragraphComposerScript(): string {
-  return `var composedParagraphs=new WeakMap();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
+  return `var composedParagraphs=new Map();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
 ${embedFunction('graphemes', graphemes)}
 ${embedFunction('verticalWritingMode', verticalWritingMode)}
 ${embedFunction('logicalExtent', logicalExtent)}

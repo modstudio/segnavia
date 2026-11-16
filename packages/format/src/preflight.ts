@@ -8,6 +8,7 @@ export {
   coverageIncompleteEntries,
   coverageIncompleteMessage,
   cssVarInvalidMessage,
+  hjViolationMessage,
   preflightRefusal,
   slotCoverageIncompleteMessage,
 } from './preflight-messages.ts'
@@ -18,6 +19,7 @@ export const PREFLIGHT_CHECKS = [
   'region-overset',
   'furniture-overset',
   'inline-overflow',
+  'hj-violations',
   'margin-overset',
   'slot-overset',
   'font-missing',

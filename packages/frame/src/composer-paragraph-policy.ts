@@ -1,10 +1,13 @@
 import { firstStrongDirection } from '@segnavia/format'
 import type { readCompositionStyle } from '@segnavia/html'
 import type { contentInlineSize } from './composer-paragraph-box.ts'
+import type { HjSpacing, HjViolation } from './composer-hj-violations.ts'
 
 export interface ComposedParagraph {
   children: Node[]
   inlineSize: number
+  spacing: HjSpacing
+  violation?: HjViolation
 }
 
 export function compositionDefaults() {
@@ -49,7 +52,7 @@ export function paragraphLanguage(paragraph: Element, doc: Document): string {
 export function paragraphCompositionFacts(
   paragraphs: NodeListOf<Element>,
   styleFor: typeof getComputedStyle,
-  composedParagraphs: WeakMap<Element, ComposedParagraph>,
+  composedParagraphs: Map<Element, ComposedParagraph>,
   readStyle: typeof readCompositionStyle,
   measureContent: typeof contentInlineSize,
 ): ParagraphCompositionFact[] {
@@ -68,7 +71,7 @@ export function paragraphCompositionFacts(
 export function restoreParagraph(
   paragraph: Element,
   previous: ComposedParagraph | undefined,
-  composedParagraphs: WeakMap<Element, ComposedParagraph>,
+  composedParagraphs: Map<Element, ComposedParagraph>,
   variableValueAttribute: string,
 ): void {
   if (!previous) return
