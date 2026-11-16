@@ -150,6 +150,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/deck-folios.ts',
       'src/stage-layout.ts',
       'src/stage-refusal.ts',
+      'src/deck-placement-resolution.ts',
       'src/print-document.ts',
       'src/imposed-paper.ts',
       'src/document-brand-refusal.ts',
