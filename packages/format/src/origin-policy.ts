@@ -113,6 +113,10 @@ function approvalsFor(approvals: Iterable<OriginApproval> | undefined, kind: Fet
   return readableApprovals(approvals).filter((approval) => approval.kinds.includes(kind))
 }
 
+/**
+ * Returns the origins approved for a kind as a whole. This leaves out approvals scoped to a path, so a Content-Security-Policy
+ * built from it would drop those approvals; build CSP sources from `approvedSources`.
+ */
 export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
   return new Set(
     approvalsFor(approvals, kind, scripts)
@@ -121,6 +125,10 @@ export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined,
   )
 }
 
+/**
+ * Returns the CSP sources approved for a kind: a bare origin for an unscoped approval, or the origin plus the path prefix both
+ * without and with a trailing slash, which covers the prefix and its whole-segment descendants.
+ */
 export function approvedSources(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
   const result = new Set<string>()
   for (const approval of approvalsFor(approvals, kind, scripts)) {
