@@ -69,18 +69,27 @@ const RUNNING_TEXT_ELEMENTS = new Set([
   'section',
 ])
 
-function insertLead(content: ChildNode[], lead: ChildNode[]): void {
+function containsNonWhitespaceText(node: ChildNode): boolean {
+  if (isText(node)) return /\S/.test(node.data)
+  return isTag(node) && node.children.some(containsNonWhitespaceText)
+}
+
+function closesParagraph(node: ChildNode): boolean {
+  return isTag(node) && (PARAGRAPH_CLOSING_ELEMENTS.has(node.name) || node.children.some(closesParagraph))
+}
+
+function insertMarker(content: ChildNode[], marker: ChildNode[]): void {
   let children = content
   for (;;) {
     const first = children.find((child) => !isText(child) || !/^\s*$/.test(child.data))
-    if (!first || !isTag(first) || !RUNNING_TEXT_ELEMENTS.has(first.name)) break
+    if (!first || !isTag(first) || !RUNNING_TEXT_ELEMENTS.has(first.name) || !containsNonWhitespaceText(first)) break
     children = first.children
   }
-  children.unshift(...lead)
+  children.unshift(...marker)
 }
 
-export function noteBody(className: string, noteId: string, lead: ChildNode[], content: ChildNode[]): Element {
-  const name = content.some((child) => isTag(child) && PARAGRAPH_CLOSING_ELEMENTS.has(child.name)) ? 'div' : 'p'
-  insertLead(content, lead)
+export function noteBody(className: string, noteId: string, marker: ChildNode[], content: ChildNode[]): Element {
+  const name = content.some(closesParagraph) ? 'div' : 'p'
+  insertMarker(content, marker)
   return element(name, { class: className, id: noteId }, content)
 }

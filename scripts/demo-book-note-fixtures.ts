@@ -4,9 +4,7 @@ export const FIRST_CHILD_NOTE_COLOR = 'rgb(176, 32, 48)'
 
 export function noteCasesCss(): string {
   return (
-    `[data-segnavia-note]:has(.padded-note){padding-top:10px;border-top:6px solid #222}` +
-    `[data-segnavia-note]:has(.after-inline)>p:first-of-type{display:contents}` +
-    `[data-segnavia-note] p:first-child{color:${FIRST_CHILD_NOTE_COLOR}}`
+    `[data-segnavia-note]:has(.padded-note){padding-top:10px;border-top:6px solid #222}` + `[data-segnavia-note] p:first-child{color:${FIRST_CHILD_NOTE_COLOR}}`
   )
 }
 
