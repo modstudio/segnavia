@@ -146,13 +146,19 @@ function applyCssEdits(source: string, edits: CssEdit[]): string {
   return result
 }
 
-function removedFindings(units: readonly CssRemovedUnit[], refusals: readonly AssetRefusal[], refusedPattern: RegExp): AssetCssFinding[] {
+function removedFindings(
+  units: readonly CssRemovedUnit[],
+  refusals: readonly AssetRefusal[],
+  refusedPattern: RegExp,
+  restore: (value: string) => string,
+): AssetCssFinding[] {
   const findings = new Map<string, AssetCssFinding>()
   for (const unit of units) {
-    let finding = findings.get(unit.label)
+    const label = restore(unit.label)
+    let finding = findings.get(label)
     if (!finding) {
-      finding = { label: unit.label, refusals: [] }
-      findings.set(unit.label, finding)
+      finding = { label, refusals: [] }
+      findings.set(label, finding)
     }
     if (unit.label !== 'url()' && unit.label !== '@import') continue
     refusedPattern.lastIndex = 0
@@ -194,11 +200,11 @@ export function assetCss(
   }
   const result = sanitizeCss(applyCssEdits(source, edits), declarations, options.dataFonts ?? false)
   const refusedPattern = new RegExp(`${refusedMarker}(\\d+)`, 'g')
-  const removed = removedFindings(result.removed, refusals, refusedPattern)
   const restore = (value: string) =>
     value
       .replace(ASSET_MARKER_PATTERN, (_, index: string) => restores[Number(index)] ?? '')
       .replace(refusedPattern, (_, index: string) => refusedRestores[Number(index)] ?? '')
+  const removed = removedFindings(result.removed, refusals, refusedPattern, restore)
   let css = restore(result.css)
   for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
   return { css, removed, refusals }

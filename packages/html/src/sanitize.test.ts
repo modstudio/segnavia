@@ -46,6 +46,29 @@ test('pairs a CSS refusal once when its removed unit names nested constructs', (
   expect(findings.flatMap(({ refusals }) => refusals)).toEqual(assetOriginRefusals(html))
 })
 
+test('restores authored URLs in removed CSS labels', () => {
+  const options = { origins: [{ origin: 'https://ok.example', kinds: ['image'] as const }] }
+  const cases = [
+    {
+      html: '<p style="--segnavia-keep-with: url(https://ok.example/a.png)">x</p>',
+      expected: ['p[style] --segnavia-keep-with: url(https://ok.example/a.png); the accepted values are next and previous'],
+    },
+    {
+      html: '<style>p { --segnavia-keep-with: url(https://ok.example/a.png) }</style>',
+      expected: ['<style> --segnavia-keep-with: url(https://ok.example/a.png); the accepted values are next and previous'],
+    },
+    {
+      html: '<p style="--segnavia-keep-with: url(https://bad.example/a.png)">x</p>',
+      expected: ['p[style] url()', 'p[style] --segnavia-keep-with: url(https://bad.example/a.png); the accepted values are next and previous'],
+    },
+  ]
+
+  for (const { html, expected } of cases) {
+    expect(findActiveContent(html, options)).toEqual(expected)
+    expect(activeContentFindings(html, options).map(activeContentText)).toEqual(expected)
+  }
+})
+
 test('removes library-owned generated contents markers from author HTML', () => {
   expect(sanitize('<a data-segnavia-generated-contents-page class="segnavia-contents-page" href="#topic">Topic</a>')).toBe(
     '<a class="segnavia-contents-page" href="#topic">Topic</a>',
