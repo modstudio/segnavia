@@ -2,7 +2,7 @@ import { firstStrongDirection } from '@segnavia/format'
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
-import { type ComposedHjViolation, type HjSpacing, type HjViolation, hjLineRatio, worstViolation } from './composer-hj-violations.ts'
+import { type ComposedHjViolation, type HjSpacing, type HjViolation, hjLineRatio, wordSpacingForRatio, worstViolation } from './composer-hj-violations.ts'
 import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
@@ -202,10 +202,7 @@ function plannedLines(
     const meta = metadata.get(itemIndex) ?? { end: tokens.length, next: tokens.length, hyphen: false, forced: false }
     const ratio = broken.ratios[lineIndex] ?? 0
     const adjustmentRatio = hjLineRatio(ratio, meta.forced, meta.end === tokens.length)
-    const percent =
-      ratio < 0
-        ? settings.spacing.desired + ratio * (settings.spacing.desired - settings.spacing.minimum)
-        : settings.spacing.desired + ratio * (settings.spacing.maximum - settings.spacing.desired)
+    const percent = wordSpacingForRatio(ratio, settings.spacing)
     const fittedEnd = tokens[meta.end - 1]?.kind === 'space' ? meta.end - 1 : meta.end
     const spaces = tokens.slice(start, fittedEnd).filter((token) => token.kind === 'space')
     const wordSpaces = spaces.filter((token) => token.text !== '\u200b')
@@ -347,7 +344,7 @@ export function composeParagraphs(
   for (const { paragraph, original, inlineSize, output, spacing, violation } of rewrites) {
     paragraph.replaceChildren(...(output ?? []))
     composedParagraphs.set(paragraph, { children: original, inlineSize })
-    if (violation) composedHjViolations.set(paragraph, { spacing, violation })
+    if (inlineSize > 0 && violation) composedHjViolations.set(paragraph, { spacing, violation })
   }
 }
 

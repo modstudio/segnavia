@@ -56,7 +56,7 @@ function fakeDocument(): Document {
 function compose(
   paragraphs: Element[],
   composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
-  violations: Map<Element, { spacing: typeof spacing; violation: { line: number; ratio: number; wordSpacing: number } }>,
+  violations: Map<Element, { spacing: typeof spacing; violation: { line: number; ratio: number; wordSpacingPercent: number } }>,
   linesFor: (measure: number) => ParagraphLine[],
 ): void {
   const style = {
@@ -107,7 +107,7 @@ test('composeParagraphs records the worst violation and omits a clean paragraph'
           { start: 1, end: 2, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
         ]
   })
-  expect(violations.get(violating)).toEqual({ spacing, violation: { line: 0, ratio: -1.5, wordSpacing: 70 } })
+  expect(violations.get(violating)).toEqual({ spacing, violation: { line: 0, ratio: -1.5, wordSpacingPercent: 70 } })
   expect(violations.has(clean)).toBe(false)
 })
 
@@ -125,7 +125,17 @@ test('composeParagraphs copies a violation to a reused paragraph', () => {
     ]
   })
   expect(planned).toBe(1)
-  expect(violations.get(reused)).toEqual({ spacing, violation: { line: 0, ratio: 1.5, wordSpacing: 130 } })
+  expect(violations.get(reused)).toEqual({ spacing, violation: { line: 0, ratio: 1.5, wordSpacingPercent: 130 } })
+})
+
+test('composeParagraphs does not record a zero-measure paragraph', () => {
+  const held = paragraph('aa', () => 0)
+  const violations = new Map()
+  compose([held], new WeakMap(), violations, () => [
+    { start: 0, end: 1, wordSpacing: 0, ratio: Number.NEGATIVE_INFINITY, hyphen: false, forced: false },
+    { start: 1, end: 2, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
+  ])
+  expect(violations.has(held)).toBe(false)
 })
 
 test('composeParagraphs drops an earlier violation when a changed measure sets cleanly', () => {

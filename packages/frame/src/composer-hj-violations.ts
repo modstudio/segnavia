@@ -14,7 +14,7 @@ export interface HjLine {
 export interface HjViolation {
   line: number
   ratio: number
-  wordSpacing: number
+  wordSpacingPercent: number
 }
 
 export interface ComposedHjViolation {
@@ -26,7 +26,7 @@ export function hjLineRatio(ratio: number, forced: boolean, final: boolean): num
   return forced || final ? Math.min(ratio, 0) : ratio
 }
 
-function wordSpacingForRatio(ratio: number, spacing: HjSpacing): number {
+export function wordSpacingForRatio(ratio: number, spacing: HjSpacing): number {
   return ratio < 0 ? spacing.desired + ratio * (spacing.desired - spacing.minimum) : spacing.desired + ratio * (spacing.maximum - spacing.desired)
 }
 
@@ -38,17 +38,17 @@ export function worstViolation(lines: readonly HjLine[], spacing: HjSpacing): Hj
     const distance = ratio < -1 ? -1 - ratio : ratio > 1 ? ratio - 1 : 0
     if (distance <= worstDistance) continue
     worstDistance = distance
-    worst = { line, ratio, wordSpacing: wordSpacingForRatio(ratio, spacing) }
+    worst = { line, ratio, wordSpacingPercent: wordSpacingForRatio(ratio, spacing) }
   }
   return worst
 }
 
-export function hjViolationEntry(subject: string, folio: string, violation: HjViolation, spacing: HjSpacing): PreflightEntry {
+export function hjViolationEntry(subject: string, folio: string | undefined, violation: HjViolation, spacing: HjSpacing): PreflightEntry {
   return {
     check: 'hj-violations',
     subject,
-    message: hjViolationMessage(violation.wordSpacing, spacing.minimum, spacing.maximum, violation.ratio),
-    location: { folio },
+    message: hjViolationMessage(violation.wordSpacingPercent, spacing.minimum, spacing.maximum, violation.ratio),
+    ...(folio === undefined ? {} : { location: { folio } }),
   }
 }
 

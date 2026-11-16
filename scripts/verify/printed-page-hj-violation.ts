@@ -26,7 +26,7 @@ export async function verifyPrintedPageHjViolation(page: Page, check: Harness['c
         {
           type: 'page',
           body: {
-            html: `<style>p{margin:0;font:16px/20px sans-serif;text-align:justify;--segnavia-composer:paragraph;--segnavia-hyphenate:false;--segnavia-word-spacing:80% 100% 120%}</style><p data-segnavia-id="hj-demo">a<br><span style="display:inline-block;inline-size:400px"></span><br>tail</p>`,
+            html: `<style>p{margin:0;font:16px/20px sans-serif;text-align:justify;--segnavia-composer:paragraph;--segnavia-hyphenate:false;--segnavia-word-spacing:80% 100% 120%}</style><p data-segnavia-id="hj-demo">a<br><span style="display:inline-block;inline-size:400px"></span><br>tail</p><div style="display:none"><p data-segnavia-id="hidden-hj-demo"><span style="display:inline-block;inline-size:400px"></span> hidden</p></div>`,
           },
         },
       ],
@@ -52,6 +52,11 @@ export async function verifyPrintedPageHjViolation(page: Page, check: Harness['c
   check(
     'a split composed paragraph reports one H&J violation at its worst line on the second page',
     violations.length === 1 && violations[0]?.subject === 'hj-demo' && violations[0]?.location?.folio === '2',
+    JSON.stringify(violations),
+  )
+  check(
+    'a hidden zero-measure paragraph produces no H&J violation',
+    violations.every((issue) => issue.subject !== 'hidden-hj-demo'),
     JSON.stringify(violations),
   )
 }

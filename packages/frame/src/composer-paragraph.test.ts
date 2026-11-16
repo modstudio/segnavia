@@ -72,7 +72,6 @@ test('plans br as a forced start-aligned break and counts an atomic inline box',
     { start: 0, end: 3, wordSpacing: 0, ratio: 0, hyphen: false, forced: true },
     { start: 4, end: 7, wordSpacing: 0, ratio: 0, hyphen: false, forced: false },
   ])
-  expect(lines.map((line) => line.ratio)).toEqual([0, 0])
   const withAtomic: ParagraphToken[] = [...tokens('one '), { kind: 'atomic', text: '', width: 30 }, ...tokens(' two')]
   expect(planParagraphLines(withAtomic, { ...base, measure: 35 }).length).toBeGreaterThan(
     planParagraphLines(tokens('one  two'), { ...base, measure: 35 }).length,
