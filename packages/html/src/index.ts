@@ -172,6 +172,9 @@ export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, f
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export { resolveEdition } from './resolve-edition.ts'
 export {
+  type ActiveContentFinding,
+  activeContentFindings,
+  activeContentText,
   assetOriginRefusals,
   attributeValues,
   findActiveContent,

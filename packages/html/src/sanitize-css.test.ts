@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { cssPreflightFindings, lexicalFindings, sanitizeCss } from './sanitize-css.ts'
 
-const rules = (source: string, dataFonts = false) => sanitizeCss(source, false, dataFonts)
-const declarations = (source: string, dataFonts = false) => sanitizeCss(source, true, dataFonts)
+const labels = (result: ReturnType<typeof sanitizeCss>) => ({ css: result.css, removed: [...new Set(result.removed.map(({ label }) => label))] })
+const rules = (source: string, dataFonts = false) => labels(sanitizeCss(source, false, dataFonts))
+const declarations = (source: string, dataFonts = false) => labels(sanitizeCss(source, true, dataFonts))
 
 describe('CSS sanitizer', () => {
   test('finds network URLs and only undefined no-fallback variables in the single token scan', () => {
@@ -34,6 +35,13 @@ describe('CSS sanitizer', () => {
       removed: ['image-set()'],
     })
     expect(rules('@import url(data:image/png;base64,AA==);p{color:red}')).toEqual({ css: 'p{color:red}', removed: ['@import'] })
+  })
+
+  test('keeps the source of each removed unit', () => {
+    expect(sanitizeCss('a{background:url(first)}b{background:url(second)}', false, false).removed).toEqual([
+      { label: 'url()', source: 'background:url(first)' },
+      { label: 'url()', source: 'background:url(second)' },
+    ])
   })
 
   test('keeps data images and gates data fonts to font-face and the option', () => {

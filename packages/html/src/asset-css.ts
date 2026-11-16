@@ -1,6 +1,7 @@
 import { type AssetRefusal, type FetchKind, type OriginApproval, originDecision } from '@segnavia/format'
 import { type CssToken, cssTokens } from './css-tokens.ts'
 import { sanitizeCss } from './sanitize-css.ts'
+import type { CssRemovedUnit } from './sanitize-css-removed.ts'
 
 const ASSET_MARKER = 'data:image/segnavia-asset-'
 const ASSET_MARKER_PATTERN = new RegExp(`${ASSET_MARKER}(\\d+),x`, 'g')
@@ -28,6 +29,11 @@ interface CssEdit {
 }
 
 type CssValueSpan = Pick<CssAssetReference, 'end' | 'start' | 'url'>
+
+export interface AssetCssFinding {
+  label: string
+  refusals: AssetRefusal[]
+}
 
 function innerSpan(source: string, start: number, end: number): CssValueSpan | undefined {
   while (/\s/.test(source[start] ?? '')) start++
@@ -140,7 +146,28 @@ function applyCssEdits(source: string, edits: CssEdit[]): string {
   return result
 }
 
-export function assetCss(source: string, declarations: boolean, options: AssetCssOptions): ReturnType<typeof sanitizeCss> & { refusals: AssetRefusal[] } {
+function removedFindings(units: readonly CssRemovedUnit[], refusals: readonly AssetRefusal[], refusedPattern: RegExp): AssetCssFinding[] {
+  const findings = new Map<string, AssetCssFinding>()
+  for (const unit of units) {
+    let finding = findings.get(unit.label)
+    if (!finding) {
+      finding = { label: unit.label, refusals: [] }
+      findings.set(unit.label, finding)
+    }
+    refusedPattern.lastIndex = 0
+    for (const match of unit.source.matchAll(refusedPattern)) {
+      const refusal = refusals[Number(match[1])]
+      if (refusal && !finding.refusals.includes(refusal)) finding.refusals.push(refusal)
+    }
+  }
+  return [...findings.values()]
+}
+
+export function assetCss(
+  source: string,
+  declarations: boolean,
+  options: AssetCssOptions,
+): { css: string; removed: AssetCssFinding[]; refusals: AssetRefusal[] } {
   const restores: string[] = []
   const refusedRestores: string[] = []
   const refusals: AssetRefusal[] = []
@@ -166,11 +193,12 @@ export function assetCss(source: string, declarations: boolean, options: AssetCs
   }
   const result = sanitizeCss(applyCssEdits(source, edits), declarations, options.dataFonts ?? false)
   const refusedPattern = new RegExp(`${refusedMarker}(\\d+)`, 'g')
+  const removed = removedFindings(result.removed, refusals, refusedPattern)
   const restore = (value: string) =>
     value
       .replace(ASSET_MARKER_PATTERN, (_, index: string) => restores[Number(index)] ?? '')
       .replace(refusedPattern, (_, index: string) => refusedRestores[Number(index)] ?? '')
   let css = restore(result.css)
   for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
-  return { css, removed: result.removed.map(restore), refusals }
+  return { css, removed, refusals }
 }

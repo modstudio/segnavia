@@ -1,5 +1,40 @@
 import { describe, expect, test } from 'bun:test'
-import { assetOriginRefusals, findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
+import { activeContentFindings, activeContentText, assetOriginRefusals, findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
+
+test('returns structured active-content findings with their asset refusals', () => {
+  const html =
+    '<form></form><p onclick="go()"></p><img src="https://outside.example/image.png"><style>a{background:url(https://outside.example/style.png)}@import url(https://outside.example/import.css);</style><div style="background:url(https://outside.example/attribute.png)"></div><img srcset="https://outside.example/set.png 2x">'
+  const findings = activeContentFindings(html)
+  const text = [
+    '<form>',
+    'p[onclick]',
+    'img[src] https://outside.example/image.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+    '<style> url()',
+    '<style> @import',
+    'div[style] url()',
+    'img[srcset] https://outside.example/set.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+  ]
+  expect(findings.map(activeContentText)).toEqual(text)
+  expect(findActiveContent(html)).toEqual(text)
+
+  const refusalKey = (refusal: (typeof findings)[number]['refusals'][number]) => `${refusal.kind}:${refusal.url}:${refusal.reason}`
+  expect(
+    findings
+      .flatMap(({ refusals }) => refusals)
+      .map(refusalKey)
+      .sort(),
+  ).toEqual(assetOriginRefusals(html).map(refusalKey).sort())
+  expect(findings.find(({ element, construct }) => element === 'style' && construct === 'url()')?.refusals.map(({ url }) => url)).toEqual([
+    'https://outside.example/style.png',
+  ])
+  expect(findings.find(({ element, construct }) => element === 'style' && construct === '@import')?.refusals.map(({ url }) => url)).toEqual([
+    'https://outside.example/import.css',
+  ])
+  expect(findings.find(({ element, attribute }) => element === 'div' && attribute === 'style')?.refusals.map(({ url }) => url)).toEqual([
+    'https://outside.example/attribute.png',
+  ])
+  expect(findings.filter(({ element }) => element === 'form' || element === 'p').every(({ refusals }) => refusals.length === 0)).toBe(true)
+})
 
 test('removes library-owned generated contents markers from author HTML', () => {
   expect(sanitize('<a data-segnavia-generated-contents-page class="segnavia-contents-page" href="#topic">Topic</a>')).toBe(
