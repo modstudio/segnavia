@@ -2024,7 +2024,12 @@ structured causes when one operation collected several refusals. An empty
 Asset causes use the origin-policy reasons `not-absolute`, `unapproved-origin`,
 `outside-approved-path`, `unversioned-script`, `scripts-off` and
 `unreadable-srcset`, or `unanswered`, `host-rejected`, `late-answer`,
-`unsupported-fetch` and `asset-limit`. An asset limit surfaces as
+`unsupported-fetch` and `asset-limit`. Each asset cause names in `adviceFor`
+who can act on its clearing advice: `host` when the advice is to add an
+`origins` approval, answer the request or raise a limit, and `author` when the
+document itself must change. `unanswered`, `host-rejected`, `late-answer` and
+`asset-limit` are always for the host; `unsupported-fetch` is always for the
+author. An asset limit surfaces as
 `render-limit` with an `asset-limit` cause. A render or font limit cause uses
 `limit`, while the error keeps its complete facts in `exceeded`.
 
