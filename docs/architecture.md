@@ -1034,6 +1034,11 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    answers approved requests from the host through route fulfillment within `limits.assets`;
    an absent answer refuses the render by URL, and Chromium never reaches the
    network.
+   At a host save edge, `activeContentFindings` returns one
+   `ActiveContentFinding` for each construct the sanitizer would remove. Each
+   finding names its element, optional attribute or CSS construct, and the
+   `AssetRefusal` records that caused its removal; `activeContentText` projects
+   the finding to the stable text returned by `findActiveContent`.
 4. `narrationTiming` reads a voiced narration's stored words and duration, or
    derives a text narration's words and duration with pure `pacedWords` at the
    deck's `readingSpeed` (180 words per minute when absent). Pacing counts

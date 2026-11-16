@@ -58,6 +58,13 @@ export interface SanitizeOptions {
   converterPolicy?: ConverterPolicy
 }
 
+export interface ActiveContentFinding {
+  element: string
+  attribute?: string
+  construct?: string
+  refusals: AssetRefusal[]
+}
+
 function materializeOrigins(options: SanitizeOptions): SanitizeOptions {
   return options.origins === undefined ? options : { ...options, origins: [...options.origins] }
 }
@@ -244,14 +251,45 @@ export function assetOriginRefusals(html: string, options: SanitizeOptions = {})
   return found
 }
 
-function styleFindings(element: Element, options: SanitizeOptions): string[] {
-  const found: string[] = []
+function styleFindings(element: Element, options: SanitizeOptions): ActiveContentFinding[] {
+  const found: ActiveContentFinding[] = []
   if (element.name.toLowerCase() === 'style') {
-    for (const construct of assetCss(styleText(element), false, options).removed) found.push(`<style> ${construct}`)
+    for (const finding of assetCss(styleText(element), false, options).removed) {
+      found.push({ element: 'style', construct: finding.label, refusals: finding.refusals })
+    }
   }
   for (const [name, value] of Object.entries(element.attribs)) {
     if (name.toLowerCase() !== 'style') continue
-    for (const construct of assetCss(value, true, options).removed) found.push(`${element.name}[${name}] ${construct}`)
+    for (const finding of assetCss(value, true, options).removed) {
+      found.push({ element: element.name, attribute: name, construct: finding.label, refusals: finding.refusals })
+    }
+  }
+  return found
+}
+
+/** The text historically returned for an active-content finding. */
+export function activeContentText(finding: ActiveContentFinding): string {
+  const subject = finding.attribute === undefined ? `<${finding.element}>` : `${finding.element}[${finding.attribute}]`
+  const detail = finding.construct ?? (finding.refusals[0] ? assetRefusalText(finding.refusals[0]) : '')
+  return `${subject}${detail ? ` ${detail}` : ''}`
+}
+
+/** What the active-content rule would remove, with any asset-policy refusals that caused it. */
+export function activeContentFindings(html: string, options: SanitizeOptions = {}): ActiveContentFinding[] {
+  options = materializeOrigins(options)
+  const links = sanitizeLinkPolicy(options)
+  const refused = refusedSet(options)
+  const keepScripts = options.keepScripts ?? false
+  const found: ActiveContentFinding[] = []
+  for (const element of elements(parse(html).children)) {
+    if (refusedElement(element, refused, keepScripts)) found.push({ element: element.name, refusals: [] })
+    found.push(...styleFindings(element, options))
+    for (const [name, value] of Object.entries(element.attribs)) {
+      const reason = refusedAttribute(element, name, value, links, options)
+      if (reason === undefined) continue
+      const refusal = assetAttribute(element, name.toLowerCase(), value, options)
+      found.push({ element: element.name, attribute: name, refusals: refusal ? [refusal] : [] })
+    }
   }
   return found
 }
@@ -259,20 +297,7 @@ function styleFindings(element: Element, options: SanitizeOptions): string[] {
 // What the rule would remove, named, so a host can refuse a write with the
 // reason rather than store a page that silently prints differently.
 export function findActiveContent(html: string, options: SanitizeOptions = {}): string[] {
-  options = materializeOrigins(options)
-  const links = sanitizeLinkPolicy(options)
-  const refused = refusedSet(options)
-  const keepScripts = options.keepScripts ?? false
-  const found: string[] = []
-  for (const element of elements(parse(html).children)) {
-    if (refusedElement(element, refused, keepScripts)) found.push(`<${element.name}>`)
-    found.push(...styleFindings(element, options))
-    for (const [name, value] of Object.entries(element.attribs)) {
-      const reason = refusedAttribute(element, name, value, links, options)
-      if (reason !== undefined) found.push(`${element.name}[${name}]${reason ? ` ${reason}` : ''}`)
-    }
-  }
-  return found
+  return activeContentFindings(html, options).map(activeContentText)
 }
 
 function cleanStyleElement(element: Element, options: SanitizeOptions): void {

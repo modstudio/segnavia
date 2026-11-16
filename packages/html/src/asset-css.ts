@@ -1,6 +1,7 @@
 import { type AssetRefusal, type FetchKind, type OriginApproval, originDecision } from '@segnavia/format'
 import { type CssToken, cssTokens } from './css-tokens.ts'
 import { sanitizeCss } from './sanitize-css.ts'
+import type { CssRemovedUnit } from './sanitize-css-removed.ts'
 
 const ASSET_MARKER = 'data:image/segnavia-asset-'
 const ASSET_MARKER_PATTERN = new RegExp(`${ASSET_MARKER}(\\d+),x`, 'g')
@@ -28,6 +29,11 @@ interface CssEdit {
 }
 
 type CssValueSpan = Pick<CssAssetReference, 'end' | 'start' | 'url'>
+
+export interface AssetCssFinding {
+  label: string
+  refusals: AssetRefusal[]
+}
 
 function innerSpan(source: string, start: number, end: number): CssValueSpan | undefined {
   while (/\s/.test(source[start] ?? '')) start++
@@ -140,10 +146,41 @@ function applyCssEdits(source: string, edits: CssEdit[]): string {
   return result
 }
 
-export function assetCss(source: string, declarations: boolean, options: AssetCssOptions): ReturnType<typeof sanitizeCss> & { refusals: AssetRefusal[] } {
+function removedFindings(
+  units: readonly CssRemovedUnit[],
+  refusals: readonly AssetRefusal[],
+  refusalLabels: readonly string[],
+  refusedPattern: RegExp,
+  restore: (value: string) => string,
+): AssetCssFinding[] {
+  const findings = new Map<string, AssetCssFinding>()
+  for (const unit of units) {
+    let finding = findings.get(unit.label)
+    if (!finding) {
+      finding = { label: restore(unit.label), refusals: [] }
+      findings.set(unit.label, finding)
+    }
+    if (unit.label !== 'url()' && unit.label !== '@import') continue
+    refusedPattern.lastIndex = 0
+    for (const match of unit.source.matchAll(refusedPattern)) {
+      const index = Number(match[1])
+      if (refusalLabels[index] !== unit.label) continue
+      const refusal = refusals[index]
+      if (refusal && !finding.refusals.includes(refusal)) finding.refusals.push(refusal)
+    }
+  }
+  return [...findings.values()]
+}
+
+export function assetCss(
+  source: string,
+  declarations: boolean,
+  options: AssetCssOptions,
+): { css: string; removed: AssetCssFinding[]; refusals: AssetRefusal[] } {
   const restores: string[] = []
   const refusedRestores: string[] = []
   const refusals: AssetRefusal[] = []
+  const refusalLabels: string[] = []
   let refusedMarker = REFUSED_ASSET_MARKER
   while (source.includes(refusedMarker)) refusedMarker += 'x-'
   let marker = 'segnavia-held-import'
@@ -154,6 +191,7 @@ export function assetCss(source: string, declarations: boolean, options: AssetCs
     const decision = originDecision(reference.url, reference.kind, options.origins, options.keepScripts === true)
     if (!decision.allowed) {
       refusals.push(decision.refusal)
+      refusalLabels.push(reference.importStart === undefined ? 'url()' : '@import')
       const index = refusedRestores.push(reference.url) - 1
       edits.push({ start: reference.start, end: reference.end, value: `${refusedMarker}${index}` })
     } else if (reference.importStart !== undefined && reference.importEnd !== undefined) {
@@ -170,7 +208,8 @@ export function assetCss(source: string, declarations: boolean, options: AssetCs
     value
       .replace(ASSET_MARKER_PATTERN, (_, index: string) => restores[Number(index)] ?? '')
       .replace(refusedPattern, (_, index: string) => refusedRestores[Number(index)] ?? '')
+  const removed = removedFindings(result.removed, refusals, refusalLabels, refusedPattern, restore)
   let css = restore(result.css)
   for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
-  return { css, removed: result.removed.map(restore), refusals }
+  return { css, removed, refusals }
 }

@@ -1,11 +1,7 @@
 import { cssNetworkUrls, FETCH_AT_KEYWORD_SET, FETCH_AT_KEYWORDS, FETCH_FUNCTION_SET, FETCH_FUNCTIONS } from './css-preflight-network.ts'
 import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
 import { libraryCustomProperty } from './library-custom-properties.ts'
-
-export interface CssSanitizeResult {
-  css: string
-  removed: string[]
-}
+import { type CssRemovedUnit, type CssSanitizeResult, recordCssRemoved } from './sanitize-css-removed.ts'
 
 export interface CssPreflightFinding {
   check: 'css-var-invalid' | 'css-url-network'
@@ -234,16 +230,16 @@ interface CleanUnit {
   text: string
 }
 
-function cleanStatement(source: string, list: CssToken[], start: number, edge: number, dataFonts: boolean, removed: string[]): CleanUnit {
+function cleanStatement(source: string, list: CssToken[], start: number, edge: number, dataFonts: boolean, removed: CssRemovedUnit[]): CleanUnit {
   const first = list[start]
   const delimiter = list[edge]
   if (!first || !delimiter) return { character: source.length, next: edge, text: '' }
   const unsafe = first.kind === 'at' && first.value === 'import' ? ['@import'] : findings(source, list, start, edge + 1, dataFonts, false)
-  if (unsafe.length > 0) removed.push(...unsafe)
+  if (unsafe.length > 0) recordCssRemoved(removed, unsafe, source.slice(first.start, delimiter.end))
   return { character: delimiter.end, next: edge + 1, text: unsafe.length === 0 ? source.slice(first.start, delimiter.end) : '' }
 }
 
-function cleanBlockRule(source: string, list: CssToken[], start: number, edge: number, end: number, dataFonts: boolean, removed: string[]): CleanUnit {
+function cleanBlockRule(source: string, list: CssToken[], start: number, edge: number, end: number, dataFonts: boolean, removed: CssRemovedUnit[]): CleanUnit {
   const first = list[start]
   const delimiter = list[edge]
   if (!first || !delimiter) return { character: source.length, next: end, text: '' }
@@ -252,7 +248,8 @@ function cleanBlockRule(source: string, list: CssToken[], start: number, edge: n
   const fontFace = ruleName === 'font-face'
   const unsafe = findings(source, list, start, edge, dataFonts, false)
   if (fontFace) unsafe.push(...findings(source, list, edge + 1, close, dataFonts, true))
-  if (unsafe.length > 0) removed.push(...unsafe)
+  const finish = close < end ? (list[close]?.end ?? delimiter.end) : source.length
+  if (unsafe.length > 0) recordCssRemoved(removed, unsafe, source.slice(first.start, finish))
   let text = ''
   if (unsafe.length === 0) {
     const body =
@@ -269,19 +266,19 @@ function cleanBlockRule(source: string, list: CssToken[], start: number, edge: n
   }
 }
 
-function cleanRuleUnit(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: string[]): CleanUnit {
+function cleanRuleUnit(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: CssRemovedUnit[]): CleanUnit {
   const first = list[start]
   if (!first) return { character: source.length, next: end, text: '' }
   const edge = boundary(list, start, end)
   const delimiter = list[edge]
   if (edge >= end && delimiter?.kind === 'close') {
     const unsafe = findings(source, list, start, end, dataFonts, false)
-    if (unsafe.length > 0) removed.push(...unsafe)
+    if (unsafe.length > 0) recordCssRemoved(removed, unsafe, source.slice(first.start, delimiter.start))
     return { character: delimiter.start, next: end, text: unsafe.length === 0 ? source.slice(first.start, delimiter.start) : '' }
   }
   if (!delimiter) {
     const unsafe = findings(source, list, start, end, dataFonts, false)
-    if (unsafe.length > 0) removed.push(...unsafe)
+    if (unsafe.length > 0) recordCssRemoved(removed, unsafe, source.slice(first.start))
     return { character: source.length, next: end, text: unsafe.length === 0 ? source.slice(first.start) : '' }
   }
   return delimiter.kind === 'semicolon'
@@ -289,7 +286,7 @@ function cleanRuleUnit(source: string, list: CssToken[], start: number, end: num
     : cleanBlockRule(source, list, start, edge, end, dataFonts, removed)
 }
 
-function cleanRules(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: string[]): string {
+function cleanRules(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: CssRemovedUnit[]): string {
   let output = ''
   let character = start === 0 ? 0 : (list[start - 1]?.end ?? source.length)
   let at = start
@@ -314,7 +311,7 @@ function cleanDeclarationSegment(
   character: number,
   dataFonts: boolean,
   fontFace: boolean,
-  removed: string[],
+  removed: CssRemovedUnit[],
 ): [string, number] {
   const delimiter = list[end]
   const hasSemicolon = delimiter?.kind === 'semicolon'
@@ -331,7 +328,7 @@ function cleanDeclarationSegment(
     if (!property.accepts(value)) unsafe.push(`${name}: ${authoredValue}; the accepted values are ${property.accepted}`)
   }
   if (unsafe.length === 0) return [source.slice(character, finish), finish]
-  removed.push(...unsafe)
+  recordCssRemoved(removed, unsafe, source.slice(list[start]?.start ?? finish, finish))
   return [source.slice(character, list[start]?.start ?? finish), finish]
 }
 
@@ -350,7 +347,15 @@ function isDeclaration(list: CssToken[], start: number): boolean {
   return list[start]?.value.startsWith('--') === true && list[start + 1]?.value === ':'
 }
 
-function cleanDeclarations(source: string, list: CssToken[], start: number, end: number, dataFonts: boolean, removed: string[], fontFace = false): string {
+function cleanDeclarations(
+  source: string,
+  list: CssToken[],
+  start: number,
+  end: number,
+  dataFonts: boolean,
+  removed: CssRemovedUnit[],
+  fontFace = false,
+): string {
   let output = ''
   let character = start === 0 ? 0 : (list[start - 1]?.end ?? source.length)
   let at = start
@@ -385,9 +390,9 @@ export function sanitizeCss(
 ): CssSanitizeResult {
   const list = cssTokens(source)
   preflight?.push(...cssPreflightFindings(source, list, definitions))
-  const removed: string[] = []
+  const removed: CssRemovedUnit[] = []
   const css = declarations ? cleanDeclarations(source, list, 0, list.length, dataFonts, removed) : cleanRules(source, list, 0, list.length, dataFonts, removed)
   const auditRemoved = lexicalFindings(css, dataFonts)
-  if (auditRemoved.length > 0) return { css: '', removed: [...new Set([...removed, ...auditRemoved])] }
-  return { css, removed: [...new Set(removed)] }
+  if (auditRemoved.length > 0) recordCssRemoved(removed, auditRemoved, css)
+  return { css: auditRemoved.length > 0 ? '' : css, removed }
 }
