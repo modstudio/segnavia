@@ -7,14 +7,19 @@ import type { ImageOptions } from './options.ts'
 // rendered slide are encoded the same way under the same size ceiling.
 export async function captureImage(
   tab: Tab,
-  options: Pick<ImageOptions, 'format' | 'quality'> & { limits?: Limits; limitSetting?: string },
+  options: Pick<ImageOptions, 'format' | 'omitBackground' | 'quality'> & { limits?: Limits; limitSetting?: string },
   fullPage: boolean,
 ): Promise<Uint8Array> {
   const format = options.format ?? 'png'
   const limits = parseLimits(options.limits, 'host')
   const refusalOptions = options.limitSetting === undefined ? {} : { setting: options.limitSetting }
   if (format !== 'webp') {
-    const bytes = await tab.screenshot({ type: format, fullPage, ...(format === 'jpeg' ? { quality: options.quality?.[0] ?? 90 } : {}) })
+    const bytes = await tab.screenshot({
+      type: format,
+      fullPage,
+      ...(format === 'jpeg' ? { quality: options.quality?.[0] ?? 90 } : {}),
+      ...(options.omitBackground ? { omitBackground: true } : {}),
+    })
     if (limits?.bytes !== undefined && bytes.byteLength > limits.bytes) {
       throw new RenderLimitError('bytes', bytes.byteLength, limits.bytes, refusalOptions)
     }
@@ -24,21 +29,28 @@ export async function captureImage(
   const session = await tab.context().newCDPSession(tab)
   let refusal: RenderLimitError | undefined
   try {
-    const clip = await tab.evaluate((wholePage) => {
-      const scale = devicePixelRatio
-      if (wholePage) return { x: 0, y: 0, width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, scale }
-      return { x: scrollX, y: scrollY, width: innerWidth, height: innerHeight, scale }
-    }, fullPage)
-    for (const quality of options.quality ?? [90, 80, 70]) {
-      const { data } = await session.send('Page.captureScreenshot', {
-        format: 'webp',
-        quality,
-        captureBeyondViewport: fullPage,
-        clip,
-      })
-      const bytes = Buffer.from(data, 'base64')
-      if (limits?.bytes === undefined || bytes.byteLength <= limits.bytes) return bytes
-      refusal = new RenderLimitError('bytes', bytes.byteLength, limits.bytes, refusalOptions)
+    if (options.omitBackground) {
+      await session.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } })
+    }
+    try {
+      const clip = await tab.evaluate((wholePage) => {
+        const scale = devicePixelRatio
+        if (wholePage) return { x: 0, y: 0, width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, scale }
+        return { x: scrollX, y: scrollY, width: innerWidth, height: innerHeight, scale }
+      }, fullPage)
+      for (const quality of options.quality ?? [90, 80, 70]) {
+        const { data } = await session.send('Page.captureScreenshot', {
+          format: 'webp',
+          quality,
+          captureBeyondViewport: fullPage,
+          clip,
+        })
+        const bytes = Buffer.from(data, 'base64')
+        if (limits?.bytes === undefined || bytes.byteLength <= limits.bytes) return bytes
+        refusal = new RenderLimitError('bytes', bytes.byteLength, limits.bytes, refusalOptions)
+      }
+    } finally {
+      if (options.omitBackground) await session.send('Emulation.setDefaultBackgroundColorOverride', {})
     }
   } finally {
     await session.detach()

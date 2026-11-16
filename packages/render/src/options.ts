@@ -260,6 +260,7 @@ export const assetSetup = (options: RenderOptions): Pick<RenderOptions, 'origins
 export interface ImageOptions extends RenderOptions {
   motifs?: MotifsOptions
   format?: 'png' | 'jpeg' | 'webp'
+  omitBackground?: boolean
   proof?: { profile: Uint8Array }
   quality?: number[]
   scale?: number
@@ -296,6 +297,14 @@ export function parseImageRenderOptions<T extends ImageOptions & ComposedRenderI
   options: T,
   call: Extract<RenderCall, 'pageImage' | 'coverImage' | 'slideImage'>,
 ): ParsedComposedRenderOptions<T> {
+  if (options.omitBackground !== undefined && typeof options.omitBackground !== 'boolean') {
+    throw new RenderRefusedError(`${call} options.omitBackground needs to be a boolean; pass true, false or omit omitBackground to clear this refusal.`)
+  }
+  if (options.omitBackground && options.format === 'jpeg') {
+    throw new RenderRefusedError(
+      "options.omitBackground: JPEG carries no alpha channel; pass format 'png' or 'webp', or remove omitBackground, to clear this refusal",
+    )
+  }
   const parsed = parseComposedRenderOptions(options)
   return { ...parsed, watermark: parseWatermark(parsed.watermark, call) }
 }

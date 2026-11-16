@@ -42,7 +42,7 @@ const RENDER_KEYS = {
 } as const
 
 const AS_OF_KEYS = { moment: true, anchors: true, asOf: true } as const
-const IMAGE_KEYS = { motifs: true, format: true, proof: true, quality: true, scale: true, width: true, watermark: true } as const
+const IMAGE_KEYS = { motifs: true, format: true, omitBackground: true, proof: true, quality: true, scale: true, width: true, watermark: true } as const
 
 export const BOOK_PDF_OPTION_KEYS = {
   ...RENDER_KEYS,
@@ -94,6 +94,7 @@ export const COVER_IMAGE_OPTION_KEYS = {
   ...AS_OF_KEYS,
   width: true,
   format: true,
+  omitBackground: true,
 } as const satisfies Record<keyof CoverImageOptions, true>
 
 export const DECK_PDF_OPTION_KEYS = {

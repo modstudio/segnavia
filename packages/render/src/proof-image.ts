@@ -111,8 +111,8 @@ export async function proofRasterImage(tab: Tab, image: Uint8Array, options: Pro
 }
 
 // Proofing captures PNG so Chromium's pixels are not quantized before the table, then encodes once at the requested quality.
-export function proofCaptureOptions(options: ImageOptions): Pick<ImageOptions, 'format' | 'quality' | 'limits'> {
-  const capture = { format: options.format, quality: options.quality, limits: options.limits }
+export function proofCaptureOptions(options: ImageOptions): Pick<ImageOptions, 'format' | 'omitBackground' | 'quality' | 'limits'> {
+  const capture = { format: options.format, omitBackground: options.omitBackground, quality: options.quality, limits: options.limits }
   return options.proof ? { ...capture, format: 'png' } : capture
 }
 
