@@ -172,7 +172,7 @@ test('the browser tab exposes and re-bounds the progress reporter only when supp
     exposeFunction: async (name: string, callback: (value: unknown) => void) => {
       exposed.set(name, callback)
     },
-    setContent: async () => {},
+    goto: async () => {},
     evaluate: async () => true,
   }
   const context = {
@@ -201,7 +201,7 @@ test('a recorded layout failure wins over the readiness timeout', async () => {
   const page = {
     on: () => {},
     exposeFunction: async () => {},
-    setContent: async () => {},
+    goto: async () => {},
     waitForFunction: async () => {},
     evaluate: async () => failure,
   }
@@ -245,8 +245,14 @@ test('asset limits stay structured when another asset refusal precedes them', as
     routeWebSocket: async () => {},
     newPage: async () => ({
       on: () => {},
-      setContent: async () => {
-        const request = (url: string, resourceType: string) => ({ url: () => url, resourceType: () => resourceType })
+      goto: async () => {
+        const frame = { page: () => ({ mainFrame: () => frame }) }
+        const request = (url: string, resourceType: string) => ({
+          url: () => url,
+          resourceType: () => resourceType,
+          isNavigationRequest: () => false,
+          frame: () => frame,
+        })
         await routeHandler?.({ request: () => request(blocked, 'script'), abort: async () => {} } as unknown as Route)
         await routeHandler?.({ request: () => request(oversized, 'image'), abort: async () => {} } as unknown as Route)
       },
@@ -295,7 +301,7 @@ test("a missing asset refusal takes precedence over the body's resulting error",
     routeWebSocket: async () => {},
     newPage: async () => ({
       on: () => {},
-      setContent: async () => {},
+      goto: async () => {},
       evaluate: async () => true,
     }),
     close: async () => {},
@@ -313,7 +319,8 @@ test("a missing asset refusal takes precedence over the body's resulting error",
     undefined,
     { settled: () => false, opened: () => {}, crashed: () => {} },
     async () => {
-      const request = { url: () => url, resourceType: () => 'image' }
+      const frame = { page: () => ({ mainFrame: () => frame }) }
+      const request = { url: () => url, resourceType: () => 'image', isNavigationRequest: () => false, frame: () => frame }
       await routeHandler?.({ request: () => request, abort: async () => {} } as unknown as Route)
       throw new Error('image decode failed')
     },

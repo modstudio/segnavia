@@ -2013,7 +2013,10 @@ The library stores no cover document, picture or digest cache.
 
 Every render runs in its own context, offline, with requests that leave the
 page refused, WebSockets closed and the browser's own sockets sent to a dead
-proxy. Author scripts run only when the page or deck allows them. A render
+proxy. The route handler serves the tab document once from
+`http://segnavia.invalid/` and refuses every other request to that reserved
+origin; approved author assets continue through the host's asset seam. Author
+scripts run only when the page or deck allows them. A render
 waits for the conjunction of the facts its document requires: a page that runs
 code must call `window.pageReady()`, and a document that carries layout
 providers must receive the library bridge's signal after the layout runtime's

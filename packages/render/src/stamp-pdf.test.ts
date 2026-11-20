@@ -8,7 +8,7 @@ import type { StampPdfOptions } from './renderer.ts'
 import { stampReceivedPdf } from './stamp-pdf.ts'
 
 const tab = {
-  setContent: async () => {},
+  goto: async () => {},
   evaluate: async () => true,
   pdf: () => layerFixture(),
   on: () => tab,
