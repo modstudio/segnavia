@@ -6,6 +6,7 @@ import { HEADLESS_ELEMENT_NAMES } from './headless-elements.ts'
 import { STYLED_ELEMENT_NAMES } from './styled-elements.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? class {}
+let trackPrototype: object | null = null
 
 class ValueElement extends HTMLElementBase {
   private current = 0
@@ -213,6 +214,7 @@ test('every declared property is an accessor on its element prototype', async ()
       paperPicker: paperPicker.SegnaviaPaperPicker,
       itemSettings: itemSettings.SegnaviaItemSettings,
     }
+    trackPrototype = controls.SegnaviaTrack.prototype
     for (const [key, descriptor] of Object.entries(ELEMENT_PROPERTIES)) {
       for (const property of descriptor.properties) {
         let prototype: object | null = classes[key]?.prototype ?? null
@@ -224,29 +226,6 @@ test('every declared property is an accessor on its element prototype', async ()
         expect(accessor?.set, `${descriptor.tag}.${property}`).toBeFunction()
       }
     }
-    const slides = [
-      { id: 'a', content: { kind: 'html' as const, html: '' }, holdMs: 100 },
-      { id: 'b', content: { kind: 'html' as const, html: '' }, holdMs: 200 },
-      { id: 'c', content: { kind: 'html' as const, html: '' }, holdMs: 300 },
-    ]
-    const playbackState = new DeckPlaybackState().read({
-      ...initialDeckState(),
-      deck: { slides },
-      slide: slides[1],
-      index: 1,
-      playback: 'continuous',
-      totalMs: 600,
-      seek: 'furthest',
-      watched: { ms: 0, share: 0, reach: { index: 1, ms: 50 }, complete: false },
-    } as unknown as DeckState)
-    const segments = slides.map(() => ({ dataset: {} as Record<string, string>, style: { setProperty() {} } }))
-    const items = segments.map((segment, index) => ({ dataset: { go: String(index) }, querySelector: () => segment }))
-    const list = { querySelectorAll: () => items }
-    const trackRenderer = controls.SegnaviaTrack.prototype as unknown as {
-      renderContinuousSegments(list: unknown, state: typeof playbackState): void
-    }
-    trackRenderer.renderContinuousSegments.call({}, list, playbackState)
-    expect(segments.map((segment) => segment.dataset.state)).toEqual(['done', 'current', 'locked'])
     const freshStage = Object.create(stage.SegnaviaStage.prototype) as InstanceType<typeof stage.SegnaviaStage>
     expect({
       css: freshStage.css,
@@ -259,4 +238,32 @@ test('every declared property is an accessor on its element prototype', async ()
     if (previous) Object.defineProperty(globalThis, 'HTMLElement', previous)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')
   }
+})
+
+test('a continuous deck track renders segments beyond the furthest reach as locked', () => {
+  const slides = [
+    { id: 'a', content: { kind: 'html' as const, html: '' }, holdMs: 100 },
+    { id: 'b', content: { kind: 'html' as const, html: '' }, holdMs: 200 },
+    { id: 'c', content: { kind: 'html' as const, html: '' }, holdMs: 300 },
+  ]
+  const playbackState = new DeckPlaybackState().read({
+    ...initialDeckState(),
+    deck: { slides },
+    slide: slides[1],
+    index: 1,
+    playback: 'continuous',
+    totalMs: 600,
+    seek: 'furthest',
+    watched: { ms: 0, share: 0, reach: { index: 1, ms: 50 }, complete: false },
+  } as unknown as DeckState)
+  const segments = slides.map(() => ({ dataset: {} as Record<string, string>, style: { setProperty() {} } }))
+  const items = segments.map((segment, index) => ({ dataset: { go: String(index) }, querySelector: () => segment }))
+  const list = { querySelectorAll: () => items }
+  const renderer = trackPrototype as {
+    renderContinuousSegments(list: unknown, state: typeof playbackState): void
+  }
+
+  renderer.renderContinuousSegments.call({}, list, playbackState)
+
+  expect(segments.map((segment) => segment.dataset.state)).toEqual(['done', 'current', 'locked'])
 })
