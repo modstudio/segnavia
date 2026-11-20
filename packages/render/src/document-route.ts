@@ -3,6 +3,9 @@ import type { RefusalCause } from '@segnavia/format'
 // HTTP keeps the renderer document non-secure while giving it a real origin.
 export const RENDER_DOCUMENT_URL = 'http://segnavia.invalid/'
 
+// Chromium titles the PDF of an untitled document with its URL's host; the PDF writer removes that placeholder.
+export const RENDER_PLACEHOLDER_TITLE = new URL(RENDER_DOCUMENT_URL).host
+
 export type DocumentRouteDecision = { action: 'asset' } | { action: 'fulfill' } | { action: 'abort'; cause: RefusalCause }
 
 export function documentRouteDecision(url: string, navigation: boolean, mainFrame: boolean, fulfilled: boolean): DocumentRouteDecision {

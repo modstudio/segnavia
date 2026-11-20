@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { PDFDocument } from 'pdf-lib'
+import { RENDER_PLACEHOLDER_TITLE } from './document-route.ts'
 
 const documents: string[] = []
 let routeHandler: ((route: { request(): unknown; fulfill(options: { body: string }): Promise<void> }) => Promise<void>) | undefined
@@ -23,7 +24,7 @@ const tab = {
   async pdf() {
     const document = await PDFDocument.create({ updateMetadata: false })
     document.addPage()
-    document.setTitle('about:blank')
+    document.setTitle(RENDER_PLACEHOLDER_TITLE)
     return document.save()
   },
   screenshot() {
