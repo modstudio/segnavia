@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { documentRouteDecision, RENDER_DOCUMENT_URL } from './browser-tab.ts'
+import { documentRouteDecision, RENDER_DOCUMENT_URL } from './document-route.ts'
 
 describe('renderer document route', () => {
   test('fulfills only the first main-frame navigation for the exact document URL', () => {
