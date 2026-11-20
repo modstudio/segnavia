@@ -33,7 +33,7 @@ class FakeBrowser extends EventEmitter {
 }
 
 const tab = {
-  setContent: async () => {},
+  goto: async () => {},
   evaluate(callback: (...args: never[]) => unknown) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
     return Promise.resolve({ extent: 100, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })

@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  # The renderer's browser exits under Chrome 158, so stay on 157 until it works on current stable.
+  # The renderer works under Chrome 158, but the demo's probe-slide key check fails there.
   CHROME_VERSION: 157.0.8103.78
 
 concurrency:

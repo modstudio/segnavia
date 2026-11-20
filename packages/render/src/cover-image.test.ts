@@ -21,9 +21,16 @@ void sharedCoverInput
 let slotFit = { type: 'segnavia:slot-fit', slots: { title: 'fit' } }
 let composedPreflight: string | null = null
 let framedHtml = ''
+let routeHandler: ((route: { request(): unknown; fulfill(options: { body: string }): Promise<void> }) => Promise<void>) | undefined
+const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
 const tab = {
-  setContent: async (html: string) => {
-    framedHtml = html
+  goto: async (url: string) => {
+    await routeHandler?.({
+      request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
+      fulfill: async ({ body }) => {
+        framedHtml = body
+      },
+    })
   },
   evaluate(callback: (...args: never[]) => unknown, argument?: string) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
@@ -40,7 +47,9 @@ const tab = {
 }
 const context = {
   addInitScript: async () => {},
-  route: async () => {},
+  route: async (_pattern: string, handler: typeof routeHandler) => {
+    routeHandler = handler
+  },
   routeWebSocket: async () => {},
   newPage: async () => tab,
   close: async () => {},

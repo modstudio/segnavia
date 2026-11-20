@@ -10,7 +10,6 @@ const frame = {
 }
 
 const tab = {
-  setContent: async (html: string) => void renderedHtml.push(html),
   evaluate(callback: (...args: never[]) => unknown) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
     if (String(callback).includes('__segnaviaSlotFit')) return Promise.resolve([slotFit])
@@ -29,16 +28,31 @@ const tab = {
   },
 }
 
-const context = {
-  addInitScript: async () => {},
-  route: async () => {},
-  routeWebSocket: async () => {},
-  newPage: async () => tab,
-  close: async () => {},
-}
-
 const browser = {
-  newContext: async () => context,
+  newContext: async () => {
+    let routeHandler: ((route: { request(): unknown; fulfill(options: { body: string }): Promise<void> }) => Promise<void>) | undefined
+    const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
+    const contextTab = {
+      ...tab,
+      goto: async (url: string) => {
+        await routeHandler?.({
+          request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
+          fulfill: async ({ body }) => {
+            renderedHtml.push(body)
+          },
+        })
+      },
+    }
+    return {
+      addInitScript: async () => {},
+      route: async (_pattern: string, handler: typeof routeHandler) => {
+        routeHandler = handler
+      },
+      routeWebSocket: async () => {},
+      newPage: async () => contextTab,
+      close: async () => {},
+    }
+  },
   close: async () => {},
   isConnected: () => true,
   on() {

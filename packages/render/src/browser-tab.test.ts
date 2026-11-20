@@ -11,6 +11,7 @@ import {
 } from './browser-tab.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { RENDER_PROGRESS_BINDING } from './progress.ts'
+import { RENDER_DOCUMENT_SANDBOX, RENDER_DOCUMENT_URL } from './render-document-origin.ts'
 
 describe('asset route decision', () => {
   const origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }]
@@ -165,6 +166,50 @@ test('markup asset refusals expose their asset code and structured causes', asyn
   )
 })
 
+test('the live document route fulfills once and refuses later reserved-origin requests', async () => {
+  const html = '<p>routed document</p>'
+  const calls = { fulfilled: [] as unknown[], aborted: [] as string[] }
+  let routeHandler: ((route: Route) => Promise<void>) | undefined
+  const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
+  const send = async (url: string, navigation: boolean, frame: () => unknown) => {
+    await routeHandler?.({
+      request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => navigation, frame }),
+      fulfill: async (options: unknown) => void calls.fulfilled.push(options),
+      abort: async () => void calls.aborted.push(url),
+    } as unknown as Route)
+  }
+  const context = {
+    route: async (_pattern: string, handler: (route: Route) => Promise<void>) => {
+      routeHandler = handler
+    },
+    routeWebSocket: async () => {},
+    newPage: async () => ({
+      on: () => {},
+      goto: async () => {
+        await send(RENDER_DOCUMENT_URL, true, () => mainFrame)
+        await send(RENDER_DOCUMENT_URL, true, () => mainFrame)
+        await send(`${RENDER_DOCUMENT_URL}asset`, false, () => mainFrame)
+        await send(RENDER_DOCUMENT_URL, true, () => {
+          throw new Error('frame is unavailable')
+        })
+      },
+      evaluate: async () => true,
+    }),
+    close: async () => {},
+  }
+  const rendering = renderInBrowserTab(
+    { newContext: async () => context } as unknown as Browser,
+    { viewport: { width: 100, height: 100 }, scripts: true, html, readiness: { author: false } },
+    undefined,
+    { settled: () => false, opened: () => {}, crashed: () => {} },
+    async () => undefined,
+  )
+  await expect(rendering).rejects.toMatchObject({ refusals: [{ subject: RENDER_DOCUMENT_URL }, { subject: `${RENDER_DOCUMENT_URL}asset` }] })
+  const headers = { 'Content-Security-Policy': `sandbox ${RENDER_DOCUMENT_SANDBOX}` }
+  expect(calls.fulfilled).toEqual([{ body: html, contentType: 'text/html; charset=utf-8', headers }])
+  expect(calls.aborted).toEqual([RENDER_DOCUMENT_URL, `${RENDER_DOCUMENT_URL}asset`, RENDER_DOCUMENT_URL])
+})
+
 test('the browser tab exposes and re-bounds the progress reporter only when supplied', async () => {
   const exposed = new Map<string, (value: unknown) => void>()
   const page = {
@@ -172,7 +217,7 @@ test('the browser tab exposes and re-bounds the progress reporter only when supp
     exposeFunction: async (name: string, callback: (value: unknown) => void) => {
       exposed.set(name, callback)
     },
-    setContent: async () => {},
+    goto: async () => {},
     evaluate: async () => true,
   }
   const context = {
@@ -201,7 +246,7 @@ test('a recorded layout failure wins over the readiness timeout', async () => {
   const page = {
     on: () => {},
     exposeFunction: async () => {},
-    setContent: async () => {},
+    goto: async () => {},
     waitForFunction: async () => {},
     evaluate: async () => failure,
   }
@@ -245,8 +290,14 @@ test('asset limits stay structured when another asset refusal precedes them', as
     routeWebSocket: async () => {},
     newPage: async () => ({
       on: () => {},
-      setContent: async () => {
-        const request = (url: string, resourceType: string) => ({ url: () => url, resourceType: () => resourceType })
+      goto: async () => {
+        const frame = { page: () => ({ mainFrame: () => frame }) }
+        const request = (url: string, resourceType: string) => ({
+          url: () => url,
+          resourceType: () => resourceType,
+          isNavigationRequest: () => false,
+          frame: () => frame,
+        })
         await routeHandler?.({ request: () => request(blocked, 'script'), abort: async () => {} } as unknown as Route)
         await routeHandler?.({ request: () => request(oversized, 'image'), abort: async () => {} } as unknown as Route)
       },
@@ -295,7 +346,7 @@ test("a missing asset refusal takes precedence over the body's resulting error",
     routeWebSocket: async () => {},
     newPage: async () => ({
       on: () => {},
-      setContent: async () => {},
+      goto: async () => {},
       evaluate: async () => true,
     }),
     close: async () => {},
@@ -313,7 +364,8 @@ test("a missing asset refusal takes precedence over the body's resulting error",
     undefined,
     { settled: () => false, opened: () => {}, crashed: () => {} },
     async () => {
-      const request = { url: () => url, resourceType: () => 'image' }
+      const frame = { page: () => ({ mainFrame: () => frame }) }
+      const request = { url: () => url, resourceType: () => 'image', isNavigationRequest: () => false, frame: () => frame }
       await routeHandler?.({ request: () => request, abort: async () => {} } as unknown as Route)
       throw new Error('image decode failed')
     },

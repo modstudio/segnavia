@@ -2,6 +2,7 @@ import { type DocumentMetadata, markedTitle, resolveDirection, type TextDirectio
 import { PDFDict, type PDFDocument, PDFHexString, PDFName, PDFString } from 'pdf-lib'
 import { type OutputDate, pdfDate } from './output-date.ts'
 import { loadPdf } from './pdf-load.ts'
+import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 import { xmpPacket } from './xmp.ts'
 
 const key = (value: string) => PDFName.of(value)
@@ -32,7 +33,7 @@ export function writeDocumentMetadata(document: PDFDocument, metadata?: Document
   const descriptive = metadata && markedMetadata(metadata, dir)
   const needsInfo = metadata !== undefined || date !== undefined
   if (descriptive) writeDescriptiveMetadata(document, descriptive)
-  else if (document.getTitle() === 'about:blank') infoDictionary(document)?.delete(key('Title'))
+  else if (document.getTitle() === RENDER_PLACEHOLDER_TITLE) infoDictionary(document)?.delete(key('Title'))
   let info = infoDictionary(document)
   // Descriptive metadata and dates both need Info; either may establish it when the source PDF has none.
   if (needsInfo && !info) {

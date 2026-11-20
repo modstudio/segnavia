@@ -1,11 +1,18 @@
 import { expect, mock, test } from 'bun:test'
 import { PDFDocument } from 'pdf-lib'
+import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const documents: string[] = []
+let routeHandler: ((route: { request(): unknown; fulfill(options: { body: string }): Promise<void> }) => Promise<void>) | undefined
+const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
 const tab = {
-  setContent(html: string) {
-    documents.push(html)
-    return Promise.resolve()
+  async goto(url: string) {
+    await routeHandler?.({
+      request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
+      fulfill: async ({ body }) => {
+        documents.push(body)
+      },
+    })
   },
   evaluate(callback: (...args: never[]) => unknown) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
@@ -17,7 +24,7 @@ const tab = {
   async pdf() {
     const document = await PDFDocument.create({ updateMetadata: false })
     document.addPage()
-    document.setTitle('about:blank')
+    document.setTitle(RENDER_PLACEHOLDER_TITLE)
     return document.save()
   },
   screenshot() {
@@ -31,7 +38,8 @@ const tab = {
   },
 }
 const context = {
-  route() {
+  route(_pattern: string, handler: typeof routeHandler) {
+    routeHandler = handler
     return Promise.resolve()
   },
   routeWebSocket() {

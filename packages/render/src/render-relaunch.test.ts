@@ -39,7 +39,7 @@ class FakeBrowser extends EventEmitter {
 }
 
 const tab = {
-  setContent() {
+  goto() {
     return Promise.resolve()
   },
   evaluate(callback: (...args: never[]) => unknown) {

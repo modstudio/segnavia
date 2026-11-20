@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { PDFDict, PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFString } from 'pdf-lib'
 import { withDocumentMetadata, writeDocumentMetadata } from './document-metadata.ts'
 import type { OutputDate } from './output-date.ts'
+import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const key = (value: string) => PDFName.of(value)
 
@@ -96,7 +97,7 @@ test('omits empty authors from Info and XMP', async () => {
 test('removes Chromium placeholder title when page metadata is omitted', async () => {
   const document = await PDFDocument.create({ updateMetadata: false })
   document.addPage()
-  document.setTitle('about:blank')
+  document.setTitle(RENDER_PLACEHOLDER_TITLE)
 
   const loaded = await PDFDocument.load(await withDocumentMetadata(await document.save()), { updateMetadata: false })
 

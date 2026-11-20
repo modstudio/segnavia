@@ -28,9 +28,9 @@ mirrors from failing the job.
 CI installs the Chrome for Testing build that `CHROME_VERSION` names in
 `.github/workflows/ci.yml`, not the day's stable, and passes its executable
 path to the demo and rendering scripts through `SEGNAVIA_CHROMIUM`. The
-version stays at 157 because the renderer's browser exits under Chrome 158;
-it moves when the renderer works on the current stable. Each job caches Bun's
-install cache by `bun.lock`.
+renderer works under Chrome 158, but the demo's probe-slide key check fails
+there, so CI stays on 157 until that check works on current stable. Each job
+caches Bun's install cache by `bun.lock`.
 
 Set `SEGNAVIA_VERIFY_SHARD` to a one-based `index/count` pair to run only that
 share of the demo verifier sections. For example,
