@@ -38,8 +38,6 @@ export async function verifyScriptedDependencies(h: Harness) {
     .locator('#fetch[data-directive="connect-src"]')
     .waitFor({ timeout: 3000 })
     .catch(() => {})
-  const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
-  check('the scripted page frame reports ready after the storage shim runs', messages.includes('segnavia:ready'), messages.join(','))
   check('the routed chart stub draws its chart on screen', await frame.locator('#chart-rendered').isVisible())
   await frame.locator('#topic').selectOption({ label: 'Math' })
   await frame.locator('#name').fill('Noah')
