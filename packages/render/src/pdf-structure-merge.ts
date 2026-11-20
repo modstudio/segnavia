@@ -233,6 +233,8 @@ export async function copyPdfParts(target: PDFDocument, parts: PdfPart[], option
   }
   if (tagged.length > 0 && untagged.length > 0) {
     removeStructureKeys(copied)
+    target.catalog.delete(key('StructTreeRoot'))
+    target.catalog.delete(key('MarkInfo'))
     return
   }
   if (tagged.length > 0)

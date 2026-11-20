@@ -3,13 +3,14 @@ import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, 
 import { explicit, namedDestinations } from './book-destinations.ts'
 import { writeDocumentMetadata } from './document-metadata.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
-import type { MergePdfsOptions } from './merge-pdf-options.ts'
+import { type MergePdfsOptions, parseMergePdfsOptions } from './merge-pdf-options.ts'
 import { enforcePdfBytes } from './pdf-finish.ts'
 import { loadPdf } from './pdf-load.ts'
 import { combinedPdfOutline, writeMergedPdfOutline } from './pdf-merge-outline.ts'
 import { readPdfOutline } from './pdf-outline-read.ts'
 import { copyPdfParts } from './pdf-structure-merge.ts'
-import type { RenderDeadline } from './render-deadline.ts'
+import { type RenderDeadline, withinRenderPermit } from './render-deadline.ts'
+import type { Renderer } from './renderer.ts'
 
 export interface MergePart {
   pdf: Uint8Array
@@ -182,4 +183,11 @@ export async function mergePdfParts(parts: readonly MergePart[], options: MergeP
   const pdf = enforcePdfBytes(await target.save(), options.limits)
   const untagged = loaded.filter((part) => !part.tagged).map((part) => part.index)
   return { pdf, tagged: untagged.length === 0, untagged, refused }
+}
+
+export function createMergePdfsOperation(acquire: () => Promise<void>, release: () => void, defaultBoundMs: number): Renderer['mergePdfs'] {
+  return async (parts, options) => {
+    const parsed = parseMergePdfsOptions(options)
+    return withinRenderPermit(parsed.boundMs ?? defaultBoundMs, acquire, release, (deadline) => mergePdfParts(parts, parsed, deadline))
+  }
 }

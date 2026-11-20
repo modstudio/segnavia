@@ -29,12 +29,14 @@ async function part(options: { title?: string; tagged?: boolean; namedLink?: boo
   return document.save()
 }
 
+async function encryptedPart(): Promise<Uint8Array> {
+  const bytes = await part({ title: 'Encrypted' })
+  return new TextEncoder().encode(new TextDecoder('latin1').decode(bytes).replace('%%EOF', '/Encrypt 1 0 R\n%%EOF'))
+}
+
 test('merges tagged parts under one tagged Document', async () => {
   const merged = await mergePdfParts(
-    [
-      { pdf: await part({ title: 'One', tagged: true }) },
-      { pdf: await part({ title: 'Two', tagged: true }) },
-    ],
+    [{ pdf: await part({ title: 'One', tagged: true }) }, { pdf: await part({ title: 'Two', tagged: true }) }],
     { metadata: { title: 'Combined', lang: 'en' } },
     deadline,
   )
@@ -47,10 +49,7 @@ test('merges tagged parts under one tagged Document', async () => {
 
 test('untags a tagged and untagged mix and reports the untagged source index', async () => {
   const merged = await mergePdfParts(
-    [
-      { pdf: await part({ title: 'One', tagged: true }) },
-      { pdf: await part({ title: 'Two' }) },
-    ],
+    [{ pdf: await part({ title: 'One', tagged: true }) }, { pdf: await part({ title: 'Two' }) }],
     { metadata: { title: 'Combined' } },
     deadline,
   )
@@ -63,10 +62,7 @@ test('untags a tagged and untagged mix and reports the untagged source index', a
 
 test('qualifies reused names and rewrites each link to its own part', async () => {
   const merged = await mergePdfParts(
-    [
-      { pdf: await part({ title: 'One', namedLink: true }) },
-      { pdf: await part({ title: 'Two', namedLink: true }) },
-    ],
+    [{ pdf: await part({ title: 'One', namedLink: true }) }, { pdf: await part({ title: 'Two', namedLink: true }) }],
     { metadata: { title: 'Combined' } },
     deadline,
   )
@@ -82,27 +78,42 @@ test('qualifies reused names and rewrites each link to its own part', async () =
 
 test('collects unreadable parts, skips them only when requested, and still refuses all-refused', async () => {
   const invalid = new TextEncoder().encode('not a pdf')
-  await expect(
-    mergePdfParts([{ pdf: invalid }, { pdf: await part({ title: 'Kept' }) }], { metadata: { title: 'Combined' } }, deadline),
-  ).rejects.toBeInstanceOf(PdfPartsRefusedError)
+  await expect(mergePdfParts([{ pdf: invalid }, { pdf: await part({ title: 'Kept' }) }], { metadata: { title: 'Combined' } }, deadline)).rejects.toBeInstanceOf(
+    PdfPartsRefusedError,
+  )
   const partial = await mergePdfParts(
     [{ pdf: invalid }, { pdf: await part({ title: 'Kept' }) }],
     { metadata: { title: 'Combined' }, skipRefused: true },
     deadline,
   )
   expect(partial.refused.map(({ index }) => index)).toEqual([0])
-  await expect(mergePdfParts([{ pdf: invalid }], { metadata: { title: 'Combined' }, skipRefused: true }, deadline)).rejects.toBeInstanceOf(
-    PdfPartsRefusedError,
+  await expect(mergePdfParts([{ pdf: invalid }], { metadata: { title: 'Combined' }, skipRefused: true }, deadline)).rejects.toBeInstanceOf(PdfPartsRefusedError)
+})
+
+test('refuses a valid part with neither a label nor a document title', async () => {
+  await expect(mergePdfParts([{ pdf: await part() }], { metadata: { title: 'Combined' } }, deadline)).rejects.toMatchObject({
+    code: 'pdf-parts',
+    entries: [{ index: 0 }],
+  })
+})
+
+test('collects an encrypted part and merges around it only with skipRefused', async () => {
+  const encrypted = await encryptedPart()
+  await expect(
+    mergePdfParts([{ pdf: encrypted }, { pdf: await part({ title: 'Kept' }) }], { metadata: { title: 'Combined' } }, deadline),
+  ).rejects.toBeInstanceOf(PdfPartsRefusedError)
+  const partial = await mergePdfParts(
+    [{ pdf: encrypted }, { pdf: await part({ title: 'Kept' }) }],
+    { metadata: { title: 'Combined' }, skipRefused: true },
+    deadline,
   )
+  expect(partial.refused[0]?.error.message).toContain('encrypted')
 })
 
 test('a whole-merge sheet limit refuses even with skipRefused', async () => {
   await expect(
     mergePdfParts(
-      [
-        { pdf: await part({ title: 'One' }) },
-        { pdf: await part({ title: 'Two' }) },
-      ],
+      [{ pdf: await part({ title: 'One' }) }, { pdf: await part({ title: 'Two' }) }],
       { metadata: { title: 'Combined' }, limits: { sheets: 1 }, skipRefused: true },
       deadline,
     ),

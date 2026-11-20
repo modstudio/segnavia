@@ -25,7 +25,6 @@ import { pdfWithBackdropRasters } from './effects/raster.ts'
 import { parseCoverImageOptions, parseDeckPdfOptions, parsePageImageOptions, parseProofImageOptions, parseSlideImageOptions } from './entry-options.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { parseMergePdfsOptions } from './merge-pdf-options.ts'
 import {
   copyLimits,
   enforceDeckLimits,
@@ -43,7 +42,7 @@ import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
-import { mergePdfParts } from './pdf-merge.ts'
+import { createMergePdfsOperation } from './pdf-merge.ts'
 import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { createPdfPageImageOperation } from './pdf-page-image.ts'
@@ -143,10 +142,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
   const renderer: Renderer = {
-    async mergePdfs(parts, options) {
-      const parsedOptions = parseMergePdfsOptions(options)
-      return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, (deadline) => mergePdfParts(parts, parsedOptions, deadline))
-    },
+    mergePdfs: createMergePdfsOperation(acquire, release, RENDER_BOUND_MS),
     async stampPdf(bytes, opts = {}) {
       const parsedOptions = parseStampPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
