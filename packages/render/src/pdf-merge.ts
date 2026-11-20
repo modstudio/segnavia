@@ -1,16 +1,16 @@
 import { Refusal, resolveDirection, resolveLimits } from '@segnavia/format'
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
-import { explicit, namedDestinations } from './book-destinations.ts'
+import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
+import { type BookDestination, explicit, namedDestinations, pdfAnnotationDestination, pdfObject } from './book-destinations.ts'
+import { writeDocumentOutlines } from './book-structure.ts'
 import { writeDocumentMetadata } from './document-metadata.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { type MergePdfsOptions, parseMergePdfsOptions } from './merge-pdf-options.ts'
 import { enforcePdfBytes } from './pdf-finish.ts'
-import { loadPdf } from './pdf-load.ts'
-import { combinedPdfOutline, writeMergedPdfOutline } from './pdf-merge-outline.ts'
-import { readPdfOutline } from './pdf-outline-read.ts'
+import { classifyPdfRewriteFailure, loadPdf } from './pdf-load.ts'
+import { combinedPdfOutline } from './pdf-merge-outline.ts'
+import { type PdfOutlineItem, readPdfOutline } from './pdf-outline-read.ts'
 import { copyPdfParts } from './pdf-structure-merge.ts'
 import { type RenderDeadline, withinRenderPermit } from './render-deadline.ts'
-import type { Renderer } from './renderer.ts'
 
 export interface MergePart {
   pdf: Uint8Array
@@ -52,10 +52,12 @@ interface LoadedPart {
   index: number
   label?: string
   document: PDFDocument
-  title: string
-  outline: ReturnType<typeof readPdfOutline>
-  destinations: Map<string, ReturnType<typeof namedDestinations> extends Map<string, infer D> ? D : never>
+  heading: { text: string; mark: boolean }
+  outline: PdfOutlineItem[]
+  destinations: Map<string, BookDestination>
+  links: Array<{ page: number; annotation: number; destination: BookDestination }>
   pages: number
+  firstPageHeight: number
   tagged: boolean
 }
 
@@ -95,42 +97,58 @@ function throwIfExpired(deadline: RenderDeadline): void {
   if (deadline.signal.aborted) throw deadline.signal.reason
 }
 
+function partLinks(document: PDFDocument, destinations: ReadonlyMap<string, BookDestination>, partIndex: number): LoadedPart['links'] {
+  const links: LoadedPart['links'] = []
+  for (const [pageIndex, page] of document.getPages().entries()) {
+    const annotations = pdfObject(document, page.node.get(key('Annots')))
+    if (!(annotations instanceof PDFArray)) continue
+    for (let annotationIndex = 0; annotationIndex < annotations.size(); annotationIndex += 1) {
+      const resolved = pdfAnnotationDestination(document, annotations.get(annotationIndex), destinations)
+      if (!resolved || resolved.annotation.lookupMaybe(key('Subtype'), PDFName) !== key('Link') || !resolved.present) continue
+      if (!resolved.destination) {
+        const subject = resolved.name ? `the missing destination ${resolved.name}` : 'a destination outside its part'
+        throw new RenderRefusedError(`A link in PDF part ${partIndex + 1} names ${subject}.`)
+      }
+      links.push({ page: pageIndex, annotation: annotationIndex, destination: resolved.destination })
+      resolved.annotation.delete(key('Dest'))
+      if (resolved.action?.lookupMaybe(key('S'), PDFName) === key('GoTo')) resolved.annotation.delete(key('A'))
+    }
+  }
+  return links
+}
+
 async function loadPart(part: MergePart, index: number, options: MergePdfsOptions): Promise<LoadedPart> {
   const document = await loadPdf(part.pdf, { source: 'received', operation: 'mergePdfs', limits: resolveLimits(undefined, options.limits) })
-  const title = part.label === undefined ? documentTitle(document) : (documentTitle(document) ?? part.label)
-  if (!title) throw new RenderRefusedError(`PDF part ${index + 1} has no label or document title; pass a label or a titled PDF to clear this refusal.`)
+  const heading = part.label === undefined ? { text: documentTitle(document) ?? '', mark: false } : { text: part.label, mark: true }
+  if (!heading.text) throw new RenderRefusedError(`PDF part ${index + 1} has no label or document title; pass a label or a titled PDF to clear this refusal.`)
+  const structure = document.catalog.get(key('StructTreeRoot'))
+  if (structure && !(pdfObject(document, structure) instanceof PDFDict)) {
+    throw new RenderRefusedError(`PDF part ${index + 1} has a structure root that is not a dictionary.`)
+  }
+  const destinations = namedDestinations(document)
+  const links = partLinks(document, destinations, index)
   return {
     index,
     ...(part.label === undefined ? {} : { label: part.label }),
     document,
-    title,
-    outline: readPdfOutline(document),
-    destinations: namedDestinations(document),
+    heading,
+    outline: readPdfOutline(document, destinations),
+    destinations,
+    links,
     pages: document.getPageCount(),
-    tagged: document.catalog.has(key('StructTreeRoot')),
+    firstPageHeight: document.getPage(0).getHeight(),
+    tagged: structure !== undefined,
   }
 }
 
-function decodedName(value: PDFObject | undefined): string | undefined {
-  return value instanceof PDFString || value instanceof PDFHexString ? value.decodeText() : value instanceof PDFName ? value.toString().slice(1) : undefined
-}
-
 function rewritePartLinks(target: PDFDocument, part: LoadedPart, pageOffset: number): void {
-  for (let pageIndex = pageOffset; pageIndex < pageOffset + part.pages; pageIndex += 1) {
-    const annotations = resolve(target, target.getPage(pageIndex).node.get(key('Annots')))
-    if (!(annotations instanceof PDFArray)) continue
-    for (let index = 0; index < annotations.size(); index += 1) {
-      const annotation = resolve(target, annotations.get(index))
-      if (!(annotation instanceof PDFDict)) continue
-      let name = decodedName(resolve(target, annotation.get(key('Dest'))))
-      const action = resolve(target, annotation.get(key('A')))
-      if (!name && action instanceof PDFDict && action.lookupMaybe(key('S'), PDFName) === key('GoTo')) name = decodedName(resolve(target, action.get(key('D'))))
-      if (!name) continue
-      const destination = part.destinations.get(name)
-      if (!destination) throw new RenderRefusedError(`A link in PDF part ${part.index + 1} names the missing destination ${name}.`)
-      annotation.set(key('Dest'), explicit(target, destination, pageOffset))
-      annotation.delete(key('A'))
-    }
+  for (const link of part.links) {
+    const annotations = pdfObject(target, target.getPage(pageOffset + link.page).node.get(key('Annots')))
+    if (!(annotations instanceof PDFArray)) throw new RenderRefusedError(`A copied link in PDF part ${part.index + 1} has no annotation array.`)
+    const annotation = pdfObject(target, annotations.get(link.annotation))
+    if (!(annotation instanceof PDFDict)) throw new RenderRefusedError(`A copied link in PDF part ${part.index + 1} is not a dictionary.`)
+    annotation.set(key('Dest'), explicit(target, link.destination, pageOffset))
+    annotation.delete(key('A'))
   }
 }
 
@@ -138,7 +156,7 @@ function writeQualifiedDestinations(target: PDFDocument, parts: readonly LoadedP
   const entries = parts.flatMap((part, partIndex) =>
     [...part.destinations].map(([name, destination]) => ({ name: `${part.index + 1}/${name}`, destination, offset: offsets[partIndex] as number })),
   )
-  entries.sort((left, right) => left.name.localeCompare(right.name))
+  entries.sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0))
   if (entries.length === 0) return
   const names = entries.flatMap((entry) => [PDFHexString.fromText(entry.name), explicit(target, entry.destination, entry.offset)])
   target.catalog.set(key('Names'), target.context.obj({ Dests: { Names: names } }))
@@ -147,45 +165,69 @@ function writeQualifiedDestinations(target: PDFDocument, parts: readonly LoadedP
 export async function mergePdfParts(parts: readonly MergePart[], options: MergePdfsOptions, deadline: RenderDeadline): Promise<MergedPdf> {
   const loaded: LoadedPart[] = []
   const refused: PdfPartRefusal[] = []
+  let pages = 0
   for (const [index, part] of parts.entries()) {
     throwIfExpired(deadline)
+    let loadedPart: LoadedPart
     try {
-      loaded.push(await loadPart(part, index, options))
+      loadedPart = await loadPart(part, index, options)
     } catch (error) {
       refused.push({ index, ...(part.label === undefined ? {} : { label: part.label }), error: asRefusal(error) })
+      continue
     }
+    pages += loadedPart.pages
+    if (options.limits?.sheets !== undefined && pages > options.limits.sheets) throw new RenderLimitError('sheets', pages, options.limits.sheets)
+    loaded.push(loadedPart)
   }
   if (refused.length > 0 && (!options.skipRefused || loaded.length === 0)) throw new PdfPartsRefusedError(refused)
   if (loaded.length === 0) throw new PdfPartsRefusedError(refused)
-  const pages = loaded.reduce((sum, part) => sum + part.pages, 0)
-  if (options.limits?.sheets !== undefined && pages > options.limits.sheets) throw new RenderLimitError('sheets', pages, options.limits.sheets)
-  const offsets = loaded.map((_, index) => loaded.slice(0, index).reduce((sum, part) => sum + part.pages, 0))
-  const target = await PDFDocument.create()
-  await copyPdfParts(
-    target,
-    loaded.map((part) => ({ document: part.document, name: `PDF part at index ${part.index}` })),
-    { mix: 'untag', lang: options.metadata.lang },
-  )
-  loaded.forEach((part, index) => {
-    rewritePartLinks(target, part, offsets[index] as number)
-  })
-  writeQualifiedDestinations(target, loaded, offsets)
-  const direction = resolveDirection(undefined, options.metadata.lang, options.metadata.title)
-  writeMergedPdfOutline(
-    target,
-    combinedPdfOutline(
-      loaded.map((part, index) => ({ outline: part.outline, label: part.label, title: part.title, pageOffset: offsets[index] as number })),
-      direction,
-    ),
-  )
-  writeDocumentMetadata(target, options.metadata, undefined, direction)
-  throwIfExpired(deadline)
-  const pdf = enforcePdfBytes(await target.save(), options.limits)
-  const untagged = loaded.filter((part) => !part.tagged).map((part) => part.index)
-  return { pdf, tagged: untagged.length === 0, untagged, refused }
+  const offsets: number[] = []
+  let offset = 0
+  for (const part of loaded) {
+    offsets.push(offset)
+    offset += part.pages
+  }
+  try {
+    const target = await PDFDocument.create()
+    await copyPdfParts(
+      target,
+      loaded.map((part) => ({ document: part.document, name: `PDF part at index ${part.index}` })),
+      { mix: 'untag', lang: options.metadata.lang },
+    )
+    throwIfExpired(deadline)
+    loaded.forEach((part, index) => {
+      rewritePartLinks(target, part, offsets[index] as number)
+    })
+    throwIfExpired(deadline)
+    writeQualifiedDestinations(target, loaded, offsets)
+    const direction = resolveDirection(undefined, options.metadata.lang, options.metadata.title)
+    writeDocumentOutlines(
+      target,
+      combinedPdfOutline(
+        loaded.map((part, index) => ({
+          outline: part.outline,
+          heading: part.heading,
+          pageOffset: offsets[index] as number,
+          firstPageHeight: part.firstPageHeight,
+        })),
+        direction,
+      ),
+    )
+    writeDocumentMetadata(target, options.metadata, undefined, direction)
+    throwIfExpired(deadline)
+    const pdf = enforcePdfBytes(await target.save(), options.limits)
+    const untagged = loaded.filter((part) => !part.tagged).map((part) => part.index)
+    return { pdf, tagged: untagged.length === 0, untagged, refused }
+  } catch (error) {
+    throw classifyPdfRewriteFailure('rewrite', error, 'PDF merge')
+  }
 }
 
-export function createMergePdfsOperation(acquire: () => Promise<void>, release: () => void, defaultBoundMs: number): Renderer['mergePdfs'] {
+export function createMergePdfsOperation(
+  acquire: () => Promise<void>,
+  release: () => void,
+  defaultBoundMs: number,
+): (parts: MergePart[], options: MergePdfsOptions) => Promise<MergedPdf> {
   return async (parts, options) => {
     const parsed = parseMergePdfsOptions(options)
     return withinRenderPermit(parsed.boundMs ?? defaultBoundMs, acquire, release, (deadline) => mergePdfParts(parts, parsed, deadline))

@@ -61,3 +61,16 @@ test('returns a typed failure for a dangling destination', async () => {
   expect(() => readPdfOutline(document)).toThrow(PdfOutlineReadError)
   expect(() => readPdfOutline(document)).toThrow('does not resolve')
 })
+
+test('returns a typed failure beyond 10000 entries', async () => {
+  const document = await PDFDocument.create()
+  document.addPage()
+  let next: PDFRef | undefined
+  for (let index = 10_000; index >= 0; index -= 1) {
+    const item = document.context.obj({ Title: PDFHexString.fromText(String(index)), ...(next ? { Next: next } : {}) })
+    next = document.context.register(item)
+  }
+  document.catalog.set(key('Outlines'), document.context.obj({ First: next }))
+  expect(() => readPdfOutline(document)).toThrow(PdfOutlineReadError)
+  expect(() => readPdfOutline(document)).toThrow('10000')
+})

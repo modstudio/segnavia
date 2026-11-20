@@ -15,6 +15,7 @@ import {
 import { RenderRefusedError } from './errors.ts'
 
 const key = (value: string) => PDFName.of(value)
+const STRUCTURE_KEYS = { page: key('StructParents'), annotation: key('StructParent') } as const
 
 export interface PdfPart {
   document: PDFDocument
@@ -132,14 +133,14 @@ function parentKeys(part: CopiedPart, replacements: ReadonlyMap<PDFObject, PDFOb
   return part.document.getPages().flatMap((sourcePage, pageIndex) => {
     const keys: Array<{ target: PDFDict; name: PDFName; oldKey: number }> = []
     const targetPage = part.pages[pageIndex] as PDFPage
-    const pageKey = sourcePage.node.lookupMaybe(key('StructParents'), PDFNumber)
-    if (pageKey) keys.push({ target: targetPage.node, name: key('StructParents'), oldKey: pageKey.asNumber() })
+    const pageKey = sourcePage.node.lookupMaybe(STRUCTURE_KEYS.page, PDFNumber)
+    if (pageKey) keys.push({ target: targetPage.node, name: STRUCTURE_KEYS.page, oldKey: pageKey.asNumber() })
     for (const annotationObject of annotationRefs(sourcePage)) {
       const annotation = part.document.context.lookup(annotationObject, PDFDict)
-      const annotationKey = annotation.lookupMaybe(key('StructParent'), PDFNumber)
+      const annotationKey = annotation.lookupMaybe(STRUCTURE_KEYS.annotation, PDFNumber)
       if (!annotationKey) continue
       const targetObject = replacements.get(annotationObject) as PDFObject
-      keys.push({ target: targetPage.doc.context.lookup(targetObject, PDFDict), name: key('StructParent'), oldKey: annotationKey.asNumber() })
+      keys.push({ target: targetPage.doc.context.lookup(targetObject, PDFDict), name: STRUCTURE_KEYS.annotation, oldKey: annotationKey.asNumber() })
     }
     return keys
   })
@@ -179,7 +180,9 @@ function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: A
     const sourceLang = text(part.document.catalog.get(key('Lang')))
     for (const child of sourceChildren) {
       const copied = copier.copy(child)
-      if (sourceLang && sourceLang !== targetLang) target.context.lookup(copied, PDFDict).set(key('Lang'), PDFHexString.fromText(sourceLang))
+      if (targetLang !== undefined && sourceLang && sourceLang !== targetLang) {
+        target.context.lookup(copied, PDFDict).set(key('Lang'), PDFHexString.fromText(sourceLang))
+      }
       children.push(copied)
     }
 
@@ -210,8 +213,8 @@ function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: A
 function removeStructureKeys(parts: CopiedPart[]): void {
   for (const part of parts) {
     for (const page of part.pages) {
-      page.node.delete(key('StructParents'))
-      for (const annotationObject of annotationRefs(page)) page.doc.context.lookup(annotationObject, PDFDict).delete(key('StructParent'))
+      page.node.delete(STRUCTURE_KEYS.page)
+      for (const annotationObject of annotationRefs(page)) page.doc.context.lookup(annotationObject, PDFDict).delete(STRUCTURE_KEYS.annotation)
     }
   }
 }

@@ -3,18 +3,37 @@ import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFHexString, PDFName, PDFNumb
 import { namedDestinations } from './book-destinations.ts'
 import { RenderLimitError } from './errors.ts'
 import { mergePdfParts, PdfPartsRefusedError } from './pdf-merge.ts'
+import { readPdfOutline } from './pdf-outline-read.ts'
 
 const key = (value: string) => PDFName.of(value)
 const deadline = { signal: new AbortController().signal, remaining: () => 60_000 }
 
-async function part(options: { title?: string; tagged?: boolean; namedLink?: boolean } = {}): Promise<Uint8Array> {
+async function part(
+  options: {
+    title?: string
+    tagged?: boolean
+    namedLink?: boolean
+    explicitLink?: boolean
+    goToLink?: boolean
+    missingNamedLink?: boolean
+    malformedStructure?: boolean
+  } = {},
+): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const page = document.addPage([300, 400])
   if (options.title !== undefined) document.setTitle(options.title)
   if (options.namedLink) {
     const destination = document.context.obj([page.ref, 'XYZ', 12, 345, null])
     document.catalog.set(key('Names'), document.context.obj({ Dests: { Names: [PDFHexString.fromText('chapter-1'), destination] } }))
-    const annotation = document.context.obj({ Type: 'Annot', Subtype: 'Link', Rect: [0, 0, 10, 10], Dest: PDFString.of('chapter-1') })
+  }
+  if (options.namedLink || options.explicitLink || options.goToLink || options.missingNamedLink) {
+    const destination = options.explicitLink ? [page.ref, 'XYZ', 12, 345, null] : PDFString.of(options.missingNamedLink ? 'missing' : 'chapter-1')
+    const annotation = document.context.obj({
+      Type: 'Annot',
+      Subtype: 'Link',
+      Rect: [0, 0, 10, 10],
+      ...(options.goToLink ? { A: { S: 'GoTo', D: destination } } : { Dest: destination }),
+    })
     page.node.set(key('Annots'), document.context.obj([document.context.register(annotation)]))
   }
   if (options.tagged) {
@@ -26,6 +45,7 @@ async function part(options: { title?: string; tagged?: boolean; namedLink?: boo
     document.catalog.set(key('StructTreeRoot'), rootReference)
     document.catalog.set(key('MarkInfo'), document.context.obj({ Marked: PDFBool.True }))
   }
+  if (options.malformedStructure) document.catalog.set(key('StructTreeRoot'), PDFNumber.of(1))
   return document.save()
 }
 
@@ -76,6 +96,47 @@ test('qualifies reused names and rewrites each link to its own part', async () =
   expect(destinations).toEqual(document.getPages().map((page) => page.ref.toString()))
 })
 
+test('rewrites an explicit link to the copied page without retaining a stray page object', async () => {
+  const merged = await mergePdfParts([{ pdf: await part({ title: 'Explicit', explicitLink: true }) }], { metadata: { title: 'Combined' } }, deadline)
+  const document = await PDFDocument.load(merged.pdf)
+  const page = document.getPage(0)
+  const annotations = page.node.lookup(key('Annots'), PDFArray)
+  const annotation = document.context.lookup(annotations.get(0), PDFDict)
+  expect(annotation.lookup(key('Dest'), PDFArray).get(0).toString()).toBe(page.ref.toString())
+  const pageObjects = document.context
+    .enumerateIndirectObjects()
+    .filter(([, object]) => object instanceof PDFDict && object.lookupMaybe(key('Type'), PDFName) === key('Page'))
+  expect(pageObjects.map(([reference]) => reference.toString())).toEqual(document.getPages().map(({ ref }) => ref.toString()))
+})
+
+test('rewrites a GoTo action destination to the copied page', async () => {
+  const merged = await mergePdfParts([{ pdf: await part({ title: 'Action', namedLink: true, goToLink: true }) }], { metadata: { title: 'Combined' } }, deadline)
+  const document = await PDFDocument.load(merged.pdf)
+  const page = document.getPage(0)
+  const annotations = page.node.lookup(key('Annots'), PDFArray)
+  const annotation = document.context.lookup(annotations.get(0), PDFDict)
+  expect(annotation.lookup(key('Dest'), PDFArray).get(0).toString()).toBe(page.ref.toString())
+  expect(annotation.get(key('A'))).toBeUndefined()
+})
+
+test('collects a missing named link as a part refusal and skips it when requested', async () => {
+  const missing = await part({ title: 'Missing', missingNamedLink: true })
+  await expect(mergePdfParts([{ pdf: missing }, { pdf: await part({ title: 'Kept' }) }], { metadata: { title: 'Combined' } }, deadline)).rejects.toBeInstanceOf(
+    PdfPartsRefusedError,
+  )
+  const partial = await mergePdfParts(
+    [{ pdf: missing }, { pdf: await part({ title: 'Kept' }) }],
+    { metadata: { title: 'Combined' }, skipRefused: true },
+    deadline,
+  )
+  expect(partial.refused.map(({ index }) => index)).toEqual([0])
+})
+
+test('targets each part outline entry at the top of its first page', async () => {
+  const merged = await mergePdfParts([{ pdf: await part({ title: 'First' }) }], { metadata: { title: 'Combined' } }, deadline)
+  expect(readPdfOutline(await PDFDocument.load(merged.pdf))[0]?.destination).toEqual({ page: 1, x: 0, y: 400 })
+})
+
 test('collects unreadable parts, skips them only when requested, and still refuses all-refused', async () => {
   const invalid = new TextEncoder().encode('not a pdf')
   await expect(mergePdfParts([{ pdf: invalid }, { pdf: await part({ title: 'Kept' }) }], { metadata: { title: 'Combined' } }, deadline)).rejects.toBeInstanceOf(
@@ -95,6 +156,15 @@ test('refuses a valid part with neither a label nor a document title', async () 
     code: 'pdf-parts',
     entries: [{ index: 0 }],
   })
+})
+
+test('collects a malformed declared structure root as a part refusal', async () => {
+  const partial = await mergePdfParts(
+    [{ pdf: await part({ title: 'Malformed', malformedStructure: true }) }, { pdf: await part({ title: 'Kept' }) }],
+    { metadata: { title: 'Combined' }, skipRefused: true },
+    deadline,
+  )
+  expect(partial.refused).toMatchObject([{ index: 0, error: { code: 'render' } }])
 })
 
 test('collects an encrypted part and merges around it only with skipRefused', async () => {

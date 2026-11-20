@@ -156,3 +156,14 @@ test('puts a differing part language on its copied top structure element', async
   const child = output.context.lookup(children.get(0), PDFDict)
   expect(child.lookup(key('Lang'), PDFHexString).decodeText()).toBe('he')
 })
+
+test('does not put a part language on structure elements when no target language is supplied', async () => {
+  const source = await PDFDocument.load(await taggedPart('Hebrew', 'Hebrew', { lang: 'he' }))
+  const output = await PDFDocument.create()
+  await copyPdfParts(output, [{ document: source, name: 'Hebrew' }])
+  const root = output.context.lookup(output.catalog.get(key('StructTreeRoot')), PDFDict)
+  const documentElement = output.context.lookup(root.get(key('K')), PDFDict)
+  const children = documentElement.lookup(key('K'), PDFArray)
+  const child = output.context.lookup(children.get(0), PDFDict)
+  expect(child.get(key('Lang'))).toBeUndefined()
+})
