@@ -63,6 +63,7 @@ export const ELEMENT_PROPERTIES = {
       'placements',
       'designedCover',
       'pageWidths',
+      'ratio',
       'anchors',
       'asOf',
       'moment',
@@ -193,6 +194,8 @@ export const ELEMENT_PROPERTIES = {
     ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins', 'anchors', 'asOf', 'moment', 'profile'],
     ['asof', 'preflight', 'fontfailure', 'ready', 'error', 'composeprogress'],
   ),
+  image: descriptor(HEADLESS_ELEMENTS.image, ['media', 'src'], []),
+  sound: descriptor(HEADLESS_ELEMENTS.sound, ['sound', 'src'], []),
   player: descriptor(
     STYLED_ELEMENTS.player,
     ['labels', 'edition', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],

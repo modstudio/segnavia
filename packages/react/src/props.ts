@@ -18,9 +18,11 @@ import type {
   SegnaviaBoard,
   SegnaviaBook,
   SegnaviaDocument,
+  SegnaviaImage,
   SegnaviaPage,
   SegnaviaPaper,
   SegnaviaPrintedPages,
+  SegnaviaSound,
   SegnaviaStage,
   SegnaviaThumbnail,
   StageFrameDetail,
@@ -136,11 +138,22 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   placements?: SegnaviaThumbnail['placements']
   designedCover?: SegnaviaThumbnail['designedCover']
   pageWidths?: SegnaviaThumbnail['pageWidths']
+  ratio?: SegnaviaThumbnail['ratio']
   anchors?: SegnaviaThumbnail['anchors']
   asOf?: SegnaviaThumbnail['asOf']
   moment?: SegnaviaThumbnail['moment']
   onAsof?: CustomEventProp<AsOfDay>
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
+}
+
+export interface ImageProps extends ElementProps<SegnaviaImage> {
+  media?: SegnaviaImage['media']
+  src?: string
+}
+
+export interface SoundProps extends ElementProps<SegnaviaSound> {
+  sound?: SegnaviaSound['sound']
+  src?: string
 }
 
 export type PaperPickerProps = Omit<ElementProps<SegnaviaPaperPicker>, 'onChange'> & {

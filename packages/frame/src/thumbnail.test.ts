@@ -99,3 +99,41 @@ test('an edition change keeps an internally loaded page', () => {
 
   expect(Reflect.get(thumbnail, 'pageValue')).toBe(page)
 })
+
+test('ratio validates once at the thumbnail property edge', () => {
+  const thumbnail = thumbnailHarness()
+  const values = new Map<string, string>()
+  Reflect.set(thumbnail, 'style', {
+    setProperty(name: string, value: string) {
+      values.set(name, value)
+    },
+    removeProperty(name: string) {
+      values.delete(name)
+    },
+  })
+  Reflect.set(thumbnail, 'changed', () => {})
+  thumbnail.ratio = 'square'
+  expect(thumbnail.ratio).toBe('square')
+  expect(values.get('--segnavia-thumbnail-ratio')).toBe('1 / 1')
+  thumbnail.ratio = 'natural'
+  expect(values.has('--segnavia-thumbnail-ratio')).toBeFalse()
+  expect(() => {
+    thumbnail.ratio = 'wide' as 'square'
+  }).toThrow('use natural or square')
+})
+
+test('a square thumbnail contains a portrait deck canvas', () => {
+  const thumbnail = thumbnailHarness()
+  const canvas = { style: { transform: '' } }
+  Object.assign(thumbnail, {
+    clientWidth: 100,
+    clientHeight: 100,
+    viewport: { firstElementChild: canvas },
+    value: { size: { width: 100, height: 200 } },
+    ratioValue: 'square',
+  })
+
+  ;(SegnaviaThumbnail.prototype as unknown as { measure(this: typeof thumbnail): void }).measure.call(thumbnail)
+
+  expect(canvas.style.transform).toBe('scale(0.5)')
+})

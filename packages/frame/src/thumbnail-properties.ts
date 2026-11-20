@@ -1,6 +1,7 @@
 import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
 import { AsOfElement } from './as-of-element.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import { THUMBNAIL_RATIOS, type ThumbnailRatio } from './fit.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -14,6 +15,21 @@ export class ThumbnailProperties extends AsOfElement {
   protected placementOptions: AssetPlacementsOptions | undefined
   protected widthOptions: PageWidths | undefined
   protected fontOptions: FontsOptions | undefined
+  private ratioValue: ThumbnailRatio = 'natural'
+
+  get ratio(): ThumbnailRatio {
+    return this.ratioValue
+  }
+
+  set ratio(value: ThumbnailRatio) {
+    if (!(value in THUMBNAIL_RATIOS)) throw new RangeError(`Thumbnail ratio is ${String(value)}; use natural or square.`)
+    if (value === this.ratioValue) return
+    this.ratioValue = value
+    const aspect = THUMBNAIL_RATIOS[value].aspect
+    if (aspect) this.style.setProperty('--segnavia-thumbnail-ratio', aspect)
+    else this.style.removeProperty('--segnavia-thumbnail-ratio')
+    this.thumbnailPropertiesChanged()
+  }
 
   /** The host stylesheet an HTML slide is drawn with, as the stage's `css`. */
   get css(): string {

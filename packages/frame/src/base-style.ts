@@ -7,6 +7,8 @@ import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
 // do appear are custom properties with plain defaults.
 //
 //   --segnavia-aspect            the stage's aspect ratio, set from the deck
+//   --segnavia-thumbnail-ratio   the thumbnail tile's selected aspect ratio
+//   --segnavia-media-aspect      the intrinsic aspect ratio of a media viewer
 //   --segnavia-canvas            the slide canvas behind its content
 //   --segnavia-shot-backdrop     the canvas behind fitted images and shots
 //   --segnavia-annotation-color  rings, badges and arrows
@@ -46,7 +48,7 @@ export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled]) [data-annotation]){opacity:0;transition:opacity var(--segnavia-cue-fade,160ms)}
 :where(segnavia-stage:not([unstyled]) [data-annotation][data-shown]){opacity:1}
 @media (prefers-reduced-motion:reduce){:where(segnavia-stage:not([unstyled]) [data-annotation]){transition:none}}
-:where(:host(segnavia-thumbnail)){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
+:where(:host(segnavia-thumbnail)){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-thumbnail-ratio,var(--segnavia-aspect,16/9))}
 :where(:host(segnavia-thumbnail) [part~="thumbnail"]){position:absolute;inset:0;overflow:hidden;border-radius:inherit}
 :where(:host(segnavia-thumbnail) .segnavia-designed-cover){position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:contain}
 :where(:host(segnavia-thumbnail) div.segnavia-designed-cover){display:flex;align-items:center;justify-content:center}
@@ -114,6 +116,10 @@ export const BASE_CSS = `
 :where(segnavia-printed-pages:not([unstyled]) [part~="failure"]){position:sticky;inset-block-start:0;color:var(--segnavia-failure,currentColor)}
 :where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
+:where(segnavia-image:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-media-aspect)}
+:where(segnavia-image:not([unstyled]) [part~="image"]){display:block;inline-size:100%;block-size:100%;object-fit:contain}
+:where(segnavia-sound:not([unstyled])){display:block;position:relative}
+:where(segnavia-sound:not([unstyled]) [part~="audio"]){display:block;inline-size:100%}
 ${OUTLINE_HEADING_BASE_CSS}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}

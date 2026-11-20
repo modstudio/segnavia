@@ -13,12 +13,14 @@ import { type ContentRefreshResult, refreshControllerContent } from './controlle
 import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { internalDeckLoad, resolveDeckLoad } from './deck-load-origin.ts'
+import { DeckPlaybackState } from './deck-playback-state.ts'
 import { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
 import { dispatchElementError } from './element-error.ts'
 import type { DeckAction } from './keys.ts'
 import { navigationError, slideIdAt } from './navigation-error.ts'
 import { addNavigationGuard, type NavigationGuardReason, runNavigationGuard } from './navigation-guard.ts'
 import { limitNavigation, slideRequest } from './navigation-limit.ts'
+import type { PlaybackState } from './playback.ts'
 import { hasWindow } from './schedule.ts'
 import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
@@ -28,6 +30,7 @@ export class DeckController extends EventTarget {
   declare edition: string | undefined
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
+  private exposed = new DeckPlaybackState()
   private playback: ControllerPlayback
   private shows = 0
   private refreshing: Promise<ContentRefreshResult> | null = null
@@ -63,9 +66,8 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, ...this.settings }
     this.connectWindow()
   }
-
-  get state(): DeckState {
-    return this.current
+  get state(): DeckState & PlaybackState {
+    return this.exposed.read(this.current)
   }
   get keys(): 'stage' | 'page' {
     return this.options.keys ?? 'stage'
@@ -387,9 +389,8 @@ export class DeckController extends EventTarget {
   url(path: string): string {
     return controllerUrl(path, this.options.base, hasWindow ? location.href : undefined)
   }
-
   private emit() {
-    this.lastCue = emitControllerState(this, this.current, this.lastCue)
+    this.lastCue = emitControllerState(this, this.state, this.lastCue)
     this.completeEmitted = emitControllerComplete(this, this.current, this.completeEmitted)
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fitSheet } from './fit.ts'
+import { fitDesignedCover, fitSheet } from './fit.ts'
 
 describe('viewport fit', () => {
   test('subtracts inline padding and both reserved block edges', () => {
@@ -53,5 +53,12 @@ describe('viewport fit', () => {
       sheetHeight: sheet.height,
     })
     expect(result).toMatchObject(fitted)
+  })
+
+  test('fits wide image and sound faces into one square geometry while natural geometry is unchanged', () => {
+    const tile = { width: 240, height: 100 }
+    expect(fitDesignedCover(tile, { width: 240, height: 100 })).toEqual({ scale: 1, width: 240, height: 100 })
+    expect(fitDesignedCover(tile, { width: 240, height: 100 }, 'square')).toEqual({ scale: 100 / 240, width: 100, height: 100 / 2.4 })
+    expect(fitDesignedCover(tile, { width: 160, height: 100 }, 'square')).toEqual({ scale: 0.625, width: 100, height: 62.5 })
   })
 })

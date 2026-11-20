@@ -1,5 +1,5 @@
 import { animationMessage, MESSAGE } from './bridge.ts'
-import { SegnaviaControl } from './control.ts'
+import { SegnaviaDeckControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
@@ -54,7 +54,7 @@ export interface RailSlideSettingsItem {
   markLabel?: string
 }
 
-export class SegnaviaRail extends SegnaviaControl {
+export class SegnaviaRail extends SegnaviaDeckControl {
   private margin = 400
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => {
@@ -65,9 +65,9 @@ export class SegnaviaRail extends SegnaviaControl {
   private active = -1
   private reorder = new RailReorder({
     root: this.root,
-    count: () => this.controller?.state.deck?.slides.length ?? 0,
+    count: () => this.deckController?.state.deck?.slides.length ?? 0,
     horizontal: () => getComputedStyle(this.root.querySelector('ol') as HTMLOListElement).flexDirection === 'row',
-    direction: () => this.controller?.state.direction ?? 'ltr',
+    direction: () => this.deckController?.state.direction ?? 'ltr',
     buttons: () => this.itemElements(),
     excludes: (target) => target.closest('.slide-menu,.slide-settings-list,.slide-settings-panel') !== null,
   })
@@ -106,7 +106,7 @@ export class SegnaviaRail extends SegnaviaControl {
     this.resize.disconnect()
   }
 
-  protected render(state: DeckState) {
+  protected renderDeck(state: DeckState) {
     const deck = state.deck
     if (!deck) return
     const root = this.getRootNode()
@@ -128,7 +128,8 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   refresh() {
-    if (this.controller?.state.deck) this.render(this.controller.state)
+    const controller = this.deckController
+    if (controller?.state.deck) this.render(controller.state)
   }
 
   setReorderEnabled(enabled: boolean) {
@@ -190,8 +191,8 @@ export class SegnaviaRail extends SegnaviaControl {
     const button = (event.target as Element).closest<HTMLButtonElement>('button[data-index]')
     if (!button) return
     this.selected = Number(button.dataset.index)
-    if (this.controller) this.syncSelection(this.controller.state)
-    void this.controller?.go(this.selected).catch(() => {})
+    if (this.deckController) this.syncSelection(this.deckController.state)
+    void this.deckController?.go(this.selected).catch(() => {})
   }
 
   private reconcile(state: DeckState) {
@@ -302,7 +303,7 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   private mount(index: number, state: DeckState) {
-    const controller = this.controller
+    const controller = this.deckController
     const deck = state.deck
     const slide = deck?.slides[index]
     const preview = this.root.querySelector<HTMLElement>(`button[data-index="${index}"] .preview`)
@@ -330,7 +331,7 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   private measure() {
-    const deck = this.controller?.state.deck
+    const deck = this.deckController?.state.deck
     if (!deck) return
     for (const preview of this.root.querySelectorAll<HTMLElement>('.preview')) {
       const canvas = preview.firstElementChild as HTMLElement | null
@@ -350,16 +351,17 @@ export class SegnaviaRail extends SegnaviaControl {
   }
 
   private onKey = (event: KeyboardEvent) => {
-    if (!this.controller?.state.deck) return
+    const controller = this.deckController
+    if (!controller?.state.deck) return
     if ((event.target as Element).closest('.item-settings,.slide-menu,.slide-settings-list,.slide-settings-panel')) return
     const list = this.root.querySelector('ol') as HTMLOListElement
     const horizontal = getComputedStyle(list).flexDirection === 'row'
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-    const next = railSelection(this.selected, event.key, this.controller.state.deck.slides.length, horizontal, this.controller.state.direction)
+    const next = railSelection(this.selected, event.key, controller.state.deck.slides.length, horizontal, controller.state.direction)
     if (next === this.selected) return
     event.preventDefault()
     this.selected = next
-    this.syncSelection(this.controller.state)
+    this.syncSelection(controller.state)
     this.root.querySelector<HTMLButtonElement>(`button[data-index="${next}"]`)?.focus()
   }
 }

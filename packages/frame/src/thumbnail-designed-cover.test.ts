@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { soundCover } from '@segnavia/format'
 import { coverPresentation, parseDesignedCover } from './designed-cover-policy.ts'
 import { pageDocument } from './page-document.test-helper.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
@@ -46,6 +47,13 @@ test.each([
 
 test('clearing the thumbnail designed cover restores the fallback presentation', () => {
   expect(coverPresentation(undefined)).toEqual({ kind: 'fallback' })
+})
+
+test('a designed cover still wins over a sound standard face', () => {
+  const fallback = soundCover({ format: 'mp3', durationMs: 1_000 })
+  const designed = parseDesignedCover({ cover: { page: pageDocument('Designed') } }, 'The sound')
+  expect(fallback.page.body).not.toEqual(designed.cover.page.body)
+  expect(coverPresentation(designed)).toEqual({ kind: 'live', cover: designed.cover })
 })
 
 test('a thumbnail live cover receives its slot options with its other sources', () => {

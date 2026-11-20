@@ -27,6 +27,14 @@ describe('headless base styles', () => {
     }
   })
 
+  test('the image and sound viewers carry geometry but no color', () => {
+    for (const name of ['segnavia-image', 'segnavia-sound']) {
+      const rules = [...BASE_CSS.matchAll(new RegExp(`:where\\(${name}[^}]+\\}\\n?`, 'g'))].map(([rule]) => rule)
+      expect(rules.length).toBeGreaterThan(0)
+      expect(rules.join('')).not.toMatch(/(?:^|[;{])(?:color|background|border|outline|box-shadow):/)
+    }
+  })
+
   test('the board toolbar supplies inline-row geometry and customizable colors', () => {
     expect(BASE_CSS).toContain(
       '[part~="toolbar"]){display:inline-flex;flex-direction:row;align-items:center;color:var(--segnavia-board-toolbar-color,currentColor)',

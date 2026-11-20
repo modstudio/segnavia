@@ -58,6 +58,8 @@ const replayValues = {
   paper: ['css', ':root{--vue-replay:paper}'],
   document: ['css', ':root{--vue-replay:document}'],
   book: ['pageWidths', { standard: 777, wide: 999 }],
+  image: ['src', 'image.png'],
+  sound: ['src', 'sound.mp3'],
   player: ['labels', { player: 'Vue player' }],
   refusal: ['labels', { refused: 'Vue refusal' }],
   play: ['labels', { play: 'Vue play' }],
