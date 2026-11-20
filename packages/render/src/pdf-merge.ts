@@ -93,6 +93,10 @@ function asRefusal(error: unknown): Refusal {
   })
 }
 
+// A received part's name tree is walked under a cap. It is set well above
+// what a long library book names, so a merge of whole books is not refused.
+const PART_DESTINATION_LIMIT = 100_000
+
 function throwIfExpired(deadline: RenderDeadline): void {
   if (deadline.signal.aborted) throw deadline.signal.reason
 }
@@ -125,7 +129,7 @@ async function loadPart(part: MergePart, index: number, options: MergePdfsOption
   if (structure && !(pdfObject(document, structure) instanceof PDFDict)) {
     throw new RenderRefusedError(`PDF part ${index + 1} has a structure root that is not a dictionary.`)
   }
-  const destinations = namedDestinations(document)
+  const destinations = namedDestinations(document, PART_DESTINATION_LIMIT)
   const links = partLinks(document, destinations, index)
   return {
     index,

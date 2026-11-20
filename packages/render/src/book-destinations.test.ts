@@ -29,14 +29,15 @@ test('refuses a self-referencing destination name tree', async () => {
   expect(() => namedDestinations(document)).toThrow('cycle')
 })
 
-test('refuses a destination name tree beyond 10000 entries', async () => {
+test('refuses a name tree beyond a caller cap and reads it whole without one', async () => {
   const document = await PDFDocument.create()
   const page = document.addPage()
   const names = []
   for (let index = 0; index <= 10_000; index += 1) {
-    names.push(PDFHexString.fromText(String(index)), document.context.obj([page.ref, 'XYZ', 0, 0, null]))
+    names.push(PDFHexString.fromText(String(index).padStart(5, '0')), document.context.obj([page.ref, 'XYZ', 0, 0, null]))
   }
   document.catalog.set(key('Names'), document.context.obj({ Dests: { Names: names } }))
-  expect(() => namedDestinations(document)).toThrow(RenderRefusedError)
-  expect(() => namedDestinations(document)).toThrow('10000')
+  expect(() => namedDestinations(document, 10_000)).toThrow(RenderRefusedError)
+  expect(() => namedDestinations(document, 10_000)).toThrow('10000')
+  expect(namedDestinations(document).size).toBe(10_001)
 })

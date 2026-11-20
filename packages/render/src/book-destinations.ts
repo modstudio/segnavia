@@ -53,6 +53,14 @@ export function pdfDestination(document: PDFDocument, value: PDFObject | undefin
 interface NameTreeState {
   visited: Set<PDFObject>
   entries: number
+  maxEntries: number
+}
+
+function countEntry(state: NameTreeState): void {
+  state.entries += 1
+  if (state.entries > state.maxEntries) {
+    throw new RenderRefusedError(`A PDF destination name tree has more than the limit of ${state.maxEntries} entries.`)
+  }
 }
 
 function nameTree(document: PDFDocument, value: PDFObject | undefined, output: Map<string, BookDestination>, state: NameTreeState, depth: number): void {
@@ -65,8 +73,7 @@ function nameTree(document: PDFDocument, value: PDFObject | undefined, output: M
   const names = resolve(document, dictionary.get(key('Names')))
   if (names instanceof PDFArray) {
     for (let index = 0; index + 1 < names.size(); index += 2) {
-      state.entries += 1
-      if (state.entries > 10_000) throw new RenderRefusedError('A PDF destination name tree has more than the limit of 10000 entries.')
+      countEntry(state)
       const name = pdfText(resolve(document, names.get(index)))
       const target = pdfDestination(document, names.get(index + 1))
       if (name && target) output.set(name, target)
@@ -146,16 +153,17 @@ export function remapNamedDestinationPages(document: PDFDocument, replacements: 
   if (direct instanceof PDFDict) for (const [, value] of direct.entries()) remapDestination(document, value, replacements)
 }
 
-export function namedDestinations(document: PDFDocument): Map<string, BookDestination> {
+// A document this library printed is trusted to hold as many names as it has
+// targets, so only a caller reading received bytes passes an entry cap.
+export function namedDestinations(document: PDFDocument, maxEntries = Number.POSITIVE_INFINITY): Map<string, BookDestination> {
   const output = new Map<string, BookDestination>()
-  const state: NameTreeState = { visited: new Set(), entries: 0 }
+  const state: NameTreeState = { visited: new Set(), entries: 0, maxEntries }
   const names = resolve(document, document.catalog.get(key('Names')))
   if (names instanceof PDFDict) nameTree(document, names.get(key('Dests')), output, state, 1)
   const direct = resolve(document, document.catalog.get(key('Dests')))
   if (direct instanceof PDFDict) {
     for (const [name, value] of direct.entries()) {
-      state.entries += 1
-      if (state.entries > 10_000) throw new RenderRefusedError('A PDF destination name tree has more than the limit of 10000 entries.')
+      countEntry(state)
       const target = pdfDestination(document, value)
       if (target) output.set(name.toString().slice(1), target)
     }

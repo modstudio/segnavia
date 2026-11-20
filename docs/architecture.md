@@ -1163,8 +1163,12 @@ every part tagged or every part untagged instead of producing a partial tree.
 `Renderer.mergePdfs` combines finished library PDFs without re-rendering them.
 Each part gets a collapsed top-level outline entry using its host label or its
 document title, with that part's existing outline nested beneath it. Named
-destinations are retained as sorted `<part>/<name>` entries, and named links
-are rewritten to explicit destinations within their own part. The host supplies
+destinations are retained as `<part>/<name>` entries in code-unit order, and
+every link, whether named, explicit or a GoTo action, is rewritten to an explicit
+destination within its own part. A part entry targets the top of the part's
+first page. Each part is read under bounds: its outline to 10,000 entries and
+depth 64, its destination name tree to 100,000 entries and depth 64, and any
+cycle in either refuses the part. The host supplies
 the merged document metadata once. Protection and watermarking remain a
 separate `stampPdf` operation.
 
