@@ -1,3 +1,4 @@
+import './prosemirror-environment.test-helper.ts'
 import { expect, test } from 'bun:test'
 import { NodeSelection } from '@tiptap/pm/state'
 import { ENGLISH_MARKDOWN_EDITOR_LABELS } from './markdown-editor-labels.ts'

@@ -1,5 +1,5 @@
-import { expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
+import { expect, test } from 'bun:test'
 import type { JSONContent } from '@tiptap/core'
 import { Node } from '@tiptap/pm/model'
 import { Marked } from 'marked'

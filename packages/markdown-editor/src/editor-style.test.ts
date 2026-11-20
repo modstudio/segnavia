@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
+import { describe, expect, test } from 'bun:test'
 import { EDITOR_CSS } from './editor-css.ts'
 
 class RecordingElement {

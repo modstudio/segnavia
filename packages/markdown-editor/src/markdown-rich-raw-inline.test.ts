@@ -1,5 +1,5 @@
-import { expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
+import { expect, test } from 'bun:test'
 import { marked } from 'marked'
 
 const { richMarkdownManager } = await import('./markdown-rich-extensions.ts')
