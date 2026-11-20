@@ -11,6 +11,10 @@ name: CI
 permissions:
   contents: read
 
+env:
+  # The renderer's browser exits under Chrome 158, so stay on 157 until it works on current stable.
+  CHROME_VERSION: 157.0.8103.78
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -47,6 +51,8 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
       - id: chrome
         uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build browser demo
@@ -81,6 +87,8 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
       - id: chrome
         uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
       - name: Install poppler
         run: scripts/ci/apt-install.sh poppler-utils
       - name: Install dependencies
@@ -120,6 +128,8 @@ jobs:
           node-version: 22.14.0
       - id: chrome
         uses: browser-actions/setup-chrome@2e1d749697dd1612b833dba4a722266286fbefcd # v2.1.2
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
       - name: Install poppler and a press CMYK profile
         run: scripts/ci/apt-install.sh --no-install-recommends poppler-utils colord-data
       - name: Install dependencies
