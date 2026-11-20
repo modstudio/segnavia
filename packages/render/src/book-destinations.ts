@@ -22,16 +22,21 @@ const key = (value: string) => PDFName.of(value)
 const resolve = (document: PDFDocument, value: PDFObject | undefined): PDFObject | undefined =>
   value instanceof PDFRef ? document.context.lookup(value) : value
 
-function decode(value: PDFObject | undefined): string | undefined {
+export const pdfObject = resolve
+
+export function pdfText(value: PDFObject | undefined): string | undefined {
   if (value instanceof PDFString || value instanceof PDFHexString) return value.decodeText()
   if (value instanceof PDFName) return value.toString().slice(1)
   return undefined
 }
 
-function destination(document: PDFDocument, value: PDFObject | undefined): BookDestination | undefined {
+export function pdfDestination(document: PDFDocument, value: PDFObject | undefined, names?: ReadonlyMap<string, BookDestination>): BookDestination | undefined {
   let found = resolve(document, value)
   if (found instanceof PDFDict) found = resolve(document, found.get(key('D')))
-  if (!(found instanceof PDFArray)) return undefined
+  if (!(found instanceof PDFArray)) {
+    const name = pdfText(found)
+    return name ? names?.get(name) : undefined
+  }
   const reference = found.get(0)
   if (!(reference instanceof PDFRef)) return undefined
   const page = document.getPages().findIndex((candidate) => candidate.ref.toString() === reference.toString())
@@ -45,19 +50,39 @@ function destination(document: PDFDocument, value: PDFObject | undefined): BookD
   }
 }
 
-function nameTree(document: PDFDocument, value: PDFObject | undefined, output: Map<string, BookDestination>): void {
+interface NameTreeState {
+  visited: Set<PDFObject>
+  entries: number
+  maxEntries: number
+}
+
+function countEntry(state: NameTreeState): void {
+  state.entries += 1
+  if (state.entries > state.maxEntries) {
+    throw new RenderRefusedError(`A PDF destination name tree has more than the limit of ${state.maxEntries} entries.`)
+  }
+}
+
+function nameTree(document: PDFDocument, value: PDFObject | undefined, output: Map<string, BookDestination>, state: NameTreeState, depth: number): void {
+  if (!value) return
+  if (depth > 64) throw new RenderRefusedError('A PDF destination name tree is deeper than the limit of 64 levels.')
+  if (state.visited.has(value)) throw new RenderRefusedError('A PDF destination name tree contains a cycle.')
+  state.visited.add(value)
   const dictionary = resolve(document, value)
   if (!(dictionary instanceof PDFDict)) return
   const names = resolve(document, dictionary.get(key('Names')))
   if (names instanceof PDFArray) {
     for (let index = 0; index + 1 < names.size(); index += 2) {
-      const name = decode(resolve(document, names.get(index)))
-      const target = destination(document, names.get(index + 1))
+      countEntry(state)
+      const name = pdfText(resolve(document, names.get(index)))
+      const target = pdfDestination(document, names.get(index + 1))
       if (name && target) output.set(name, target)
     }
   }
   const kids = resolve(document, dictionary.get(key('Kids')))
-  if (kids instanceof PDFArray) for (let index = 0; index < kids.size(); index += 1) nameTree(document, kids.get(index), output)
+  if (kids instanceof PDFArray) {
+    for (let index = 0; index < kids.size(); index += 1) nameTree(document, kids.get(index), output, state, depth + 1)
+  }
 }
 
 function translateDestination(document: PDFDocument, value: PDFObject | undefined, translations: ReadonlyMap<string, { x: number; y: number }>): void {
@@ -128,14 +153,18 @@ export function remapNamedDestinationPages(document: PDFDocument, replacements: 
   if (direct instanceof PDFDict) for (const [, value] of direct.entries()) remapDestination(document, value, replacements)
 }
 
-export function namedDestinations(document: PDFDocument): Map<string, BookDestination> {
+// A document this library printed is trusted to hold as many names as it has
+// targets, so only a caller reading received bytes passes an entry cap.
+export function namedDestinations(document: PDFDocument, maxEntries = Number.POSITIVE_INFINITY): Map<string, BookDestination> {
   const output = new Map<string, BookDestination>()
+  const state: NameTreeState = { visited: new Set(), entries: 0, maxEntries }
   const names = resolve(document, document.catalog.get(key('Names')))
-  if (names instanceof PDFDict) nameTree(document, names.get(key('Dests')), output)
+  if (names instanceof PDFDict) nameTree(document, names.get(key('Dests')), output, state, 1)
   const direct = resolve(document, document.catalog.get(key('Dests')))
   if (direct instanceof PDFDict) {
     for (const [name, value] of direct.entries()) {
-      const target = destination(document, value)
+      countEntry(state)
+      const target = pdfDestination(document, value)
       if (target) output.set(name.toString().slice(1), target)
     }
   }
@@ -164,12 +193,37 @@ function customTarget(uri: string | undefined): string | undefined {
   }
 }
 
+export interface PdfAnnotationDestination {
+  annotation: PDFDict
+  destination?: BookDestination
+  name?: string
+  present: boolean
+  action?: PDFDict
+}
+
+export function pdfAnnotationDestination(
+  document: PDFDocument,
+  object: PDFObject,
+  names: ReadonlyMap<string, BookDestination>,
+): PdfAnnotationDestination | undefined {
+  const annotation = resolve(document, object)
+  if (!(annotation instanceof PDFDict)) return undefined
+  let raw = annotation.get(key('Dest'))
+  const action = resolve(document, annotation.get(key('A')))
+  if (!raw && action instanceof PDFDict && action.lookupMaybe(key('S'), PDFName) === key('GoTo')) raw = action.get(key('D'))
+  if (!raw) return { annotation, present: false, ...(action instanceof PDFDict ? { action } : {}) }
+  const found = resolve(document, raw)
+  const name = pdfText(found)
+  const destination = pdfDestination(document, found, names)
+  return { annotation, present: true, ...(name ? { name } : {}), ...(destination ? { destination } : {}), ...(action instanceof PDFDict ? { action } : {}) }
+}
+
 export function rewriteBookLinks(document: PDFDocument, frontPages: number, front: Map<string, BookDestination>, body: Map<string, BookDestination>): void {
   for (const [pageIndex, page] of document.getPages().entries()) {
     const annotations = resolve(document, page.node.get(key('Annots')))
     if (!(annotations instanceof PDFArray)) continue
     const kept = Array.from({ length: annotations.size() }, (_, index) => annotations.get(index)).filter((object) =>
-      rewriteAnnotation(document, object, pageIndex, frontPages, front, body),
+      rewriteAnnotation(document, object, pageIndex, frontPages, front, body, pageIndex < frontPages ? front : body),
     )
     if (kept.length > 0) page.node.set(key('Annots'), document.context.obj(kept))
     else page.node.delete(key('Annots'))
@@ -183,13 +237,15 @@ function rewriteAnnotation(
   frontPages: number,
   front: Map<string, BookDestination>,
   body: Map<string, BookDestination>,
+  names: Map<string, BookDestination>,
 ): boolean {
-  const annotation = resolve(document, object)
-  if (!(annotation instanceof PDFDict)) return true
+  const resolved = pdfAnnotationDestination(document, object, names)
+  if (!resolved) return true
+  const { annotation } = resolved
   if (hiddenAnnotation(document, annotation)) return false
-  const named = decode(resolve(document, annotation.get(key('Dest'))))
-  const action = resolve(document, annotation.get(key('A')))
-  const uri = action instanceof PDFDict ? decode(resolve(document, action.get(key('URI')))) : undefined
+  const named = annotation.has(key('Dest')) ? resolved.name : undefined
+  const action = resolved.action
+  const uri = action ? pdfText(resolve(document, action.get(key('URI')))) : undefined
   const cross = customTarget(uri)
   const target = cross ? (front.get(cross) ?? body.get(cross)) : named ? (pageIndex < frontPages ? front.get(named) : body.get(named)) : undefined
   if (cross && !target) throw new RenderRefusedError(`The segnavia link to ${cross} has no printed destination.`)

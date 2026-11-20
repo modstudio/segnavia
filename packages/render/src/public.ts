@@ -15,6 +15,7 @@ export {
 } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
 export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
+export type { MergePdfsOptions } from './merge-pdf-options.ts'
 export type {
   AssetAnswer,
   Assets,
@@ -30,6 +31,7 @@ export type {
   RenderOptions,
   SlideImageOptions,
 } from './options.ts'
+export { type MergedPdf, type MergePart, type PdfPartRefusal, PdfPartsRefusedError } from './pdf-merge.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export type { PdfPermissions, Protection } from './protection-options.ts'
 export { RenderTimeoutError } from './render-deadline.ts'

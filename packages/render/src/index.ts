@@ -42,6 +42,7 @@ import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
+import { createMergePdfsOperation } from './pdf-merge.ts'
 import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { createPdfPageImageOperation } from './pdf-page-image.ts'
@@ -141,6 +142,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
   const renderer: Renderer = {
+    mergePdfs: createMergePdfsOperation(acquire, release, RENDER_BOUND_MS),
     async stampPdf(bytes, opts = {}) {
       const parsedOptions = parseStampPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {

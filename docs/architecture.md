@@ -1158,6 +1158,29 @@ and sets `MarkInfo /Marked true`. Marked-content ids remain page-local. A join
 containing both tagged and untagged parts refuses and asks the caller to print
 every part tagged or every part untagged instead of producing a partial tree.
 
+### Merging finished PDFs
+
+`Renderer.mergePdfs` combines finished library PDFs without re-rendering them.
+Each part gets a collapsed top-level outline entry using its host label or its
+document title, with that part's existing outline nested beneath it. Named
+destinations are retained as `<part>/<name>` entries in code-unit order, and
+every link, whether named, explicit or a GoTo action, is rewritten to an explicit
+destination within its own part. A part entry targets the top of the part's
+first page. Each part is read under bounds: its outline to 10,000 entries and
+depth 64, its destination name tree to 100,000 entries and depth 64, and any
+cycle in either refuses the part. The host supplies
+the merged document metadata once. Protection and watermarking remain a
+separate `stampPdf` operation.
+
+When every part is tagged, their structure is preserved beneath one `Document`
+element; a differing part language is retained on its top structure elements.
+If any part is untagged, the result is wholly untagged and reports the original
+indexes of those parts. Part failures are collected and refuse the batch unless
+`skipRefused` is true and at least one part remains. Whole-merge sheet, byte and
+deadline limits always refuse. The merge carries no catalog `/Dests`, page
+labels, viewer preferences, open action or AcroForm; library-produced PDFs do
+not rely on those catalog features.
+
 Two drawn layers are outside that tree. Imposed press sheets are untagged
 because composition draws their pieces as form XObjects. A continuous book's
 margin-layer furniture is likewise drawn as form XObjects and is not part of
@@ -2036,6 +2059,7 @@ structured causes when one operation collected several refusals. An empty
 | `motif` | Motif expansion |
 | `font-css` | Font CSS generation |
 | `required-slots`, `unmeasured-slots`, `slot-fill`, `slot-fills-conflict`, `slot-fills` | Slot filling |
+| `pdf-parts` | Collected finished-PDF part failures |
 | `paginated-book` | Paginated book construction |
 | `style-sheet` | Style sheet compilation |
 | `font` | Font resolution |
