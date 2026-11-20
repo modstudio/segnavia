@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { PDFDocument } from 'pdf-lib'
-import { writeDocumentOutlines } from './book-structure.ts'
+import { writeOutlineNodes } from './book-structure.ts'
 import { combinedPdfOutline } from './pdf-merge-outline.ts'
 import { readPdfOutline } from './pdf-outline-read.ts'
 
@@ -43,6 +43,6 @@ test('writer round-trips nesting, destinations, open state and stored title mark
   document.addPage([300, 400])
   document.addPage([300, 400])
   const outline = combinedPdfOutline([{ heading: { text: 'First', mark: false }, outline: [child], pageOffset: 1, firstPageHeight: 400 }], 'ltr')
-  writeDocumentOutlines(document, outline)
+  writeOutlineNodes(document, outline)
   expect(readPdfOutline(await PDFDocument.load(await document.save()))).toEqual(outline)
 })

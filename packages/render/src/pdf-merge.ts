@@ -1,7 +1,7 @@
 import { Refusal, resolveDirection, resolveLimits } from '@segnavia/format'
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, type PDFObject, PDFRawStream, PDFRef } from 'pdf-lib'
 import { type BookDestination, explicit, namedDestinations, pdfAnnotationDestination, pdfObject } from './book-destinations.ts'
-import { writeDocumentOutlines } from './book-structure.ts'
+import { writeOutlineNodes } from './book-structure.ts'
 import { writeDocumentMetadata } from './document-metadata.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { type MergePdfsOptions, parseMergePdfsOptions } from './merge-pdf-options.ts'
@@ -201,7 +201,7 @@ export async function mergePdfParts(parts: readonly MergePart[], options: MergeP
     throwIfExpired(deadline)
     writeQualifiedDestinations(target, loaded, offsets)
     const direction = resolveDirection(undefined, options.metadata.lang, options.metadata.title)
-    writeDocumentOutlines(
+    writeOutlineNodes(
       target,
       combinedPdfOutline(
         loaded.map((part, index) => ({

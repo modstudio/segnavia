@@ -84,13 +84,15 @@ export function writeDocumentStructure(
 
 export function writeDocumentOutlines(
   document: PDFDocument,
-  inputs: readonly OutlineNode[] | ReadonlyArray<{ source: OutlineSource; destinations: Map<string, BookDestination> }>,
+  inputs: ReadonlyArray<{ source: OutlineSource; destinations: Map<string, BookDestination> }>,
 ): void {
-  const outline: readonly OutlineNode[] = inputs.some((input) => 'source' in input)
-    ? (inputs as ReadonlyArray<{ source: OutlineSource; destinations: Map<string, BookDestination> }>).flatMap((input) =>
-        outlineTree(input.source, input.destinations),
-      )
-    : (inputs as readonly OutlineNode[])
+  writeOutlineNodes(
+    document,
+    inputs.flatMap((input) => outlineTree(input.source, input.destinations)),
+  )
+}
+
+export function writeOutlineNodes(document: PDFDocument, outline: readonly OutlineNode[]): void {
   if (outline.length === 0) return
   const root = document.context.obj({ Type: 'Outlines' })
   const rootReference = document.context.register(root)
