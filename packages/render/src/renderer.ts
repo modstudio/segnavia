@@ -3,6 +3,7 @@ import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
 import type { AsOfInputs } from '@segnavia/html'
 import type { CoverImageOptions } from './cover-image.ts'
+import type { MergePdfsOptions } from './merge-pdf-options.ts'
 import type {
   ComposedRenderInput,
   PageImageOptions,
@@ -13,6 +14,7 @@ import type {
   RenderOptions,
   SlideImageOptions,
 } from './options.ts'
+import type { MergedPdf, MergePart } from './pdf-merge.ts'
 import type { PdfOptions } from './protection-options.ts'
 import type { Watermark } from './watermark-options.ts'
 
@@ -59,6 +61,7 @@ export interface Renderer {
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   pdfPageImage(bytes: Uint8Array, options: PdfPageImageOptions): Promise<Uint8Array>
   stampPdf(bytes: Uint8Array, options?: StampPdfOptions): Promise<Uint8Array>
+  mergePdfs(parts: MergePart[], options: MergePdfsOptions): Promise<MergedPdf>
   close(): Promise<void>
 }
 

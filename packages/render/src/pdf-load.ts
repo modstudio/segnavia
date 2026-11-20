@@ -179,7 +179,7 @@ export function assertPdfStreamsBounded(pdf: Uint8Array, ceiling = MAX_PDF_STREA
 
 export interface ReceivedPdfLoadOptions {
   source: 'received'
-  operation: 'pdfPageImage' | 'placements.resolve' | 'stampPdf'
+  operation: 'mergePdfs' | 'pdfPageImage' | 'placements.resolve' | 'stampPdf'
   limits: Pick<ResolvedLimits, 'input'>
 }
 

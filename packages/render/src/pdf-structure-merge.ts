@@ -1,4 +1,17 @@
-import { PDFArray, PDFBool, PDFDict, type PDFDocument, PDFName, PDFNumber, type PDFObject, type PDFPage, PDFRef, PDFStream } from 'pdf-lib'
+import {
+  PDFArray,
+  PDFBool,
+  PDFDict,
+  type PDFDocument,
+  PDFHexString,
+  PDFName,
+  PDFNumber,
+  type PDFObject,
+  type PDFPage,
+  PDFRef,
+  PDFStream,
+  PDFString,
+} from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 
 const key = (value: string) => PDFName.of(value)
@@ -10,6 +23,11 @@ export interface PdfPart {
 
 interface CopiedPart extends PdfPart {
   pages: PDFPage[]
+}
+
+export interface CopyPdfPartsOptions {
+  mix?: 'refuse' | 'untag'
+  lang?: string
 }
 
 class StructureCopier {
@@ -127,7 +145,11 @@ function parentKeys(part: CopiedPart, replacements: ReadonlyMap<PDFObject, PDFOb
   })
 }
 
-function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: Array<{ object: PDFObject; dictionary: PDFDict }>): void {
+function text(value: PDFObject | undefined): string | undefined {
+  return value instanceof PDFString || value instanceof PDFHexString ? value.decodeText() : undefined
+}
+
+function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: Array<{ object: PDFObject; dictionary: PDFDict }>, targetLang?: string): void {
   const root = target.context.obj({ Type: 'StructTreeRoot' })
   const rootReference = target.context.register(root)
   const documentElement = target.context.obj({ Type: 'StructElem', S: 'Document', P: rootReference, K: [] })
@@ -154,7 +176,12 @@ function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: A
       replacements.set(topLevelDocument, documentReference)
     }
     const copier = new StructureCopier(part.document, target, replacements)
-    for (const child of sourceChildren) children.push(copier.copy(child))
+    const sourceLang = text(part.document.catalog.get(key('Lang')))
+    for (const child of sourceChildren) {
+      const copied = copier.copy(child)
+      if (sourceLang && sourceLang !== targetLang) target.context.lookup(copied, PDFDict).set(key('Lang'), PDFHexString.fromText(sourceLang))
+      children.push(copied)
+    }
 
     const parentTree = new Map(numberTreeEntries(part.document, sourceRoot.dictionary.get(key('ParentTree'))))
     for (const parent of parentKeys(part, replacements)) {
@@ -180,11 +207,20 @@ function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: A
   target.catalog.set(key('MarkInfo'), target.context.obj({ Marked: PDFBool.True }))
 }
 
-export async function copyPdfParts(target: PDFDocument, parts: PdfPart[]): Promise<void> {
+function removeStructureKeys(parts: CopiedPart[]): void {
+  for (const part of parts) {
+    for (const page of part.pages) {
+      page.node.delete(key('StructParents'))
+      for (const annotationObject of annotationRefs(page)) page.doc.context.lookup(annotationObject, PDFDict).delete(key('StructParent'))
+    }
+  }
+}
+
+export async function copyPdfParts(target: PDFDocument, parts: PdfPart[], options: CopyPdfPartsOptions = {}): Promise<void> {
   const classified = parts.map((part) => ({ part, root: structureRoot(part.document) }))
   const tagged = classified.filter((item): item is { part: PdfPart; root: { object: PDFObject; dictionary: PDFDict } } => item.root !== undefined)
   const untagged = classified.filter((item) => item.root === undefined)
-  if (tagged.length > 0 && untagged.length > 0) {
+  if (tagged.length > 0 && untagged.length > 0 && (options.mix ?? 'refuse') === 'refuse') {
     throw new RenderRefusedError(
       `Cannot join tagged and untagged PDFs; ${(untagged[0] as (typeof untagged)[number]).part.name} is untagged. Print every part tagged, or every part untagged.`,
     )
@@ -195,10 +231,15 @@ export async function copyPdfParts(target: PDFDocument, parts: PdfPart[]): Promi
     for (const page of pages) target.addPage(page)
     copied.push({ ...part, pages })
   }
+  if (tagged.length > 0 && untagged.length > 0) {
+    removeStructureKeys(copied)
+    return
+  }
   if (tagged.length > 0)
     mergeTaggedStructure(
       target,
       copied,
       tagged.map(({ root }) => root),
+      options.lang,
     )
 }

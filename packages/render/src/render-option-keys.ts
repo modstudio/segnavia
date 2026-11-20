@@ -1,6 +1,7 @@
 import { renderIssuePath } from '@segnavia/format'
 import type { CoverImageOptions } from './cover-image.ts'
 import { RenderRefusedError } from './errors.ts'
+import type { MergePdfsOptions } from './merge-pdf-options.ts'
 import type { PageImageOptions, ProofImageOptions } from './options.ts'
 import type {
   BookPdfOptions,
@@ -140,6 +141,13 @@ export const STAMP_PDF_OPTION_KEYS = {
   boundMs: true,
 } as const satisfies Record<keyof StampPdfOptions, true>
 
+export const MERGE_PDFS_OPTION_KEYS = {
+  metadata: true,
+  limits: true,
+  boundMs: true,
+  skipRefused: true,
+} as const satisfies Record<keyof MergePdfsOptions, true>
+
 export const PDF_PAGE_IMAGE_OPTION_KEYS = {
   page: true,
   box: true,
@@ -161,6 +169,7 @@ export const RENDER_OPTION_KEYS = {
   proofImage: PROOF_IMAGE_OPTION_KEYS,
   pdfPageImage: PDF_PAGE_IMAGE_OPTION_KEYS,
   stampPdf: STAMP_PDF_OPTION_KEYS,
+  mergePdfs: MERGE_PDFS_OPTION_KEYS,
 } as const satisfies Record<RenderCall, KnownOptionKeys>
 
 export function unknownOptionIssues(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): string[] {

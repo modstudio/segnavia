@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFObject } from 'pdf-lib'
 import { joinPdfs } from './pdf-join.ts'
+import { copyPdfParts } from './pdf-structure-merge.ts'
 
 const key = (value: string) => PDFName.of(value)
 const resolved = (document: PDFDocument, object: PDFObject | undefined) => (object ? document.context.lookup(object) : undefined)
@@ -8,7 +9,7 @@ const resolved = (document: PDFDocument, object: PDFObject | undefined) => (obje
 async function taggedPart(
   label: string,
   mapSuffix: string,
-  options: { documentElement?: boolean; missingPageParent?: boolean; parentTreeKids?: boolean } = {},
+  options: { documentElement?: boolean; lang?: string; missingPageParent?: boolean; parentTreeKids?: boolean } = {},
 ): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const page = document.addPage([300, 400])
@@ -48,6 +49,7 @@ async function taggedPart(
   root.set(key('ClassMap'), document.context.obj({ [`class${mapSuffix}`]: { O: 'Layout' } }))
   document.catalog.set(key('StructTreeRoot'), rootReference)
   document.catalog.set(key('MarkInfo'), document.context.obj({ Marked: PDFBool.True }))
+  if (options.lang) document.catalog.set(key('Lang'), PDFHexString.fromText(options.lang))
   return document.save()
 }
 
@@ -123,4 +125,34 @@ test('deletes a copied page StructParents key without a ParentTree entry (mutati
 test('leaves an all-untagged join untagged', async () => {
   const output = await PDFDocument.load(await joinPdfs([await untaggedPart(), await untaggedPart()]))
   expect(output.catalog.get(key('StructTreeRoot'))).toBeUndefined()
+})
+
+test('untag mix policy removes every copied structure key', async () => {
+  const tagged = await PDFDocument.load(await taggedPart('Tagged', 'Tagged'))
+  const untagged = await PDFDocument.load(await untaggedPart())
+  const output = await PDFDocument.create()
+  await copyPdfParts(
+    output,
+    [
+      { document: tagged, name: 'tagged' },
+      { document: untagged, name: 'untagged' },
+    ],
+    { mix: 'untag' },
+  )
+  expect(output.catalog.get(key('StructTreeRoot'))).toBeUndefined()
+  expect(output.catalog.get(key('MarkInfo'))).toBeUndefined()
+  expect(output.getPages().every((page) => page.node.get(key('StructParents')) === undefined)).toBe(true)
+  const annotations = output.getPage(0).node.lookup(key('Annots'), PDFArray)
+  expect(output.context.lookup(annotations.get(0), PDFDict).get(key('StructParent'))).toBeUndefined()
+})
+
+test('puts a differing part language on its copied top structure element', async () => {
+  const source = await PDFDocument.load(await taggedPart('Hebrew', 'Hebrew', { lang: 'he' }))
+  const output = await PDFDocument.create()
+  await copyPdfParts(output, [{ document: source, name: 'Hebrew' }], { lang: 'en' })
+  const root = output.context.lookup(output.catalog.get(key('StructTreeRoot')), PDFDict)
+  const documentElement = output.context.lookup(root.get(key('K')), PDFDict)
+  const children = documentElement.lookup(key('K'), PDFArray)
+  const child = output.context.lookup(children.get(0), PDFDict)
+  expect(child.lookup(key('Lang'), PDFHexString).decodeText()).toBe('he')
 })
