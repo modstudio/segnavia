@@ -35,9 +35,11 @@ import type {
   SegnaviaBoardToolbar,
   SegnaviaBook,
   SegnaviaDocument,
+  SegnaviaImage,
   SegnaviaPage,
   SegnaviaPaper,
   SegnaviaPrintedPages,
+  SegnaviaSound,
   SegnaviaStage,
   SegnaviaThumbnail,
 } from './index.ts'
@@ -57,6 +59,8 @@ type ElementClasses = {
   paper: SegnaviaPaper
   document: SegnaviaDocument
   book: SegnaviaBook
+  image: SegnaviaImage
+  sound: SegnaviaSound
   player: SegnaviaPlayer
   refusal: SegnaviaRefusal
   play: SegnaviaPlay

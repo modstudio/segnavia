@@ -1,12 +1,22 @@
-import { afterAll, expect, test } from 'bun:test'
+import { expect, test } from 'bun:test'
 
 const previous = new Map(['HTMLElement', 'document'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const))
 
 class TestElement extends EventTarget {
   children: unknown[] = []
   part = { add() {} }
-  style = { values: new Map<string, string>(), setProperty(name: string, value: string) { this.values.set(name, value) }, removeProperty(name: string) { this.values.delete(name) } }
-  append(...children: unknown[]) { this.children.push(...children) }
+  style = {
+    values: new Map<string, string>(),
+    setProperty(name: string, value: string) {
+      this.values.set(name, value)
+    },
+    removeProperty(name: string) {
+      this.values.delete(name)
+    },
+  }
+  append(...children: unknown[]) {
+    this.children.push(...children)
+  }
 }
 
 class TestAudio extends TestElement {
@@ -17,35 +27,50 @@ class TestAudio extends TestElement {
   paused = true
   preload = ''
   src = ''
-  async play() { this.paused = false; this.dispatchEvent(new Event('play')) }
-  pause() { this.paused = true; this.dispatchEvent(new Event('pause')) }
+  async play() {
+    this.paused = false
+    this.dispatchEvent(new Event('play'))
+  }
+  pause() {
+    this.paused = true
+    this.dispatchEvent(new Event('pause'))
+  }
 }
 
 Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
-Object.defineProperty(globalThis, 'document', {
-  configurable: true,
-  value: { createElement: (tag: string) => tag === 'audio' ? new TestAudio() : Object.assign(new TestElement(), { alt: '', dir: '', src: '' }) },
-})
-
 const { SegnaviaImage, SegnaviaSound } = await import('./media-elements.ts')
+const htmlElementDescriptor = previous.get('HTMLElement')
+if (htmlElementDescriptor) Object.defineProperty(globalThis, 'HTMLElement', htmlElementDescriptor)
+else Reflect.deleteProperty(globalThis, 'HTMLElement')
 
-afterAll(() => {
-  for (const [name, descriptor] of previous) {
-    if (descriptor) Object.defineProperty(globalThis, name, descriptor)
-    else Reflect.deleteProperty(globalThis, name)
+function withTestDocument<T>(run: () => T): T {
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { createElement: (tag: string) => (tag === 'audio' ? new TestAudio() : Object.assign(new TestElement(), { alt: '', dir: '', src: '' })) },
+  })
+  try {
+    return run()
+  } finally {
+    const descriptor = previous.get('document')
+    if (descriptor) Object.defineProperty(globalThis, 'document', descriptor)
+    else Reflect.deleteProperty(globalThis, 'document')
   }
-})
+}
 
 test('the image viewer keeps the media extent and source', () => {
-  const element = new SegnaviaImage()
-  element.media = { format: 'png', size: { width: 1200, height: 600 }, alt: { text: 'Wide image' } }
-  element.src = 'image.png'
-  expect(element.style.values.get('--segnavia-media-aspect')).toBe('1200 / 600')
-  expect(element.image).toMatchObject({ src: 'image.png', alt: 'Wide image' })
+  withTestDocument(() => {
+    const element = new SegnaviaImage()
+    const style = new TestElement().style
+    Object.defineProperty(element, 'style', { configurable: true, value: style })
+    element.media = { format: 'png', size: { width: 1200, height: 600 }, alt: { text: 'Wide image' } }
+    element.src = 'image.png'
+    expect(style.values.get('--segnavia-media-aspect')).toBe('1200 / 600')
+    expect(element.image).toMatchObject({ src: 'image.png', alt: 'Wide image' })
+  })
 })
 
 test('the sound playback follows its preload-none audio element for play, pause, seek, time and mute', async () => {
-  const element = new SegnaviaSound()
+  const element = withTestDocument(() => new SegnaviaSound())
   const audio = element.audio as unknown as TestAudio
   element.sound = { format: 'mp3', durationMs: 90_000 }
   element.src = 'sound.mp3'

@@ -20,7 +20,7 @@ function controllerOf(node: unknown): Playback | null {
 
 export abstract class SegnaviaControl extends HTMLElement {
   protected root = this.attachShadow({ mode: 'open' })
-  private explicit: DeckController | null = null
+  private explicit: Playback | null = null
   private bound: Playback | null = null
   private words: PlayerLabels = ENGLISH_LABELS
   private drawn = false
@@ -34,7 +34,7 @@ export abstract class SegnaviaControl extends HTMLElement {
     return this.bound as DeckController | null
   }
 
-  set controller(controller: DeckController | null) {
+  set controller(controller: DeckController | Playback | null) {
     this.explicit = controller
     this.bind(controller)
   }
@@ -49,7 +49,7 @@ export abstract class SegnaviaControl extends HTMLElement {
 
   set labels(labels: Partial<PlayerLabels>) {
     this.words = playerLabels(labels)
-    if (this.bound?.state.deck) this.render(this.bound.state)
+    if (this.bound) this.render(this.bound.state as DeckState)
   }
 
   protected abstract styles(): string

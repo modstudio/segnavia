@@ -25,9 +25,7 @@ export function formatSoundDuration(durationMs: number): string {
 export function soundCover(sound: Sound): CoverValue {
   const duration = formatSoundDuration(sound.durationMs)
   const direction = resolveDirection(undefined, undefined, duration)
-  const image = sound.image
-    ? `<img data-segnavia-media="${escapeHtml(sound.image)}" alt="" />`
-    : '<div class="glyph" aria-hidden="true">♪</div>'
+  const image = sound.image ? `<img data-segnavia-media="${escapeHtml(sound.image)}" alt="" />` : '<div class="glyph" aria-hidden="true">♪</div>'
   const html = `<style>
 *{box-sizing:border-box}body{margin:0;inline-size:100vw;block-size:100vh;font:5mm/1.25 system-ui,sans-serif}
 .cover{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:8mm;align-items:center;inline-size:100%;block-size:100%;padding-block:10mm;padding-inline:12mm;background:#f4f4f4;color:#171717}

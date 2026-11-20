@@ -29,9 +29,10 @@ import type { DeckState } from './controller.ts'
 import { BUTTON_CSS, READOUT_CSS, TOKENS_CSS } from './controls-style.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
+import { playbackAvailable } from './playback.ts'
+import { playbackKeyTarget } from './playback-key.ts'
 import { deckTimeline, slideDurationMs } from './timeline.ts'
 import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
-import { playbackAvailable } from './playback.ts'
 
 const icon = (root: ShadowRoot, name: IconName) => root.querySelector(`[name="${iconSlotName(name)}"]`) as HTMLSlotElement
 
@@ -355,8 +356,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (!controller) return
     const timeline = deckTimeline(controller.state.deck as NonNullable<DeckState['deck']>)
     const target = trackTargetAt(event.clientX - rect.left, rect.width, timeline, controller.state.direction)
-    const action =
-      target.localMs === null ? controller.go(target.index) : controller.seek((timeline.slides[target.index]?.startMs ?? 0) + target.localMs)
+    const action = target.localMs === null ? controller.go(target.index) : controller.seek((timeline.slides[target.index]?.startMs ?? 0) + target.localMs)
     void action.catch(() => {})
   }
 
@@ -365,13 +365,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (playback?.state.playback !== 'continuous') return
     const state = playback.state
     if (playback.kind === 'sound') {
-      let target: number | null = null
-      if (event.key === 'Home') target = 0
-      else if (event.key === 'End') target = state.totalMs
-      else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        const forward = event.key === 'ArrowRight' ? state.direction === 'ltr' : state.direction === 'rtl'
-        target = state.elapsedMs + (forward ? 5000 : -5000)
-      }
+      const target = playbackKeyTarget(event.key, state)
       if (target === null) return
       event.preventDefault()
       void playback.seek(Math.max(0, Math.min(state.totalMs, target))).catch(() => {})
@@ -381,13 +375,8 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (!controller) return
     const deckState = controller.state
     const timeline = deckTimeline(deckState.deck as NonNullable<DeckState['deck']>)
-    let target: number | null = null
-    if (event.key === 'Home') target = 0
-    else if (event.key === 'End') target = deckState.totalMs
-    else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-      const forward = event.key === 'ArrowRight' ? deckState.direction === 'ltr' : deckState.direction === 'rtl'
-      target = deckState.elapsedMs + (forward ? 5000 : -5000)
-    } else if (event.key === 'PageUp' || event.key === 'PageDown') {
+    const target = playbackKeyTarget(event.key, deckState)
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
       const offset = event.key === 'PageUp' ? -1 : 1
       event.preventDefault()
       void controller.go(Math.max(0, Math.min(timeline.slides.length - 1, deckState.index + offset))).catch(() => {})

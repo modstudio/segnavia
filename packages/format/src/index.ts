@@ -207,7 +207,6 @@ export * from './line-numbers.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export { MEASURE_KIND_MODEL, MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export * from './measurements.ts'
-export { formatSoundDuration, soundCover } from './sound-cover.ts'
 export {
   MEDIA_FORMATS,
   Media,
@@ -338,6 +337,7 @@ export { type ShotUse, shotsUsed } from './shots-used.ts'
 export * from './slot-values.ts'
 export * from './slots.ts'
 export { SOUND_FORMATS, Sound, SoundFormat, type SoundInput } from './sound.ts'
+export { formatSoundDuration, soundCover } from './sound-cover.ts'
 export {
   type MergedStyleSheet,
   type MergeStyleSheetsResult,

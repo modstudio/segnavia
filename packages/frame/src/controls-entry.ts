@@ -18,10 +18,10 @@ export { ICONS } from './icons.ts'
 export * from './index.ts'
 export { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
 export { ENGLISH_PAPER_PICKER_LABELS, type PaperPickerLabelOverrides, type PaperPickerLabels, SegnaviaPaperPicker } from './paper-picker.ts'
+export type { Playback, PlaybackState } from './playback.ts'
 export { SegnaviaRail } from './rail.ts'
 export { SegnaviaRefusal } from './refusal.ts'
 export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
-export type { Playback, PlaybackState } from './playback.ts'
 export { trackMsAt } from './track-mapping.ts'
 
 const COMPONENTS: Array<[string, CustomElementConstructor]> = [

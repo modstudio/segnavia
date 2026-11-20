@@ -102,7 +102,7 @@ export class SegnaviaImage extends HTMLElement {
     if (value) {
       this.style.setProperty('--segnavia-media-aspect', `${value.size.width} / ${value.size.height}`)
       this.image.alt = value.alt?.text ?? ''
-      this.image.dir = value.alt ? value.alt.dir ?? 'auto' : ''
+      this.image.dir = value.alt ? (value.alt.dir ?? 'auto') : ''
     } else this.style.removeProperty('--segnavia-media-aspect')
   }
 

@@ -2,9 +2,11 @@ import type {
   SegnaviaBoard,
   SegnaviaBook,
   SegnaviaDocument,
+  SegnaviaImage,
   SegnaviaPage,
   SegnaviaPaper,
   SegnaviaPrintedPages,
+  SegnaviaSound,
   SegnaviaStage,
   SegnaviaThumbnail,
 } from '@segnavia/frame'
@@ -34,6 +36,7 @@ import type {
   CounterProps,
   DocumentProps,
   FullscreenProps,
+  ImageProps,
   ItemSettingsProps,
   MuteProps,
   NotesProps,
@@ -45,6 +48,7 @@ import type {
   PrintedPagesProps,
   RailProps,
   RefusalProps,
+  SoundProps,
   StageProps,
   StepProps,
   ThumbnailProps,
@@ -112,6 +116,8 @@ export const ELEMENTS = {
   refusal: element<SegnaviaRefusal, RefusalProps, typeof FRAME_ELEMENTS.refusal.tag>({ ...FRAME_ELEMENTS.refusal, events: {} }),
   stage: element<SegnaviaStage, StageProps, typeof FRAME_ELEMENTS.stage.tag>({ ...FRAME_ELEMENTS.stage, events: stageEvents }),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof FRAME_ELEMENTS.thumbnail.tag>({ ...FRAME_ELEMENTS.thumbnail, events: thumbnailEvents }),
+  image: element<SegnaviaImage, ImageProps, typeof FRAME_ELEMENTS.image.tag>({ ...FRAME_ELEMENTS.image, events: {} }),
+  sound: element<SegnaviaSound, SoundProps, typeof FRAME_ELEMENTS.sound.tag>({ ...FRAME_ELEMENTS.sound, events: {} }),
   board: element<SegnaviaBoard, BoardProps, typeof FRAME_ELEMENTS.board.tag>({
     ...FRAME_ELEMENTS.board,
     events: reactEvents<BoardProps>()(FRAME_ELEMENTS.board.events, {
