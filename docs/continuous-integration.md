@@ -25,9 +25,12 @@ runner at the 1.1.1.1 and 9.9.9.9 public resolvers for the apt run only and
 retries apt. This keeps a fault in the runner's default resolver for the Ubuntu
 mirrors from failing the job.
 
-CI installs Chrome for Testing and passes its executable path to the demo and
-rendering scripts through `SEGNAVIA_CHROMIUM`. Each job caches Bun's install
-cache by `bun.lock`.
+CI installs the Chrome for Testing build that `CHROME_VERSION` names in
+`.github/workflows/ci.yml`, not the day's stable, and passes its executable
+path to the demo and rendering scripts through `SEGNAVIA_CHROMIUM`. The
+version stays at 157 because the renderer's browser exits under Chrome 158;
+it moves when the renderer works on the current stable. Each job caches Bun's
+install cache by `bun.lock`.
 
 Set `SEGNAVIA_VERIFY_SHARD` to a one-based `index/count` pair to run only that
 share of the demo verifier sections. For example,
