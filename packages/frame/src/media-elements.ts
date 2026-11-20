@@ -1,29 +1,27 @@
 import type { Media, Sound } from '@segnavia/format'
-import type { DeckState } from './controller-types.ts'
 import { upgradeProperties } from './element-properties.ts'
-import type { Playback } from './playback.ts'
+import type { Playback, PlaybackState } from './playback.ts'
+import type { DeckTimeline } from './timeline.ts'
+
+const soundTimeline = (durationMs: number): DeckTimeline => ({
+  slides: [{ startMs: 0, durationMs, untimed: false }],
+  totalMs: durationMs,
+})
 
 class AudioPlayback extends EventTarget implements Playback {
-  readonly kind = 'sound' as const
-  private current: DeckState = {
-    deck: null,
+  private current: PlaybackState = {
     index: 0,
-    slide: null,
-    content: null,
     direction: 'ltr',
     playing: false,
-    word: null,
-    shown: null,
     progress: 0,
     elapsedMs: 0,
     totalMs: 0,
-    slideElapsedMs: 0,
     playback: 'continuous',
     muted: false,
-    captionsVisible: false,
-    presenting: false,
-    seek: 'free',
-    watched: { ms: 0, share: 0, reach: { index: 0, ms: 0 }, complete: false },
+    timeline: soundTimeline(0),
+    playable: false,
+    audible: true,
+    reach: 1,
   }
 
   constructor(private readonly audio: HTMLAudioElement) {
@@ -31,7 +29,7 @@ class AudioPlayback extends EventTarget implements Playback {
     for (const name of ['play', 'pause', 'timeupdate', 'durationchange', 'volumechange', 'ended']) audio.addEventListener(name, this.read)
   }
 
-  get state(): DeckState {
+  get state(): PlaybackState {
     return this.current
   }
 
@@ -75,8 +73,15 @@ class AudioPlayback extends EventTarget implements Playback {
     })
   }
 
-  private commit(change: Partial<DeckState>) {
-    this.current = { ...this.current, ...change }
+  private commit(change: Partial<PlaybackState>) {
+    const totalMs = change.totalMs ?? this.current.totalMs
+    this.current = {
+      ...this.current,
+      ...change,
+      totalMs,
+      timeline: totalMs === this.current.totalMs ? this.current.timeline : soundTimeline(totalMs),
+      playable: totalMs > 0,
+    }
     this.dispatchEvent(new CustomEvent('change', { detail: this.current }))
   }
 }

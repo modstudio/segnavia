@@ -7,7 +7,7 @@
 import type { DeckController, DeckState } from './controller.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
-import type { Playback } from './playback.ts'
+import type { Playback, PlaybackState } from './playback.ts'
 
 interface HasController {
   controller: Playback | null
@@ -43,18 +43,22 @@ export abstract class SegnaviaControl extends HTMLElement {
     return this.bound
   }
 
+  protected get deckState(): DeckState | null {
+    return this.bound?.state.deck ? (this.controller?.state ?? null) : null
+  }
+
   get labels(): PlayerLabels {
     return this.words
   }
 
   set labels(labels: Partial<PlayerLabels>) {
     this.words = playerLabels(labels)
-    if (this.bound) this.render(this.bound.state as DeckState)
+    if (this.bound && (this.bound.state.playable || this.bound.state.deck)) this.render(this.bound.state)
   }
 
   protected abstract styles(): string
   protected abstract markup(): string
-  protected abstract render(state: DeckState): void
+  protected abstract render(state: PlaybackState): void
 
   connectedCallback() {
     if (!this.drawn) {
@@ -95,8 +99,17 @@ export abstract class SegnaviaControl extends HTMLElement {
     this.bound?.removeEventListener('change', this.onChange)
     this.bound = controller
     controller?.addEventListener('change', this.onChange)
-    if (controller) this.render(controller.state as DeckState)
+    if (controller && (controller.state.playable || controller.state.deck)) this.render(controller.state)
   }
 
-  private onChange = (event: Event) => this.render((event as CustomEvent<DeckState>).detail)
+  private onChange = (event: Event) => this.render((event as CustomEvent<PlaybackState>).detail)
+}
+
+export abstract class SegnaviaDeckControl extends SegnaviaControl {
+  protected render(_state: PlaybackState) {
+    const state = this.deckState
+    if (state) this.renderDeck(state)
+  }
+
+  protected abstract renderDeck(state: DeckState): void
 }

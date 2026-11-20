@@ -8,11 +8,11 @@
 
 import { resolveDirection, splitWords } from '@segnavia/format'
 import { captionHasContent } from './caption-visibility.ts'
-import { SegnaviaControl } from './control.ts'
+import { SegnaviaDeckControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { TOKENS_CSS } from './controls-style.ts'
 
-export class SegnaviaCaption extends SegnaviaControl {
+export class SegnaviaCaption extends SegnaviaDeckControl {
   private slide = -1
   protected styles() {
     return `${TOKENS_CSS}:host{display:block;font-size:var(--segnavia-caption-size,clamp(15px,1.5vw + 8px,20px));line-height:1.5;
@@ -27,7 +27,7 @@ export class SegnaviaCaption extends SegnaviaControl {
   }
   // Words are laid out once per slide and only their classes change as they
   // are spoken, so the line never reflows under the reader.
-  protected render(state: DeckState) {
+  protected renderDeck(state: DeckState) {
     const line = this.root.querySelector('p') as HTMLParagraphElement
     const narration = state.slide?.narration
     const hidden = !captionHasContent(state)
@@ -58,7 +58,7 @@ export class SegnaviaCaption extends SegnaviaControl {
   }
 }
 
-export class SegnaviaNotes extends SegnaviaControl {
+export class SegnaviaNotes extends SegnaviaDeckControl {
   protected styles() {
     return `${TOKENS_CSS}:host{display:block}
       h2{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--_muted)}
@@ -67,7 +67,7 @@ export class SegnaviaNotes extends SegnaviaControl {
   protected markup() {
     return '<h2 part="heading"></h2><p part="notes" dir="auto"></p>'
   }
-  protected render(state: DeckState) {
+  protected renderDeck(state: DeckState) {
     const notes = state.slide?.notes ?? ''
     this.toggleAttribute('data-empty', !notes)
     ;(this.root.querySelector('h2') as HTMLElement).textContent = this.labels.notes

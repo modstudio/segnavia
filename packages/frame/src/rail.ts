@@ -1,5 +1,5 @@
 import { animationMessage, MESSAGE } from './bridge.ts'
-import { SegnaviaControl } from './control.ts'
+import { SegnaviaDeckControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
@@ -54,7 +54,7 @@ export interface RailSlideSettingsItem {
   markLabel?: string
 }
 
-export class SegnaviaRail extends SegnaviaControl {
+export class SegnaviaRail extends SegnaviaDeckControl {
   private margin = 400
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => {
@@ -106,7 +106,7 @@ export class SegnaviaRail extends SegnaviaControl {
     this.resize.disconnect()
   }
 
-  protected render(state: DeckState) {
+  protected renderDeck(state: DeckState) {
     const deck = state.deck
     if (!deck) return
     const root = this.getRootNode()

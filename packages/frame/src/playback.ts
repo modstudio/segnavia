@@ -1,19 +1,27 @@
-import type { DeckState } from './controller-types.ts'
+import type { Deck, PlaybackMode, TextDirection } from '@segnavia/format'
+import type { DeckTimeline } from './timeline.ts'
 
-export type PlaybackState = Pick<DeckState, 'playing' | 'muted' | 'elapsedMs' | 'totalMs' | 'direction' | 'playback' | 'progress'> &
-  Partial<Pick<DeckState, 'deck' | 'index' | 'seek' | 'watched'>>
+export interface PlaybackState {
+  deck?: Deck | null
+  index: number
+  direction: TextDirection
+  playing: boolean
+  muted: boolean
+  elapsedMs: number
+  totalMs: number
+  playback: PlaybackMode
+  progress: number
+  timeline: DeckTimeline
+  playable: boolean
+  audible: boolean
+  reach: number
+}
 
 export interface Playback extends EventTarget {
-  readonly kind?: 'sound'
   readonly state: PlaybackState
   play(): Promise<void>
   pause(): void
   toggle(): Promise<void> | void
   setMuted(muted: boolean): void
   seek(ms: number): Promise<void>
-  go?(index: number): Promise<void>
-}
-
-export function playbackAvailable(state: PlaybackState): boolean {
-  return state.totalMs > 0
 }
