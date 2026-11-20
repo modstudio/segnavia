@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { PDFDocument } from 'pdf-lib'
-import { RENDER_PLACEHOLDER_TITLE } from './document-route.ts'
+import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const documents: string[] = []
 let routeHandler: ((route: { request(): unknown; fulfill(options: { body: string }): Promise<void> }) => Promise<void>) | undefined

@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { PDFDict, PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFString } from 'pdf-lib'
 import { withDocumentMetadata, writeDocumentMetadata } from './document-metadata.ts'
-import { RENDER_PLACEHOLDER_TITLE } from './document-route.ts'
 import type { OutputDate } from './output-date.ts'
+import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const key = (value: string) => PDFName.of(value)
 

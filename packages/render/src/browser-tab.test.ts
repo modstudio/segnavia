@@ -11,6 +11,7 @@ import {
 } from './browser-tab.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { RENDER_PROGRESS_BINDING } from './progress.ts'
+import { RENDER_DOCUMENT_SANDBOX, RENDER_DOCUMENT_URL } from './render-document-origin.ts'
 
 describe('asset route decision', () => {
   const origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }]
@@ -163,6 +164,50 @@ test('markup asset refusals expose their asset code and structured causes', asyn
   await expect(rendering).rejects.toEqual(
     new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message, adviceFor: 'host' }] }),
   )
+})
+
+test('the live document route fulfills once and refuses later reserved-origin requests', async () => {
+  const html = '<p>routed document</p>'
+  const calls = { fulfilled: [] as unknown[], aborted: [] as string[] }
+  let routeHandler: ((route: Route) => Promise<void>) | undefined
+  const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
+  const send = async (url: string, navigation: boolean, frame: () => unknown) => {
+    await routeHandler?.({
+      request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => navigation, frame }),
+      fulfill: async (options: unknown) => void calls.fulfilled.push(options),
+      abort: async () => void calls.aborted.push(url),
+    } as unknown as Route)
+  }
+  const context = {
+    route: async (_pattern: string, handler: (route: Route) => Promise<void>) => {
+      routeHandler = handler
+    },
+    routeWebSocket: async () => {},
+    newPage: async () => ({
+      on: () => {},
+      goto: async () => {
+        await send(RENDER_DOCUMENT_URL, true, () => mainFrame)
+        await send(RENDER_DOCUMENT_URL, true, () => mainFrame)
+        await send(`${RENDER_DOCUMENT_URL}asset`, false, () => mainFrame)
+        await send(RENDER_DOCUMENT_URL, true, () => {
+          throw new Error('frame is unavailable')
+        })
+      },
+      evaluate: async () => true,
+    }),
+    close: async () => {},
+  }
+  const rendering = renderInBrowserTab(
+    { newContext: async () => context } as unknown as Browser,
+    { viewport: { width: 100, height: 100 }, scripts: true, html, readiness: { author: false } },
+    undefined,
+    { settled: () => false, opened: () => {}, crashed: () => {} },
+    async () => undefined,
+  )
+  await expect(rendering).rejects.toMatchObject({ refusals: [{ subject: RENDER_DOCUMENT_URL }, { subject: `${RENDER_DOCUMENT_URL}asset` }] })
+  const headers = { 'Content-Security-Policy': `sandbox ${RENDER_DOCUMENT_SANDBOX}` }
+  expect(calls.fulfilled).toEqual([{ body: html, contentType: 'text/html; charset=utf-8', headers }])
+  expect(calls.aborted).toEqual([RENDER_DOCUMENT_URL, `${RENDER_DOCUMENT_URL}asset`, RENDER_DOCUMENT_URL])
 })
 
 test('the browser tab exposes and re-bounds the progress reporter only when supplied', async () => {

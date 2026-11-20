@@ -16,14 +16,15 @@ import {
 } from '@segnavia/format'
 import { COMPOSE_FAILURE_ATTRIBUTE, FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
-import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
+import type { Browser, BrowserContext, BrowserContextOptions, Request, Page as Tab } from 'playwright-core'
 import { collectedAssetRefusal } from './asset-refusal.ts'
-import { documentRouteDecision, RENDER_DOCUMENT_URL } from './document-route.ts'
+import { documentRouteDecision } from './document-route.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
 import type { SurfacePreflightCapture } from './preflight.ts'
 import { RENDER_PROGRESS_BINDING, reportRenderProgress } from './progress.ts'
 import { type RenderDeadline, withinBound } from './render-deadline.ts'
+import { RENDER_DOCUMENT_SANDBOX, RENDER_DOCUMENT_URL } from './render-document-origin.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, recordedLayoutRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
@@ -181,6 +182,16 @@ export function fetchKind(resourceType: string): FetchKind | undefined {
   return undefined
 }
 
+function isMainDocumentNavigation(request: Request, url: string): boolean {
+  if (url !== RENDER_DOCUMENT_URL || !request.isNavigationRequest()) return false
+  try {
+    const frame = request.frame()
+    return frame === frame.page().mainFrame()
+  } catch {
+    return false
+  }
+}
+
 export function browserContextOptions(setup: Pick<BrowserTabSetup, 'viewport' | 'scale' | 'scripts'>): BrowserContextOptions {
   return {
     viewport: setup.viewport,
@@ -219,15 +230,15 @@ export async function renderInBrowserTab<T>(
   await context.route('**/*', async (route) => {
     const request = route.request()
     const url = request.url()
-    const documentDecision = documentRouteDecision(
-      url,
-      request.isNavigationRequest(),
-      request.frame() === request.frame().page().mainFrame(),
-      documentFulfilled,
-    )
+    const navigation = request.isNavigationRequest()
+    const documentDecision = documentRouteDecision(url, navigation, isMainDocumentNavigation(request, url), documentFulfilled)
     if (documentDecision.action === 'fulfill') {
       documentFulfilled = true
-      await route.fulfill({ body: setup.html, contentType: 'text/html; charset=utf-8' })
+      await route.fulfill({
+        body: setup.html,
+        contentType: 'text/html; charset=utf-8',
+        headers: { 'Content-Security-Policy': `sandbox ${RENDER_DOCUMENT_SANDBOX}` },
+      })
       return
     }
     if (documentDecision.action === 'abort') {

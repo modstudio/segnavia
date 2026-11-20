@@ -1020,7 +1020,8 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    clicks inside the frame and relays nothing for them: with `base-uri 'none'`,
    an `srcdoc` frame otherwise resolves `#id` against its parent's URL.
    `origins` is the one kind-aware https-origin policy used by sanitization,
-   every author frame's CSP and render routing. Converted Markdown, page thumbnails,
+   every author frame's CSP and author-asset routing. The render tab's reserved
+   document origin is served and refused by the route handler before that policy applies. Converted Markdown, page thumbnails,
    live composed-page views and their measuring and printable frames all carry
    that policy. Cover-image renders also carry both `origins` and the host `assets`
    seam. A scripted frame additionally
@@ -2014,8 +2015,9 @@ The library stores no cover document, picture or digest cache.
 Every render runs in its own context, offline, with requests that leave the
 page refused, WebSockets closed and the browser's own sockets sent to a dead
 proxy. The route handler serves the tab document once from
-`http://segnavia.invalid/` and refuses every other request to that reserved
-origin; approved author assets continue through the host's asset seam. Author
+`http://segnavia.invalid/`, sandboxed without same-origin so its origin stays
+opaque, and refuses every other request to that reserved origin; approved
+author assets continue through the host's asset seam. Author
 scripts run only when the page or deck allows them. A render
 waits for the conjunction of the facts its document requires: a page that runs
 code must call `window.pageReady()`, and a document that carries layout

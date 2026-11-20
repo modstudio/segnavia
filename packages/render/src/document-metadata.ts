@@ -1,8 +1,8 @@
 import { type DocumentMetadata, markedTitle, resolveDirection, type TextDirection } from '@segnavia/format'
 import { PDFDict, type PDFDocument, PDFHexString, PDFName, PDFString } from 'pdf-lib'
-import { RENDER_PLACEHOLDER_TITLE } from './document-route.ts'
 import { type OutputDate, pdfDate } from './output-date.ts'
 import { loadPdf } from './pdf-load.ts'
+import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 import { xmpPacket } from './xmp.ts'
 
 const key = (value: string) => PDFName.of(value)

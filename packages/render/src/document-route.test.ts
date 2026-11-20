@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { documentRouteDecision, RENDER_DOCUMENT_URL } from './document-route.ts'
+import { documentRouteDecision } from './document-route.ts'
+import { RENDER_DOCUMENT_URL } from './render-document-origin.ts'
 
 describe('renderer document route', () => {
   test('fulfills only the first main-frame navigation for the exact document URL', () => {
@@ -20,5 +21,6 @@ describe('renderer document route', () => {
 
   test('leaves requests to other origins to the asset route', () => {
     expect(documentRouteDecision('https://example.test/image.png', false, false, false)).toEqual({ action: 'asset' })
+    expect(documentRouteDecision('not an absolute URL', false, false, false)).toEqual({ action: 'asset' })
   })
 })
