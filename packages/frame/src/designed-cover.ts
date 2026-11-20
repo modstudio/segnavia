@@ -3,7 +3,7 @@ import { applyFrameInputs, type BoardFrameInputs } from './board-frame-inputs.ts
 import { coverImage } from './cover-element.ts'
 import type { CoverPresentation } from './designed-cover-policy.ts'
 import { loadPageValue } from './document-value-load.ts'
-import { fitDesignedCover } from './fit.ts'
+import { fitDesignedCover, type ThumbnailRatio } from './fit.ts'
 import type { MountedElement } from './mounted-element.ts'
 import { createPageElement } from './page-element.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
@@ -13,6 +13,7 @@ export function mountDesignedCover(
   failed: (error: unknown) => void,
   inputs: BoardFrameInputs,
   slots?: SlotsOptions,
+  ratio: ThumbnailRatio = 'natural',
 ): MountedElement {
   if (presentation.kind === 'picture') {
     const mounted = coverImage(presentation.src, failed)
@@ -38,7 +39,7 @@ export function mountDesignedCover(
   sheet.append(page)
   frame.append(sheet)
   const fit = () => {
-    const fitted = fitDesignedCover({ width: frame.clientWidth, height: frame.clientHeight }, projection.box)
+    const fitted = fitDesignedCover({ width: frame.clientWidth, height: frame.clientHeight }, projection.box, ratio)
     sheet.style.transform = `scale(${fitted.scale})`
   }
   const observer = new ResizeObserver(fit)

@@ -99,3 +99,25 @@ test('an edition change keeps an internally loaded page', () => {
 
   expect(Reflect.get(thumbnail, 'pageValue')).toBe(page)
 })
+
+test('ratio validates once at the thumbnail property edge', () => {
+  const thumbnail = thumbnailHarness()
+  const values = new Map<string, string>()
+  Reflect.set(thumbnail, 'style', {
+    setProperty(name: string, value: string) {
+      values.set(name, value)
+    },
+    removeProperty(name: string) {
+      values.delete(name)
+    },
+  })
+  Reflect.set(thumbnail, 'changed', () => {})
+  thumbnail.ratio = 'square'
+  expect(thumbnail.ratio).toBe('square')
+  expect(values.get('--segnavia-thumbnail-ratio')).toBe('1 / 1')
+  thumbnail.ratio = 'natural'
+  expect(values.has('--segnavia-thumbnail-ratio')).toBeFalse()
+  expect(() => {
+    thumbnail.ratio = 'wide' as 'square'
+  }).toThrow('use natural or square')
+})

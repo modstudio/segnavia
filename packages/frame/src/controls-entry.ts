@@ -21,6 +21,7 @@ export { ENGLISH_PAPER_PICKER_LABELS, type PaperPickerLabelOverrides, type Paper
 export { SegnaviaRail } from './rail.ts'
 export { SegnaviaRefusal } from './refusal.ts'
 export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
+export type { Playback, PlaybackState } from './playback.ts'
 export { trackMsAt } from './track-mapping.ts'
 
 const COMPONENTS: Array<[string, CustomElementConstructor]> = [

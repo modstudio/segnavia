@@ -13,6 +13,7 @@ import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaPrintedPages } from './printed-pages.ts'
+import { SegnaviaImage, SegnaviaSound } from './media-elements.ts'
 import { SegnaviaStage } from './stage.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
@@ -46,10 +47,12 @@ export { type ControllerOptions, DeckController, type DeckState, type ResolvedCo
 export { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
 export type { DesignedCover } from './designed-cover-policy.ts'
 export { SegnaviaDocument } from './document.ts'
-export { type FitInputs, type FittedSize, fitDesignedCover, fitSheet } from './fit.ts'
+export { type FitInputs, type FittedSize, fitDesignedCover, fitSheet, type ThumbnailRatio } from './fit.ts'
 export { BridgeReadyTimeoutError } from './frame-entry.ts'
 export { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 export { HEADLESS_ELEMENT_NAMES, HEADLESS_ELEMENTS } from './headless-elements.ts'
+export { SegnaviaImage, SegnaviaSound } from './media-elements.ts'
+export type { Playback, PlaybackState } from './playback.ts'
 export { type DeckAction, keyAction } from './keys.ts'
 export type { BoardLabels } from './labels.ts'
 export type { MotifsOptions, PlacementsOptions, ResolvedPlacement, ResolvePlacement } from './motif-expansion.ts'
@@ -81,3 +84,5 @@ if (!customElements.get(HEADLESS_ELEMENTS.printedPages)) customElements.define(H
 if (!customElements.get(HEADLESS_ELEMENTS.paper)) customElements.define(HEADLESS_ELEMENTS.paper, SegnaviaPaper)
 if (!customElements.get(HEADLESS_ELEMENTS.document)) customElements.define(HEADLESS_ELEMENTS.document, SegnaviaDocument)
 if (!customElements.get(HEADLESS_ELEMENTS.book)) customElements.define(HEADLESS_ELEMENTS.book, SegnaviaBook)
+if (!customElements.get(HEADLESS_ELEMENTS.image)) customElements.define(HEADLESS_ELEMENTS.image, SegnaviaImage)
+if (!customElements.get(HEADLESS_ELEMENTS.sound)) customElements.define(HEADLESS_ELEMENTS.sound, SegnaviaSound)

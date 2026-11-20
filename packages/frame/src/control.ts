@@ -7,12 +7,13 @@
 import type { DeckController, DeckState } from './controller.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
+import type { Playback } from './playback.ts'
 
 interface HasController {
-  controller: DeckController | null
+  controller: Playback | null
 }
 
-function controllerOf(node: unknown): DeckController | null {
+function controllerOf(node: unknown): Playback | null {
   const candidate = (node as Partial<HasController> | null)?.controller
   return candidate && typeof candidate === 'object' && 'addEventListener' in candidate ? candidate : null
 }
@@ -20,7 +21,7 @@ function controllerOf(node: unknown): DeckController | null {
 export abstract class SegnaviaControl extends HTMLElement {
   protected root = this.attachShadow({ mode: 'open' })
   private explicit: DeckController | null = null
-  private bound: DeckController | null = null
+  private bound: Playback | null = null
   private words: PlayerLabels = ENGLISH_LABELS
   private drawn = false
 
@@ -30,12 +31,16 @@ export abstract class SegnaviaControl extends HTMLElement {
   }
 
   get controller(): DeckController | null {
-    return this.bound
+    return this.bound as DeckController | null
   }
 
   set controller(controller: DeckController | null) {
     this.explicit = controller
     this.bind(controller)
+  }
+
+  protected get playback(): Playback | null {
+    return this.bound
   }
 
   get labels(): PlayerLabels {
@@ -72,7 +77,7 @@ export abstract class SegnaviaControl extends HTMLElement {
     this.bind(this.find())
   }
 
-  private find(): DeckController | null {
+  private find(): Playback | null {
     const id = this.getAttribute('for')
     if (id) {
       const root = this.getRootNode() as Document | ShadowRoot
@@ -85,12 +90,12 @@ export abstract class SegnaviaControl extends HTMLElement {
     return null
   }
 
-  private bind(controller: DeckController | null) {
+  private bind(controller: Playback | null) {
     if (controller === this.bound) return
     this.bound?.removeEventListener('change', this.onChange)
     this.bound = controller
     controller?.addEventListener('change', this.onChange)
-    if (controller?.state.deck) this.render(controller.state)
+    if (controller) this.render(controller.state as DeckState)
   }
 
   private onChange = (event: Event) => this.render((event as CustomEvent<DeckState>).detail)

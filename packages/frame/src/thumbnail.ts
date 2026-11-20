@@ -234,6 +234,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
             origins: [...this.origins],
           } satisfies BoardFrameInputs,
           sources.slots,
+          this.ratio,
         ),
       )
       if (!mounted) return

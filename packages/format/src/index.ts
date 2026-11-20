@@ -207,6 +207,7 @@ export * from './line-numbers.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export { MEASURE_KIND_MODEL, MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export * from './measurements.ts'
+export { formatSoundDuration, soundCover } from './sound-cover.ts'
 export {
   MEDIA_FORMATS,
   Media,
