@@ -13,7 +13,7 @@ permissions:
 
 env:
   # The renderer works under Chrome 158, but the demo's probe-slide key check fails there.
-  CHROME_VERSION: 157.0.8103.78
+  CHROME_VERSION: stable
 
 concurrency:
   group: ci-${{ github.ref }}
