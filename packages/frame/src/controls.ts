@@ -69,7 +69,7 @@ export class SegnaviaCaptions extends SegnaviaDeckControl {
     return `<button part="button">${iconSlot('captionsOn')}${iconSlot('captionsOff')}</button>`
   }
   protected renderDeck(state: DeckState) {
-    this.hidden = !captionsControlVisible(state, this.controller?.captionsPolicy ?? 'viewer')
+    this.hidden = !captionsControlVisible(state, this.deckController?.captionsPolicy ?? 'viewer')
     const button = this.root.querySelector('button') as HTMLButtonElement
     icon(this.root, 'captionsOn').hidden = !state.captionsVisible
     icon(this.root, 'captionsOff').hidden = state.captionsVisible
@@ -77,7 +77,7 @@ export class SegnaviaCaptions extends SegnaviaDeckControl {
     button.setAttribute('aria-pressed', String(state.captionsVisible))
   }
   protected clicked() {
-    if (this.controller) this.controller.setCaptionsVisible(!this.controller.state.captionsVisible)
+    if (this.deckController) this.deckController.setCaptionsVisible(!this.deckController.state.captionsVisible)
   }
 }
 
@@ -97,7 +97,7 @@ export class SegnaviaPlay extends SegnaviaControl {
     button.setAttribute('aria-label', state.playing ? this.labels.pause : this.labels.play)
   }
   protected clicked() {
-    void this.playback?.toggle()
+    void this.playback?.toggle()?.catch(() => {})
   }
 }
 
@@ -123,7 +123,7 @@ export class SegnaviaStep extends SegnaviaDeckControl {
     button.disabled = this.forward ? stepForwardDisabled(state) : state.index === 0
   }
   protected clicked() {
-    void (this.forward ? this.controller?.next() : this.controller?.previous())?.catch(() => {})
+    void (this.forward ? this.deckController?.next() : this.deckController?.previous())?.catch(() => {})
   }
 }
 
@@ -194,14 +194,14 @@ export class SegnaviaFullscreen extends SegnaviaDeckControl {
     const target = this.target()
     if (!target) return
     if (this.getAttribute('mode') !== 'native') {
-      if (this.controller?.state.presenting) this.controller.stopPresenting()
-      else if (target instanceof HTMLElement) this.controller?.present(target)
+      if (this.deckController?.state.presenting) this.deckController.stopPresenting()
+      else if (target instanceof HTMLElement) this.deckController?.present(target)
       return
     }
     void (document.fullscreenElement === target ? document.exitFullscreen() : target.requestFullscreen())
   }
 
-  private onFullscreen = () => this.controller && this.render(this.controller.state)
+  private onFullscreen = () => this.deckController && this.render(this.deckController.state)
 }
 
 export class SegnaviaTrack extends SegnaviaControl {
@@ -255,7 +255,12 @@ export class SegnaviaTrack extends SegnaviaControl {
     list.classList.toggle('continuous', continuous)
     list.style.setProperty('--_reach', String(state.reach))
     this.configureAccessibility(list, state, continuous)
-    if (this.count !== slides.length || this.mode !== state.playback || this.deck !== state.deck || (continuous && this.timeline !== state.timeline)) {
+    if (
+      this.count !== slides.length ||
+      this.mode !== state.playback ||
+      this.deck !== (state.deck ?? null) ||
+      (continuous && this.timeline !== state.timeline)
+    ) {
       this.count = slides.length
       this.mode = state.playback
       this.deck = state.deck ?? null
@@ -297,16 +302,10 @@ export class SegnaviaTrack extends SegnaviaControl {
 
   private renderSegments(list: HTMLOListElement, state: PlaybackState, continuous: boolean) {
     if (continuous) {
-      for (const item of list.querySelectorAll<HTMLElement>('[data-go]')) {
-        const index = Number(item.dataset.go)
-        const segment = item.querySelector<HTMLElement>('.segment')
-        if (!segment) continue
-        segment.dataset.state = index < state.index ? 'done' : index === state.index ? 'current' : 'upcoming'
-        segment.style.setProperty('--progress', String(state.progress))
-      }
+      this.renderContinuousSegments(list, state)
       return
     }
-    const deckState = this.controller?.state
+    const deckState = this.deckController?.state
     if (!deckState?.deck) return
     const folios = deckFolios(deckState.deck)
     const total = folios.length
@@ -320,10 +319,19 @@ export class SegnaviaTrack extends SegnaviaControl {
       else item.removeAttribute('aria-current')
     }
   }
+  private renderContinuousSegments(list: HTMLOListElement, state: PlaybackState) {
+    for (const item of list.querySelectorAll<HTMLElement>('[data-go]')) {
+      const index = Number(item.dataset.go)
+      const segment = item.querySelector<HTMLElement>('.segment')
+      if (!segment) continue
+      segment.dataset.state = index >= state.lockedFrom ? 'locked' : index < state.index ? 'done' : index === state.index ? 'current' : 'upcoming'
+      segment.style.setProperty('--progress', String(state.progress))
+    }
+  }
   protected clicked(event: Event) {
     if (this.playback?.state.playback === 'continuous') return
     const go = (event.target as Element).closest('button')?.dataset.go
-    if (go !== undefined) void this.controller?.go(Number(go))?.catch(() => {})
+    if (go !== undefined) void this.deckController?.go(Number(go))?.catch(() => {})
   }
 
   private onPointer = (event: PointerEvent) => {
@@ -336,7 +344,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     const state = playback.state
     const target = trackTargetAt(event.clientX - rect.left, rect.width, state.timeline, state.direction)
     const action =
-      target.localMs === null ? this.controller?.go(target.index) : playback.seek((state.timeline.slides[target.index]?.startMs ?? 0) + target.localMs)
+      target.localMs === null ? this.deckController?.go(target.index) : playback.seek((state.timeline.slides[target.index]?.startMs ?? 0) + target.localMs)
     if (!action) return
     void action.catch(() => {})
   }
@@ -346,7 +354,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (playback?.state.playback !== 'continuous') return
     const state = playback.state
     if (event.key === 'PageUp' || event.key === 'PageDown') {
-      const controller = this.controller
+      const controller = this.deckController
       const deckState = controller?.state
       if (!controller || !deckState?.deck) return
       const offset = event.key === 'PageUp' ? -1 : 1

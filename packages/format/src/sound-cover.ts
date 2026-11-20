@@ -1,5 +1,6 @@
 import { Cover, type Cover as CoverValue } from './cover.ts'
 import { resolveDirection } from './direction.ts'
+import { formatDuration } from './duration.ts'
 import { type MediaText, mediaTextDirection } from './media.ts'
 import type { Sound } from './sound.ts'
 
@@ -15,15 +16,8 @@ function textField(name: string, value: MediaText | undefined): string {
   return `<div class="${name}"><bdi dir="${resolved}"${lang}>${escapeHtml(value.text)}</bdi></div>`
 }
 
-export function formatSoundDuration(durationMs: number): string {
-  const seconds = Math.max(0, Math.floor(durationMs / 1000))
-  const minutes = Math.floor(seconds / 60)
-  const rest = String(seconds % 60).padStart(2, '0')
-  return minutes < 60 ? `${minutes}:${rest}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${rest}`
-}
-
 export function soundCover(sound: Sound): CoverValue {
-  const duration = formatSoundDuration(sound.durationMs)
+  const duration = formatDuration(sound.durationMs)
   const direction = resolveDirection(undefined, undefined, duration)
   const image = sound.image ? `<img data-segnavia-media="${escapeHtml(sound.image)}" alt="" />` : '<div class="glyph" aria-hidden="true">♪</div>'
   const html = `<style>

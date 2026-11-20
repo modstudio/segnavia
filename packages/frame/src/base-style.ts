@@ -7,6 +7,8 @@ import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
 // do appear are custom properties with plain defaults.
 //
 //   --segnavia-aspect            the stage's aspect ratio, set from the deck
+//   --segnavia-thumbnail-ratio   the thumbnail tile's selected aspect ratio
+//   --segnavia-media-aspect      the intrinsic aspect ratio of a media viewer
 //   --segnavia-canvas            the slide canvas behind its content
 //   --segnavia-shot-backdrop     the canvas behind fitted images and shots
 //   --segnavia-annotation-color  rings, badges and arrows

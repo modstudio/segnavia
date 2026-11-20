@@ -1,20 +1,16 @@
-import type { Deck, PlaybackMode, TextDirection } from '@segnavia/format'
+import type { Deck } from '@segnavia/format'
+import type { DeckState } from './controller-types.ts'
 import type { DeckTimeline } from './timeline.ts'
 
-export interface PlaybackState {
+type SharedPlaybackState = Pick<DeckState, 'index' | 'direction' | 'playing' | 'muted' | 'elapsedMs' | 'totalMs' | 'playback' | 'progress'>
+
+export interface PlaybackState extends SharedPlaybackState {
   deck?: Deck | null
-  index: number
-  direction: TextDirection
-  playing: boolean
-  muted: boolean
-  elapsedMs: number
-  totalMs: number
-  playback: PlaybackMode
-  progress: number
   timeline: DeckTimeline
   playable: boolean
   audible: boolean
   reach: number
+  lockedFrom: number
 }
 
 export interface Playback extends EventTarget {

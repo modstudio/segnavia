@@ -4,6 +4,7 @@ const previous = new Map(['HTMLElement', 'document'].map((name) => [name, Object
 
 class TestElement extends EventTarget {
   children: unknown[] = []
+  parentNode: TestElement | null = null
   part = { add() {} }
   style = {
     values: new Map<string, string>(),
@@ -16,6 +17,7 @@ class TestElement extends EventTarget {
   }
   append(...children: unknown[]) {
     this.children.push(...children)
+    for (const child of children) if (child instanceof TestElement) child.parentNode = this
   }
 }
 
@@ -46,7 +48,7 @@ else Reflect.deleteProperty(globalThis, 'HTMLElement')
 function withTestDocument<T>(run: () => T): T {
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
-    value: { createElement: (tag: string) => (tag === 'audio' ? new TestAudio() : Object.assign(new TestElement(), { alt: '', dir: '', src: '' })) },
+    value: { createElement: (tag: string) => (tag === 'audio' ? new TestAudio() : Object.assign(new TestElement(), { alt: '', dir: '', lang: '', src: '' })) },
   })
   try {
     return run()
@@ -62,11 +64,54 @@ test('the image viewer keeps the media extent and source', () => {
     const element = new SegnaviaImage()
     const style = new TestElement().style
     Object.defineProperty(element, 'style', { configurable: true, value: style })
-    element.media = { format: 'png', size: { width: 1200, height: 600 }, alt: { text: 'Wide image' } }
+    element.media = { format: 'png', size: { width: 1200, height: 600 }, alt: { text: 'Wide image', lang: 'he' } }
     element.src = 'image.png'
     expect(style.values.get('--segnavia-media-aspect')).toBe('1200 / 600')
-    expect(element.image).toMatchObject({ src: 'image.png', alt: 'Wide image' })
+    expect(element.image).toMatchObject({ src: 'image.png', alt: 'Wide image', dir: 'rtl', lang: 'he' })
   })
+})
+
+test('the media viewers add their light DOM child only on first connection', () => {
+  withTestDocument(() => {
+    const image = new SegnaviaImage()
+    const sound = new SegnaviaSound()
+    expect(image.image.parentNode).not.toBe(image)
+    expect(sound.audio.parentNode).not.toBe(sound)
+    expect(sound.controller.state.playable).toBeFalse()
+    const imageChildren: unknown[] = []
+    const soundChildren: unknown[] = []
+    Object.defineProperty(image, 'append', {
+      value(child: TestElement) {
+        imageChildren.push(child)
+        child.parentNode = image as unknown as TestElement
+      },
+    })
+    Object.defineProperty(sound, 'append', {
+      value(child: TestElement) {
+        soundChildren.push(child)
+        child.parentNode = sound as unknown as TestElement
+      },
+    })
+    image.connectedCallback()
+    sound.connectedCallback()
+    image.connectedCallback()
+    sound.connectedCallback()
+    expect(imageChildren).toEqual([image.image])
+    expect(soundChildren).toEqual([sound.audio])
+  })
+})
+
+test('sound playback rereads state and preserves a play rejection', async () => {
+  const element = withTestDocument(() => new SegnaviaSound())
+  const audio = element.audio as unknown as TestAudio
+  audio.currentTime = 12
+  audio.duration = 30
+  audio.play = async () => {
+    throw new Error('play refused')
+  }
+  await expect(element.controller.play()).rejects.toThrow('play refused')
+  expect(element.controller.state.elapsedMs).toBe(12_000)
+  expect(element.controller.state.totalMs).toBe(30_000)
 })
 
 test('the sound playback follows its preload-none audio element for play, pause, seek, time and mute', async () => {

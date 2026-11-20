@@ -47,7 +47,7 @@ export { type ControllerOptions, DeckController, type DeckState, type ResolvedCo
 export { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
 export type { DesignedCover } from './designed-cover-policy.ts'
 export { SegnaviaDocument } from './document.ts'
-export { type FitInputs, type FittedSize, fitDesignedCover, fitSheet, type ThumbnailRatio } from './fit.ts'
+export { type FitInputs, type FittedSize, fitDesignedCover, fitSheet, THUMBNAIL_RATIOS, type ThumbnailRatio } from './fit.ts'
 export { BridgeReadyTimeoutError } from './frame-entry.ts'
 export { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 export { HEADLESS_ELEMENT_NAMES, HEADLESS_ELEMENTS } from './headless-elements.ts'

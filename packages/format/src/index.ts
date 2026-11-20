@@ -108,6 +108,7 @@ export {
 } from './document-op-model.ts'
 export { DOCUMENT_PROFILES } from './document-profile.ts'
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
+export { formatDuration } from './duration.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
 export {
@@ -337,7 +338,7 @@ export { type ShotUse, shotsUsed } from './shots-used.ts'
 export * from './slot-values.ts'
 export * from './slots.ts'
 export { SOUND_FORMATS, Sound, SoundFormat, type SoundInput } from './sound.ts'
-export { formatSoundDuration, soundCover } from './sound-cover.ts'
+export { soundCover } from './sound-cover.ts'
 export {
   type MergedStyleSheet,
   type MergeStyleSheetsResult,

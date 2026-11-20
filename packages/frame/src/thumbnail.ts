@@ -11,9 +11,10 @@ import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseD
 import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { fitDesignedCover } from './fit.ts'
 import { hasSlotWork, slotFillRefusal } from './slot-render.ts'
 import { resolveThumbnailDocument } from './thumbnail-brand.ts'
-import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
+import { isCurrentThumbnailResolution, thumbnailCanvas } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
@@ -321,7 +322,10 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
 
   private measure() {
     const canvas = this.viewport.firstElementChild as HTMLElement | null
-    if (canvas && this.value) canvas.style.transform = `scale(${thumbnailScale(this.clientWidth, this.value.size.width)})`
+    if (canvas && this.value) {
+      const fitted = fitDesignedCover({ width: this.clientWidth, height: this.clientHeight }, this.value.size, this.ratio)
+      canvas.style.transform = `scale(${fitted.scale})`
+    }
   }
 
   private updatePageAspect() {

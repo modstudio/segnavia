@@ -121,3 +121,19 @@ test('ratio validates once at the thumbnail property edge', () => {
     thumbnail.ratio = 'wide' as 'square'
   }).toThrow('use natural or square')
 })
+
+test('a square thumbnail contains a portrait deck canvas', () => {
+  const thumbnail = thumbnailHarness()
+  const canvas = { style: { transform: '' } }
+  Object.assign(thumbnail, {
+    clientWidth: 100,
+    clientHeight: 100,
+    viewport: { firstElementChild: canvas },
+    value: { size: { width: 100, height: 200 } },
+    ratioValue: 'square',
+  })
+
+  ;(SegnaviaThumbnail.prototype as unknown as { measure(this: typeof thumbnail): void }).measure.call(thumbnail)
+
+  expect(canvas.style.transform).toBe('scale(0.5)')
+})

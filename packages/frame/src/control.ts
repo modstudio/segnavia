@@ -13,6 +13,19 @@ interface HasController {
   controller: Playback | null
 }
 
+function isDeckController(controller: Playback | null): controller is DeckController {
+  return (
+    controller !== null &&
+    'go' in controller &&
+    'next' in controller &&
+    'previous' in controller &&
+    'present' in controller &&
+    'stopPresenting' in controller &&
+    'setCaptionsVisible' in controller &&
+    'captionsPolicy' in controller
+  )
+}
+
 function controllerOf(node: unknown): Playback | null {
   const candidate = (node as Partial<HasController> | null)?.controller
   return candidate && typeof candidate === 'object' && 'addEventListener' in candidate ? candidate : null
@@ -30,8 +43,8 @@ export abstract class SegnaviaControl extends HTMLElement {
     upgradeProperties(this)
   }
 
-  get controller(): DeckController | null {
-    return this.bound as DeckController | null
+  get controller(): DeckController | Playback | null {
+    return this.bound
   }
 
   set controller(controller: DeckController | Playback | null) {
@@ -43,8 +56,12 @@ export abstract class SegnaviaControl extends HTMLElement {
     return this.bound
   }
 
+  protected get deckController(): DeckController | null {
+    return isDeckController(this.bound) ? this.bound : null
+  }
+
   protected get deckState(): DeckState | null {
-    return this.bound?.state.deck ? (this.controller?.state ?? null) : null
+    return this.deckController?.state ?? null
   }
 
   get labels(): PlayerLabels {

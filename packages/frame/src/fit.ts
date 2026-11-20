@@ -15,7 +15,18 @@ export interface FittedSize {
   height: number
 }
 
-export type ThumbnailRatio = 'natural' | 'square'
+export const THUMBNAIL_RATIOS = {
+  natural: { box: (tile: { width: number; height: number }) => tile, aspect: null },
+  square: {
+    box: (tile: { width: number; height: number }) => {
+      const side = Math.min(tile.width, tile.height)
+      return { width: side, height: side }
+    },
+    aspect: '1 / 1',
+  },
+} as const
+
+export type ThumbnailRatio = keyof typeof THUMBNAIL_RATIOS
 
 export function fitSheet(input: FitInputs): FittedSize {
   const availableWidth = Math.max(0, input.width - input.paddingInlineStart - input.paddingInlineEnd)
@@ -31,8 +42,7 @@ export function fitDesignedCover(
   sheet: { width: number; height: number },
   ratio: ThumbnailRatio = 'natural',
 ): FittedSize {
-  const side = Math.min(tile.width, tile.height)
-  const box = ratio === 'square' ? { width: side, height: side } : tile
+  const box = THUMBNAIL_RATIOS[ratio].box(tile)
   return fitSheet({
     width: box.width,
     height: box.height,

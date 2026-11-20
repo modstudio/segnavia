@@ -1,5 +1,5 @@
 import type { Deck } from '@segnavia/format'
-import { deckHasNarration, deckPlayable, trackReach } from './control-values.ts'
+import { deckHasNarration, deckPlayable, trackReach, trackSegmentLocked } from './control-values.ts'
 import type { DeckState } from './controller-types.ts'
 import type { PlaybackState } from './playback.ts'
 import { deckTimeline } from './timeline.ts'
@@ -23,7 +23,9 @@ export class DeckPlaybackState {
       playable: deckPlayable(state),
       audible: deckHasNarration(state),
       reach: trackReach(state),
+      lockedFrom: this.timeline.slides.findIndex((_, index) => trackSegmentLocked(state, index)),
     }
+    if (this.value.lockedFrom < 0) this.value.lockedFrom = this.timeline.slides.length
     return this.value
   }
 }

@@ -1,4 +1,4 @@
-import type { Media, Sound } from '@segnavia/format'
+import { type Media, mediaTextDirection, type Sound } from '@segnavia/format'
 import { upgradeProperties } from './element-properties.ts'
 import type { Playback, PlaybackState } from './playback.ts'
 import type { DeckTimeline } from './timeline.ts'
@@ -22,6 +22,7 @@ class AudioPlayback extends EventTarget implements Playback {
     playable: false,
     audible: true,
     reach: 1,
+    lockedFrom: 1,
   }
 
   constructor(private readonly audio: HTMLAudioElement) {
@@ -38,8 +39,11 @@ class AudioPlayback extends EventTarget implements Playback {
   }
 
   async play(): Promise<void> {
-    await this.audio.play()
-    this.read()
+    try {
+      await this.audio.play()
+    } finally {
+      this.read()
+    }
   }
 
   pause(): void {
@@ -95,7 +99,10 @@ export class SegnaviaImage extends HTMLElement {
     super()
     upgradeProperties(this)
     this.image.part.add('image')
-    this.append(this.image)
+  }
+
+  connectedCallback() {
+    if (this.image.parentNode !== this) this.append(this.image)
   }
 
   get media(): Media | null {
@@ -107,8 +114,14 @@ export class SegnaviaImage extends HTMLElement {
     if (value) {
       this.style.setProperty('--segnavia-media-aspect', `${value.size.width} / ${value.size.height}`)
       this.image.alt = value.alt?.text ?? ''
-      this.image.dir = value.alt ? (value.alt.dir ?? 'auto') : ''
-    } else this.style.removeProperty('--segnavia-media-aspect')
+      this.image.dir = value.alt ? mediaTextDirection(value.alt) : ''
+      this.image.lang = value.alt?.lang ?? ''
+    } else {
+      this.style.removeProperty('--segnavia-media-aspect')
+      this.image.alt = ''
+      this.image.dir = ''
+      this.image.lang = ''
+    }
   }
 
   get src(): string {
@@ -132,7 +145,10 @@ export class SegnaviaSound extends HTMLElement {
     upgradeProperties(this)
     this.audio.preload = 'none'
     this.audio.part.add('audio')
-    this.append(this.audio)
+  }
+
+  connectedCallback() {
+    if (this.audio.parentNode !== this) this.append(this.audio)
   }
 
   get sound(): Sound | null {
