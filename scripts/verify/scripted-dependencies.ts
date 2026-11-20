@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { SCRIPTED_CHART_URL, SCRIPTED_FONT_CSS_URL, SCRIPTED_FONT_URL } from '../build-scripted-dependency-demo.ts'
-import type { Harness } from './harness.ts'
+import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 export async function verifyScriptedDependencies(h: Harness) {
   const { page, check } = h
@@ -38,6 +38,11 @@ export async function verifyScriptedDependencies(h: Harness) {
     .locator('#fetch[data-directive="connect-src"]')
     .waitFor({ timeout: 3000 })
     .catch(() => {})
+  await page
+    .waitForFunction(() => (window as unknown as { __messages: string[] }).__messages.includes('segnavia:ready'), undefined, { timeout: BOUNDED_WAIT_MS })
+    .catch(() => {})
+  const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
+  check('the scripted page frame reports ready after the storage shim runs', messages.includes('segnavia:ready'), messages.join(','))
   check('the routed chart stub draws its chart on screen', await frame.locator('#chart-rendered').isVisible())
   await frame.locator('#topic').selectOption({ label: 'Math' })
   await frame.locator('#name').fill('Noah')
