@@ -1,5 +1,5 @@
-import { expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
+import { expect, test } from 'bun:test'
 
 const { isLockedToken, isSilentToken, lockedFenceLabel } = await import('./markdown-rich-locked.ts')
 
