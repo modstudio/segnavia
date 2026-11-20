@@ -1,5 +1,5 @@
-import { expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
+import { expect, test } from 'bun:test'
 import type { JSONContent } from '@tiptap/core'
 
 const { chooseBracketEscapes, parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
