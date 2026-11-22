@@ -41,3 +41,10 @@ test('continuous set points inspect only their pages for a start declaration', a
   expect(requested).toEqual([1, 3])
   expect(points.map((point) => point.atStart)).toEqual([false, true])
 })
+
+test('names start variables and remedies when text inspection is unavailable', async () => {
+  const variables: Variable[] = [{ name: 'topic', kind: 'text', from: 'content', pick: 'start' }]
+  expect(continuousContentSetPoints(document, part, variables)).rejects.toThrow(
+    'Content variable topic picks start in a continuous book, which needs printed-text inspection; supply the print adapter textBaselines reader, pick first or last, or use paginated mode to clear this refusal.',
+  )
+})

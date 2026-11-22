@@ -1,4 +1,4 @@
-import type { Variable } from '@segnavia/format'
+import { isContentTextVariable, type Variable } from '@segnavia/format'
 import type { BookDocument } from '@segnavia/html'
 import type { MarginContentSetPoint } from './book-margin-facts.ts'
 import type { PrintedPart, TextBaselineReader } from './book-pdf-types.ts'
@@ -13,13 +13,15 @@ export async function continuousContentSetPoints(
 ): Promise<MarginContentSetPoint[]> {
   const points = document.setPoints.map((point): Omit<MarginContentSetPoint, 'atStart'> => {
     const destination = part.destinations.get(point.id)
-    if (!destination) throw new RenderRefusedError(`Chromium wrote no named destination for hidden target ${point.id}.`)
+    if (!destination) throw new Error('continuousContentSetPoints requires requireTargets to verify every set-point destination first.')
     return { ...point, page: destination.page, y: destination.y }
   })
-  const needsStart = variables.some((variable) => variable.kind === 'text' && variable.from === 'content' && variable.pick === 'start')
-  if (!needsStart || points.length === 0) return points.map((point) => ({ ...point, atStart: false }))
+  const startVariables = variables.filter(isContentTextVariable).filter((variable) => variable.pick === 'start')
+  if (startVariables.length === 0 || points.length === 0) return points.map((point) => ({ ...point, atStart: false }))
   if (!part.bytes || !readTextBaselines) {
-    throw new RenderRefusedError('Resolving a continuous content variable picked from start needs PDF text inspection.')
+    throw new RenderRefusedError(
+      `Content variable${startVariables.length === 1 ? '' : 's'} ${startVariables.map((variable) => variable.name).join(', ')} pick${startVariables.length === 1 ? 's' : ''} start in a continuous book, which needs printed-text inspection; supply the print adapter textBaselines reader, pick first or last, or use paginated mode to clear this refusal.`,
+    )
   }
   const pages = [...new Set(points.map((point) => point.page))]
   const baselines = await readTextBaselines(part.bytes, pages)

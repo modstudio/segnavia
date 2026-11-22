@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, bookParentPages } from '@segnavia/format'
 import { type BookPrintedPagePlan, parseBookFixture } from '@segnavia/html'
-import { marginFactsFor } from './book-margin-facts.ts'
+import { continuousMarginVariableValues, marginFactsFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 
 test('fills catalogued furniture by its parsed motif key and uses its resolved parent margin', () => {
@@ -57,23 +57,58 @@ test('resolves chapter-number on the server margin path', () => {
 
 test('resolves content variables from ordered continuous-page set points', () => {
   const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const }]
+  const pages = [
+    { flow: 'chapter', blank: false, counted: true, record: false },
+    { flow: 'chapter', blank: false, counted: true, record: false },
+    { flow: 'chapter', blank: false, counted: true, record: false },
+  ]
+  const variables = [{ name: 'topic', kind: 'text' as const, from: 'content' as const, pick: 'first' as const }]
+  const points = [
+    { id: 'one', name: 'topic', value: 'Three Phases', section: 'chapter', page: 1, y: 700, atStart: true },
+    { id: 'two', name: 'topic', value: 'Practice', section: 'chapter', page: 2, y: 600, atStart: false },
+    { id: 'three', name: 'topic', value: 'Questioning', section: 'chapter', page: 3, y: 650, atStart: false },
+  ]
   const facts = marginFactsFor(
     sections,
     new Map([['chapter', { page: 1, x: 0, y: 700 }]]),
     3,
     new Set(),
     { system: 'arabic', printed: true },
-    [{ name: 'topic', kind: 'text', from: 'content', pick: 'first' }],
+    variables,
     undefined,
     {},
     undefined,
-    [
-      { id: 'one', name: 'topic', value: 'Three Phases', section: 'chapter', page: 1, y: 700, atStart: true },
-      { id: 'two', name: 'topic', value: 'Practice', section: 'chapter', page: 2, y: 600, atStart: false },
-      { id: 'three', name: 'topic', value: 'Questioning', section: 'chapter', page: 3, y: 650, atStart: false },
-    ],
+    continuousMarginVariableValues(pages, variables, points),
   )
   expect(facts.map((page) => page.variables?.topic)).toEqual(['Three Phases', 'Practice', 'Questioning'])
+})
+
+test('orders continuous content set points from the top of a page', () => {
+  const pages = [{ flow: 'chapter', blank: false, counted: true, record: false }]
+  const points = [
+    { id: 'lower', name: 'topic', value: 'Lower', section: 'chapter', page: 1, y: 400, atStart: false },
+    { id: 'upper', name: 'topic', value: 'Upper', section: 'chapter', page: 1, y: 700, atStart: true },
+  ]
+
+  expect(
+    (['first', 'last', 'start'] as const).map(
+      (pick) => continuousMarginVariableValues(pages, [{ name: 'topic', kind: 'text', from: 'content', pick }], points)[0]?.topic,
+    ),
+  ).toEqual(['Upper', 'Lower', 'Upper'])
+})
+
+test('carries a front-matter content variable into the body', () => {
+  const pages = [
+    { flow: 'preface', blank: false, counted: true, record: false },
+    { flow: 'chapter', blank: false, counted: true, record: false },
+  ]
+  const values = continuousMarginVariableValues(
+    pages,
+    [{ name: 'topic', kind: 'text', from: 'content', pick: 'first' }],
+    [{ id: 'front-topic', name: 'topic', value: 'Preface topic', section: 'preface', page: 1, y: 700, atStart: false }],
+  )
+
+  expect(values.map((page) => page.topic)).toEqual(['Preface topic', 'Preface topic'])
 })
 
 test('leaves chapter-number empty on a part opening page', () => {

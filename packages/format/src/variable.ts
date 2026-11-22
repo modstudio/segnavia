@@ -37,7 +37,12 @@ export const Variable = z.union([TextVariable, NumberVariable, RecordVariable, M
 
 export type Variable = z.infer<typeof Variable>
 export type TextVariable = z.infer<typeof TextVariable>
+export type ContentTextVariable = z.infer<typeof ContentTextVariable>
 export type RecordVariable = z.infer<typeof RecordVariable>
+
+export function isContentTextVariable(variable: Variable): variable is ContentTextVariable {
+  return variable.kind === 'text' && variable.from === 'content'
+}
 
 export const LIBRARY_VARIABLES: Variable[] = [
   Variable.parse({ name: 'segnavia:section-title', kind: 'text', from: 'section-title', pick: 'first' }),

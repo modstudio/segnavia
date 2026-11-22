@@ -1,5 +1,5 @@
 import type { ResolvedNoteSeries } from '@segnavia/format'
-import type { ChildNode, Element } from 'domhandler'
+import { type ChildNode, type Element, isTag } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import type { BuiltSection } from './book-held.ts'
 import { element, text } from './dom.ts'
@@ -23,6 +23,13 @@ function nodeText(node: ChildNode): string {
   return 'children' in node ? node.children.map(nodeText).join('') : ''
 }
 
+function variableElements(nodes: ChildNode[]): Element[] {
+  return nodes.flatMap((node): Element[] => {
+    if (!isTag(node) || node.attribs['data-side-note'] !== undefined) return []
+    return [node, ...variableElements(node.children)]
+  })
+}
+
 export function variableSetPoints(sections: BuiltSection[], enabled: boolean): Map<BuiltSection, BookVariableSetPoint[]> {
   const output = new Map<BuiltSection, BookVariableSetPoint[]>()
   if (!enabled) return output
@@ -30,7 +37,7 @@ export function variableSetPoints(sections: BuiltSection[], enabled: boolean): M
   let generated = 0
   for (const section of sections) {
     if (section.info.kind === 'designed' || section.info.kind === 'templated') continue
-    const points = elements(section.node.children).flatMap((node): BookVariableSetPoint[] => {
+    const points = variableElements(section.node.children).flatMap((node): BookVariableSetPoint[] => {
       const name = node.attribs['data-variable']
       if (!name) return []
       let id = node.attribs.id

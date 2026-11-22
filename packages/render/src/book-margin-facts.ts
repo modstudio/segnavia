@@ -4,6 +4,7 @@ import {
   bookVariablePageNumbers,
   effectiveParentRules,
   FLOWING_PARENT_RULES,
+  isContentTextVariable,
   LIBRARY_VARIABLES,
   type ParentRules,
   sequenceFolios,
@@ -36,6 +37,25 @@ export interface MarginContentSetPoint extends BookVariableSetPoint {
   page: number
   y: number
   atStart: boolean
+}
+
+export function continuousMarginVariableValues(
+  pages: readonly BookVariableNumberPage[],
+  variables: Book['variables'],
+  contentSetPoints: readonly MarginContentSetPoint[],
+): Array<Record<string, string>> {
+  const contentDeclarations = variables.filter(isContentTextVariable)
+  return continuousPageVariables(
+    pages.map((page, index) => ({
+      blank: page.blank,
+      flow: page.flow,
+      setPoints: contentSetPoints
+        .filter((point) => point.page === index + 1)
+        .sort((left, right) => right.y - left.y)
+        .map(({ name, value, atStart }) => ({ name, value, atStart })),
+    })),
+    contentDeclarations,
+  )
 }
 
 function marginPageOwners(
@@ -82,30 +102,16 @@ export function marginFactsFor(
   document: MarginDocumentContext = { pages: marginVariablePagesFor(sections, destinations, pages, blanks), offset: 0, system: numbering.system },
   documentFacts: VariableDocumentFacts = {},
   bookRules?: ParentRules,
-  contentSetPoints: readonly MarginContentSetPoint[] = [],
+  contentValues: readonly Record<string, string>[] = [],
 ): BookPageFacts[] {
   const folios = sequenceFolios(pages, numbering.system, numbering.printed)
   const owners = marginPageOwners(sections, destinations, pages, blanks)
   const numbers = bookVariablePageNumbers(document.pages, document.system)
-  const contentDeclarations = variables.filter(
-    (variable): variable is Extract<(typeof variables)[number], { kind: 'text'; from: 'content' }> => variable.kind === 'text' && variable.from === 'content',
-  )
-  const contentValues = continuousPageVariables(
-    owners.map((owner, index) => ({
-      blank: blanks.has(index + 1),
-      flow: owner?.section.id ?? '',
-      setPoints: contentSetPoints
-        .filter((point) => point.page === index + 1)
-        .sort((left, right) => right.y - left.y)
-        .map(({ name, value, atStart }) => ({ name, value, atStart })),
-    })),
-    contentDeclarations,
-  )
   const variablesFor = (owner: MarginPageOwner | undefined, index: number, folio: string): Record<string, string> => {
     const resolved: Record<string, string> = { ...contentValues[index] }
     const documentIndex = document.offset + index
     for (const variable of withLibraryEntries(LIBRARY_VARIABLES, variables)) {
-      if (variable.kind === 'text' && variable.from === 'content') continue
+      if (isContentTextVariable(variable)) continue
       const value = variableValue(variable, {
         folio,
         documentFolio: numbers.documentFolios[documentIndex],

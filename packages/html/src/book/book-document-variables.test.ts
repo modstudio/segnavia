@@ -26,3 +26,18 @@ test('targets nested content-variable set points with stable generated ids only 
   expect(flow.setPoints).toEqual([])
   expect(flow.html).not.toContain('segnavia-variable-1')
 })
+
+test('does not target content-variable set points inside side notes', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    sideNotes: {},
+    variables: [{ name: 'topic', kind: 'text', from: 'content', pick: 'last' }],
+    chapters: [{ title: 'One', html: '<p>Body</p>' }],
+  })
+  const section = book.body[0]
+  if (!section || !('html' in section)) throw new Error('Expected an authored section.')
+  section.html = '<p data-variable="topic">Body</p><p data-side-note><span data-variable="topic">Note</span></p>'
+
+  expect(bookDocument(book, { targets: true }).setPoints).toEqual([{ id: 'segnavia-variable-1', name: 'topic', value: 'Body', section: 'section-1' }])
+})

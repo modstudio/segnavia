@@ -24,7 +24,7 @@ import {
   planBookPages,
 } from '@segnavia/html'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
-import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
+import { continuousMarginVariableValues, marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 import { joinBookPdf } from './book-pdf-join.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
@@ -230,7 +230,7 @@ async function convergeBookParts(
   adapter: BookPdfAdapter,
 ) {
   if (!hasPageReferences(body.document)) {
-    return { front: await printFront(book, frontSlots, body.document, body.part, options, adapter), body: body.part, bodyDocument: body.document }
+    return { front: await printFront(book, frontSlots, body.document, body.part, options, adapter), body }
   }
   const headingIds = new Set(body.document.headings.map((heading) => heading.id))
   const pageReferences = new Set(body.document.pageReferenceTargets)
@@ -238,8 +238,7 @@ async function convergeBookParts(
   for (let alternations = 1; alternations <= 3; alternations += 1) {
     const front = await printFront(book, frontSlots, body.document, body.part, options, adapter)
     const convergedBody = await convergeBody(book, bodySlots, body, front.part, options, adapter)
-    body.part = convergedBody.part
-    body.document = convergedBody.document
+    body = { ...body, ...convergedBody }
     const actual = finalNumbers(
       numberIds,
       [numberSource(book, front.part.destinations, 'frontMatter'), numberSource(book, body.part.destinations, 'body')],
@@ -247,7 +246,7 @@ async function convergeBookParts(
       pageReferences,
     )
     const status = bookPartsPrintStatus(front.numbers, actual, alternations)
-    if (status.status === 'stable') return { front, body: body.part, bodyDocument: body.document }
+    if (status.status === 'stable') return { front, body }
     if (status.status === 'refused') throw new RenderRefusedError(status.message)
   }
   throw new RenderRefusedError('The front and body page references did not converge after three alternations.')
@@ -286,19 +285,22 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const printedBody = await printBody(book, bodySlots, options, adapter)
   const converged = await convergeBookParts(book, frontSlots, bodySlots, printedBody, options, adapter)
   const printedFront = converged.front
-  printedBody.part = converged.body
-  printedBody.document = converged.bodyDocument
+  const finalBody = converged.body
   const front = printedFront.part
-  const bodyBlankPages = new Set(printedBody.blankBefore.map((id) => (printedBody.part.destinations.get(id)?.page ?? 1) - 1))
+  const bodyBlankPages = new Set(finalBody.blankBefore.map((id) => (finalBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
-  const frontSections = sectionsFor(printedBody.document.sections, 'front')
-  const bodySections = sectionsFor(printedBody.document.sections, 'body')
+  const frontSections = sectionsFor(printedFront.document.sections, 'front')
+  const bodySections = sectionsFor(finalBody.document.sections, 'body')
   const frontSetPoints = await continuousContentSetPoints(printedFront.document, front, book.variables, adapter.textBaselines)
-  const bodySetPoints = await continuousContentSetPoints(printedBody.document, printedBody.part, book.variables, adapter.textBaselines)
+  const bodySetPoints = await continuousContentSetPoints(finalBody.document, finalBody.part, book.variables, adapter.textBaselines)
   const frontVariablePages = marginVariablePagesFor(frontSections, front.destinations, front.pages, frontBlankPages)
-  const bodyVariablePages = marginVariablePagesFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages)
+  const bodyVariablePages = marginVariablePagesFor(bodySections, finalBody.part.destinations, finalBody.part.pages, bodyBlankPages)
   if (printedFront.trailingBlank && bodyVariablePages[0]) frontVariablePages[frontVariablePages.length - 1] = { ...bodyVariablePages[0], blank: true }
   const documentPages = [...frontVariablePages, ...bodyVariablePages]
+  const contentValues = continuousMarginVariableValues(documentPages, book.variables, [
+    ...frontSetPoints,
+    ...bodySetPoints.map((point) => ({ ...point, page: point.page + front.pages })),
+  ])
   const documentFacts = bookVariableDocumentFacts(book)
   const marginFacts = [
     ...marginFactsFor(
@@ -315,12 +317,12 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       },
       documentFacts,
       book.parentRules,
-      frontSetPoints,
+      contentValues.slice(0, front.pages),
     ),
     ...marginFactsFor(
       bodySections,
-      printedBody.part.destinations,
-      printedBody.part.pages,
+      finalBody.part.destinations,
+      finalBody.part.pages,
       bodyBlankPages,
       { system: book.numbering.body, printed: book.numbering.printed.body },
       book.variables,
@@ -331,18 +333,18 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       },
       documentFacts,
       book.parentRules,
-      bodySetPoints,
+      contentValues.slice(front.pages),
     ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParents(book.page.margin, book.parentPages)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
-  const joined = await joinBookPdf(book, bookDocument(book), front, printedBody.part, margin.bytes, date)
-  const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [front, printedBody.part])) : joined
+  const joined = await joinBookPdf(book, bookDocument(book), front, finalBody.part, margin.bytes, date)
+  const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [front, finalBody.part])) : joined
   const output = await finishBookPdf(book, watermarked, options, adapter)
   options.overflow?.report?.({
-    entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
+    entries: [front.overflow, finalBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
   })
   return output
 }

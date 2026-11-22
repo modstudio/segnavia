@@ -41,8 +41,6 @@ export {
   type ContinuousVariablePage,
   type ContinuousVariableSetPoint,
   continuousPageVariables,
-  paginateVariables,
-  resolveVariablesAcrossPages,
 } from './paginate-variables.ts'
 export * from './parent-selection.ts'
 export { type BookPlan, type Measurements, planBook } from './plan-book.ts'
