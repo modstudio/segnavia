@@ -289,7 +289,15 @@ test('a segmented deck track labels titled and untitled slides', () => {
     renderSegments(list: unknown, state: unknown, continuous: boolean): void
   }
 
-  renderer.renderSegments.call({ deckController: { state }, labels: { slide: (number: number, total: number, title?: string) => (title ? `${title}, ${number}/${total}` : `${number}/${total}`) } }, { querySelectorAll: () => items }, {}, false)
+  renderer.renderSegments.call(
+    {
+      deckController: { state },
+      labels: { slide: (number: number, total: number, title?: string) => (title ? `${title}, ${number}/${total}` : `${number}/${total}`) },
+    },
+    { querySelectorAll: () => items },
+    {},
+    false,
+  )
 
   expect(labels).toEqual(['Intro, 1/2', '2/2'])
 })
