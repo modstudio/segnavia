@@ -55,6 +55,7 @@ interface NestedMeasuredElement {
   querySelectorAll: (selector: string) => NestedMeasuredElement[]
   getBoundingClientRect: () => { top: number; bottom: number; height: number }
   rects?: Array<{ top: number; bottom: number }>
+  style?: Partial<CSSStyleDeclaration>
 }
 
 type NestedMeasuredNode = NestedMeasuredElement | NestedMeasuredLeaf
@@ -62,7 +63,12 @@ type NestedMeasuredNode = NestedMeasuredElement | NestedMeasuredLeaf
 function nestedMeasuredElement(
   tag: string,
   children: NestedMeasuredNode[],
-  options: { dataSideNote?: boolean; rects?: Array<{ top: number; bottom: number }> } = {},
+  options: {
+    box?: { top: number; bottom: number; height: number }
+    dataSideNote?: boolean
+    rects?: Array<{ top: number; bottom: number }>
+    style?: Partial<CSSStyleDeclaration>
+  } = {},
 ): NestedMeasuredElement {
   const element = {
     tagName: tag.toUpperCase(),
@@ -89,8 +95,15 @@ function nestedMeasuredElement(
         })
       return []
     },
-    getBoundingClientRect: () => ({ top: 0, bottom: 0, height: 0 }),
+    getBoundingClientRect: () => {
+      if (options.box) return options.box
+      const rects = children.flatMap((child) => ('tagName' in child ? [child.getBoundingClientRect()] : child.rects))
+      const top = Math.min(...rects.map((rect) => rect.top))
+      const bottom = Math.max(...rects.map((rect) => rect.bottom))
+      return rects.length > 0 ? { top, bottom, height: bottom - top } : { top: 0, bottom: 0, height: 0 }
+    },
     rects: options.rects,
+    style: options.style,
   }
   for (const child of children) if ('tagName' in child) child.parentElement = element
   return element
@@ -138,6 +151,18 @@ function measureNested(element: NestedMeasuredElement): MeasuredLineBox[] {
   }
   attach(element)
   return measureLineBoxes(element as unknown as Element, 0)
+}
+
+const blockComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+
+function withComputedStyle<T>(computed: typeof getComputedStyle, run: () => T): T {
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = computed
+  try {
+    return run()
+  } finally {
+    globalThis.getComputedStyle = original
+  }
 }
 
 type MeasuredLineBox = ReturnType<typeof measureLineBoxes>[number]
@@ -198,16 +223,12 @@ test.each([
     ]),
   ],
 ])('%s measures one line per nested item', (_name, element) => {
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(blockComputedStyle, () => {
     expect(measureNested(element)).toEqual([
       { top: 10, bottom: 20 },
       { top: 20, bottom: 30 },
     ])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('inline text before a block child keeps its line before the child lines', () => {
@@ -220,72 +241,65 @@ test('inline text before a block child keeps its line before the child lines', (
       ],
     },
   ])
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(blockComputedStyle, () => {
     expect(measureNested(nestedMeasuredElement('article', [text, child]))).toEqual([
       { top: 10, bottom: 20 },
       { top: 30, bottom: 40 },
       { top: 40, bottom: 50 },
     ])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('a block-display side note does not add its line to the containing block', () => {
   const text = { rects: [{ top: 10, bottom: 20 }] }
   const note = nestedMeasuredElement('aside', [{ rects: [{ top: 30, bottom: 40 }] }], { dataSideNote: true })
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(blockComputedStyle, () => {
     expect(measureNested(nestedMeasuredElement('p', [text, note]))).toEqual([{ top: 10, bottom: 20 }])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('a nested side note leaves each recursive sibling paragraph measured once', () => {
   const first = nestedMeasuredElement('p', [{ rects: [{ top: 10, bottom: 20 }] }], { rects: [{ top: 8, bottom: 20 }] })
   const note = nestedMeasuredElement('aside', [{ rects: [{ top: 30, bottom: 40 }] }], { dataSideNote: true })
   const second = nestedMeasuredElement('p', [{ rects: [{ top: 50, bottom: 60 }] }], { rects: [{ top: 48, bottom: 60 }] })
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(blockComputedStyle, () => {
     expect(measureNested(nestedMeasuredElement('article', [nestedMeasuredElement('div', [first, note, second])]))).toEqual([
       { top: 10, bottom: 20 },
       { top: 50, bottom: 60 },
     ])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('ruby annotation does not add a line unit to its paragraph', () => {
   const annotation = nestedMeasuredElement('rt', [{ rects: [{ top: 2, bottom: 8 }] }])
   const ruby = nestedMeasuredElement('ruby', [annotation], { rects: [{ top: 10, bottom: 20 }] })
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = ((candidate: Element) => {
+  const computed = ((candidate: Element) => {
     const tag = candidate.tagName.toLowerCase()
     return { display: tag === 'ruby' ? 'ruby' : tag === 'rt' ? 'ruby-text' : 'block', position: 'static' } as CSSStyleDeclaration
   }) as typeof getComputedStyle
-  try {
+  withComputedStyle(computed, () => {
     expect(measureNested(nestedMeasuredElement('p', [ruby]))).toEqual([{ top: 10, bottom: 20 }])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
+})
+
+test.each([
+  ['leading', { top: 10, bottom: 35, height: 25 }, {}, { top: 13, bottom: 32 }, { top: 10, bottom: 35 }],
+  ['padding', { top: 10, bottom: 45, height: 35 }, { paddingTop: '5px', paddingBottom: '5px' }, { top: 18, bottom: 37 }, { top: 15, bottom: 40 }],
+])('a recursive paragraph preserves its content-box %s', (_name, box, style, text, expected) => {
+  const paragraph = nestedMeasuredElement('p', [{ rects: [text] }], { box, style })
+  const computed = ((candidate: NestedMeasuredElement) =>
+    ({ display: 'block', position: 'static', ...candidate.style }) as CSSStyleDeclaration) as unknown as typeof getComputedStyle
+  withComputedStyle(computed, () => {
+    expect(measureNested(nestedMeasuredElement('div', [paragraph]))).toEqual([expected])
+  })
 })
 
 test('an image inside a wrapper remains one replaced box', () => {
   const image = nestedMeasuredElement('img', [{ rects: [{ top: 10, bottom: 80 }] }])
   ;(image as unknown as { rects: Array<{ top: number; bottom: number }> }).rects = [{ top: 10, bottom: 80 }]
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(blockComputedStyle, () => {
     expect(measureNested(nestedMeasuredElement('article', [image]))).toEqual([{ top: 10, bottom: 80 }])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('a hidden descendant table does not change its block lines', () => {
@@ -297,14 +311,11 @@ test('a hidden descendant table does not change its block lines', () => {
   }
   const plain = measuredElement({ range: [{ top: 12, bottom: 18 }] })
   const withHiddenTable = measuredElement({ range: [{ top: 12, bottom: 18 }], tables: [hiddenTable] })
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = ((element: Element) =>
+  const computed = ((element: Element) =>
     ({ display: element === (hiddenTable as unknown as Element) ? 'none' : 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(computed, () => {
     expect(measureLineBoxes(withHiddenTable as unknown as Element, 0)).toEqual(measureLineBoxes(plain as unknown as Element, 0))
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('a composed paragraph measures each authored line span once', () => {
@@ -326,13 +337,9 @@ test('a composed paragraph measures each authored line span once', () => {
 
 test('a figure without an in-flow table keeps its replaced box', () => {
   const figure = measuredElement({ tag: 'FIGURE', box: { top: 10, bottom: 80, height: 70 } })
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
+  withComputedStyle(blockComputedStyle, () => {
     expect(measureLineBoxes(figure as unknown as Element, 0)).toEqual([{ top: 10, bottom: 80 }])
-  } finally {
-    globalThis.getComputedStyle = original
-  }
+  })
 })
 
 test('a figure with an in-flow table uses the table row bands', () => {

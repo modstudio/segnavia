@@ -243,6 +243,20 @@ export function recursiveLineBoxChild(element: Element): boolean {
   )
 }
 
+export function linesWithChildContentBox(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
+  if (lines.length === 0) return []
+  const measured = lines.map((line) => ({ ...line }))
+  const style = getComputedStyle(element)
+  const box = element.getBoundingClientRect()
+  const contentTop = box.top + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.paddingTop) || 0) - origin
+  const contentBottom = box.bottom - (Number.parseFloat(style.borderBottomWidth) || 0) - (Number.parseFloat(style.paddingBottom) || 0) - origin
+  const first = measured[0]
+  const last = measured.at(-1)
+  if (first) first.top = Math.min(first.top, contentTop)
+  if (last) last.bottom = Math.max(last.bottom, contentBottom)
+  return measured
+}
+
 export function childLineBoxRanges(element: Element, origin: number): { groups: MeasuredLineBox[]; ranges: Range[] } {
   const groups: MeasuredLineBox[] = []
   const ranges: Range[] = []
@@ -270,7 +284,7 @@ export function childLineBoxRanges(element: Element, origin: number): { groups: 
     const childElement = 'tagName' in child ? (child as Element) : undefined
     if (!childElement || !recursiveLineBoxChild(childElement)) continue
     addRange(index)
-    groups.push(...measureLineBoxes(childElement, origin))
+    groups.push(...linesWithChildContentBox(measureLineBoxes(childElement, origin), childElement, origin))
     rangeStart = index + 1
   }
   addRange(children.length)
