@@ -12,8 +12,10 @@ import {
   type PreflightProfile,
   PX_PER_MM,
   pressBoxes,
+  type ResolvedLimits,
   resolveBookPageGeometry,
   resolveDirection,
+  resolveLimits,
   type Plan as SavedPlan,
   sheetMm,
   usesPressLayout,
@@ -91,7 +93,7 @@ export function lastBookPlanText(root: ParentNode = document): string | null | u
   return Array.from(root.querySelectorAll('script[data-segnavia-plan]')).at(-1)?.textContent
 }
 
-export async function composedPlanFromTab(tab: Tab, limits: Limits | undefined): Promise<SavedPlan> {
+export async function composedPlanFromTab(tab: Tab, limits: Pick<ResolvedLimits, 'pages' | 'pagesSource'>): Promise<SavedPlan> {
   const text = await tab.evaluate(lastBookPlanText)
   try {
     return Plan.parse(JSON.parse(text ?? 'null'), { limits })
@@ -246,7 +248,7 @@ async function printBook(
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
           await awaitBookComposition(tab, renderOptions.preflight)
-          composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, renderOptions.limits))
+          composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, resolveLimits(book.limits, renderOptions.limits)))
           await renderOptions.beforeOutput?.(tab)
           if (renderOptions.watermark) watermarkFont = await pageFontFacts(tab)
         },
@@ -328,6 +330,13 @@ export async function renderBrowserBookPdf(
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
+  if (options.plan !== undefined) {
+    try {
+      options = { ...options, plan: Plan.parse(options.plan, { limits: resolveLimits(book.limits, options.limits) }) }
+    } catch (error) {
+      throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
+    }
+  }
   let resolvedLayouts: Promise<LoadedLayoutScript[]> | undefined
   const withTab = dependencies.withTab
   return renderBookPdf(
@@ -383,7 +392,7 @@ export async function renderBrowserBookPlan(
     },
     async (tab) => {
       await awaitBookComposition(tab)
-      return composedPlanFromTab(tab, options.limits)
+      return composedPlanFromTab(tab, resolveLimits(book.limits, options.limits))
     },
   )
 }

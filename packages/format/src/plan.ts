@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEFAULT_LIMITS, type Limits } from './limits.ts'
+import { DEFAULT_LIMITS, type Limits, limitRefusal, type PageLimitSource } from './limits.ts'
 
 export const PLAN_VERSION = 8 as const
 
@@ -77,17 +77,20 @@ const PlanShape = z.object({
 })
 
 export interface PlanParseOptions {
-  limits?: Pick<Limits, 'pages'>
+  limits?: Pick<Limits, 'pages'> & { pagesSource?: PageLimitSource }
 }
 
-function planSchema(options?: PlanParseOptions) {
+function planSchema(options?: PlanParseOptions, checkPages = true) {
   const pageLimit = options?.limits?.pages ?? DEFAULT_LIMITS.pages
   return PlanShape.superRefine((plan, ctx) => {
-    if (plan.pages.length > pageLimit) {
+    if (checkPages && plan.pages.length > pageLimit) {
       ctx.addIssue({
         code: 'custom',
         path: ['pages'],
-        message: `pages has ${plan.pages.length} entries, above the limits.pages limit of ${pageLimit}; reduce the pages or raise limits.pages to clear this refusal`,
+        message:
+          options?.limits?.pagesSource === undefined
+            ? `pages has ${plan.pages.length} entries, above the limits.pages limit of ${pageLimit}; reduce the pages or raise limits.pages to clear this refusal`
+            : limitRefusal('pages', plan.pages.length, pageLimit, { pagesSource: options.limits.pagesSource }),
       })
     }
     if (plan.folios.length !== plan.pages.length) {
@@ -119,16 +122,24 @@ export type Plan = z.infer<typeof PlanShape>
 const defaultSchema = planSchema()
 type PlanSchema = Omit<typeof defaultSchema, 'parse' | 'safeParse'> & {
   parse(input: unknown, options?: PlanParseOptions): Plan
+  parseStructure(input: unknown): Plan
   safeParse(input: unknown, options?: PlanParseOptions): { success: true; data: Plan } | { success: false; error: unknown }
+}
+
+function parsedPlan(input: unknown, options?: PlanParseOptions, checkPages = true): Plan {
+  const result = planSchema(options, checkPages).safeParse(input)
+  if (result.success) return result.data
+  const issue = result.error.issues[0]
+  const path = issue?.path.join('.') || 'plan'
+  throw new Error(`${path}: ${issue?.message ?? 'the saved plan is invalid; compute a new plan to clear this refusal'}`)
 }
 
 export const Plan = Object.assign(defaultSchema, {
   parse(input: unknown, options?: PlanParseOptions): Plan {
-    const result = planSchema(options).safeParse(input)
-    if (result.success) return result.data
-    const issue = result.error.issues[0]
-    const path = issue?.path.join('.') || 'plan'
-    throw new Error(`${path}: ${issue?.message ?? 'the saved plan is invalid; compute a new plan to clear this refusal'}`)
+    return parsedPlan(input, options)
+  },
+  parseStructure(input: unknown): Plan {
+    return parsedPlan(input, undefined, false)
   },
   safeParse(input: unknown, options?: PlanParseOptions) {
     return planSchema(options).safeParse(input)

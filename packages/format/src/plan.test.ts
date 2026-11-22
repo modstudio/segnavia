@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { resolveLimits } from './limits.ts'
 import { Plan, type Plan as PlanValue } from './plan.ts'
 
 function page(): PlanValue['pages'][number] {
@@ -37,6 +38,17 @@ function plan(): PlanValue {
   }
 }
 
+function planWithPages(count: number): PlanValue {
+  const pages = Array.from({ length: count }, (_, index) => ({ ...page(), number: index + 1 }))
+  return {
+    ...plan(),
+    pages,
+    folios: pages.map((item) => String(item.number)),
+    folioPrints: pages.map(() => true),
+    documentFolios: pages.map((item) => String(item.number)),
+  }
+}
+
 describe('Plan', () => {
   test('round-trips a valid saved plan', () => {
     const value = plan()
@@ -57,5 +69,12 @@ describe('Plan', () => {
     expect(() => Plan.parse({ ...plan(), folios: [] })).toThrow(/folios.*pages.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse({ ...plan(), folioPrints: [] })).toThrow(/folioPrints.*pages.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse({ ...plan(), documentFolios: [] })).toThrow(/documentFolios.*pages.*compute a new plan to clear this refusal/)
+  })
+
+  test('checks saved pages against their resolved limit and its source', () => {
+    const value = planWithPages(510)
+    expect(Plan.parse(value, { limits: resolveLimits({ pages: 1000 }, undefined) })).toEqual(value)
+    expect(() => Plan.parse(value, { limits: resolveLimits({ pages: 1000 }, { pages: 400 }) })).toThrow("raise the host's limits.pages")
+    expect(() => Plan.parse(value, { limits: resolveLimits(undefined, undefined) })).toThrow('declare a higher limits.pages on the document')
   })
 })
