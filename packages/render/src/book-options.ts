@@ -13,7 +13,7 @@ export function parseBookPdfOptions(options: BookPdfOptions): ParsedBookPdfOptio
   const parsed = parseWatermarkOption(base, 'bookPdf')
   if (parsed.plan === undefined) return parsed
   try {
-    return { ...parsed, plan: Plan.parse(parsed.plan, { limits: parsed.limits }) }
+    return { ...parsed, plan: Plan.parseStructure(parsed.plan) }
   } catch (error) {
     throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
   }

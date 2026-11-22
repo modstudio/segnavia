@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DEFAULT_LIMITS, type Limits } from './limits.ts'
+import { DEFAULT_LIMITS, LimitExceededError, type Limits, type PageLimitSource } from './limits.ts'
 
 export const PLAN_VERSION = 8 as const
 
@@ -77,60 +77,76 @@ const PlanShape = z.object({
 })
 
 export interface PlanParseOptions {
-  limits?: Pick<Limits, 'pages'>
+  limits?: Pick<Limits, 'pages'> & { pagesSource?: PageLimitSource }
 }
 
-function planSchema(options?: PlanParseOptions) {
-  const pageLimit = options?.limits?.pages ?? DEFAULT_LIMITS.pages
-  return PlanShape.superRefine((plan, ctx) => {
-    if (plan.pages.length > pageLimit) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['pages'],
-        message: `pages has ${plan.pages.length} entries, above the limits.pages limit of ${pageLimit}; reduce the pages or raise limits.pages to clear this refusal`,
-      })
-    }
-    if (plan.folios.length !== plan.pages.length) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['folios'],
-        message: `folios has ${plan.folios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
-      })
-    }
-    if (plan.folioPrints.length !== plan.pages.length) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['folioPrints'],
-        message: `folioPrints has ${plan.folioPrints.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
-      })
-    }
-    if (plan.documentFolios.length !== plan.pages.length) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['documentFolios'],
-        message: `documentFolios has ${plan.documentFolios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
-      })
-    }
-  })
+function structurallyConsistentPlan(plan: z.infer<typeof PlanShape>, ctx: z.RefinementCtx): void {
+  if (plan.folios.length !== plan.pages.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['folios'],
+      message: `folios has ${plan.folios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+    })
+  }
+  if (plan.folioPrints.length !== plan.pages.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['folioPrints'],
+      message: `folioPrints has ${plan.folioPrints.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+    })
+  }
+  if (plan.documentFolios.length !== plan.pages.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['documentFolios'],
+      message: `documentFolios has ${plan.documentFolios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+    })
+  }
 }
+
+function planStructure() {
+  return PlanShape.superRefine(structurallyConsistentPlan)
+}
+
+// Plan replaces parse and safeParse on its own schema instance, so the checks below use a separate one.
+const PlanStructure = planStructure()
 
 export type Plan = z.infer<typeof PlanShape>
 
-const defaultSchema = planSchema()
-type PlanSchema = Omit<typeof defaultSchema, 'parse' | 'safeParse'> & {
+type PlanSchema = Omit<ReturnType<typeof planStructure>, 'parse' | 'safeParse'> & {
   parse(input: unknown, options?: PlanParseOptions): Plan
+  parseStructure(input: unknown): Plan
   safeParse(input: unknown, options?: PlanParseOptions): { success: true; data: Plan } | { success: false; error: unknown }
 }
 
-export const Plan = Object.assign(defaultSchema, {
+function pageExcess(plan: Plan, options?: PlanParseOptions): LimitExceededError | undefined {
+  const limit = options?.limits?.pages ?? DEFAULT_LIMITS.pages
+  if (plan.pages.length <= limit) return undefined
+  return new LimitExceededError('pages', plan.pages.length, limit, { pagesSource: options?.limits?.pagesSource })
+}
+
+function parsedPlanStructure(input: unknown): Plan {
+  const result = PlanStructure.safeParse(input)
+  if (result.success) return result.data
+  const issue = result.error.issues[0]
+  const path = issue?.path.join('.') || 'plan'
+  throw new Error(`${path}: ${issue?.message ?? 'the saved plan is invalid; compute a new plan to clear this refusal'}`)
+}
+
+export const Plan = Object.assign(planStructure(), {
   parse(input: unknown, options?: PlanParseOptions): Plan {
-    const result = planSchema(options).safeParse(input)
-    if (result.success) return result.data
-    const issue = result.error.issues[0]
-    const path = issue?.path.join('.') || 'plan'
-    throw new Error(`${path}: ${issue?.message ?? 'the saved plan is invalid; compute a new plan to clear this refusal'}`)
+    const plan = parsedPlanStructure(input)
+    const excess = pageExcess(plan, options)
+    if (excess) throw excess
+    return plan
+  },
+  parseStructure(input: unknown): Plan {
+    return parsedPlanStructure(input)
   },
   safeParse(input: unknown, options?: PlanParseOptions) {
-    return planSchema(options).safeParse(input)
+    const result = PlanStructure.safeParse(input)
+    if (!result.success) return result
+    const excess = pageExcess(result.data, options)
+    return excess ? { success: false as const, error: excess } : result
   },
 }) as PlanSchema
