@@ -8,9 +8,10 @@ import {
   type PreflightEntry,
   placedPdfPage,
   pointsToCssPixels,
+  resolveDirection,
   type Sound,
 } from '@segnavia/format'
-import type { Element } from 'domhandler'
+import { type ChildNode, type Element, isTag } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 import { refuseSoundsForPrint } from './sound-print-refusal.ts'
 
@@ -21,6 +22,14 @@ export type ResolvedPlacement =
   | { kind: 'media'; media: Media; src: string; bytes?: Uint8Array }
   | { kind: 'sound'; sound: Sound; src: string }
   | { kind: 'page'; page: DocumentInput }
+export interface ResolvedSoundPlacement {
+  sound: Sound
+  src: string
+}
+export interface ResolvedPlacements {
+  html: string
+  sounds: Map<string, ResolvedSoundPlacement>
+}
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
   context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal; day?: AsOfDay },
@@ -236,6 +245,39 @@ function applyResolved(
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
 }
 
+function isolatedSoundText(className: string, value: Sound['title'] | Sound['credit']): string {
+  if (!value) return ''
+  const dir = resolveDirection(value.dir, value.lang, value.text)
+  const lang = value.lang ? ` lang="${escapeSoundText(value.lang)}"` : ''
+  return `<span class="${className}"><bdi dir="${dir}"${lang}>${escapeSoundText(value.text)}</bdi></span>`
+}
+
+function escapeSoundText(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
+}
+
+function soundFace(sound: Sound): string {
+  const minutes = Math.floor(sound.durationMs / 60_000)
+  const seconds = Math.floor((sound.durationMs % 60_000) / 1_000)
+  const duration = `${minutes}:${String(seconds).padStart(2, '0')}`
+  return `<span class="segnavia-sound-face"><span class="segnavia-sound-glyph" aria-hidden="true">♪</span><span class="segnavia-sound-text">${isolatedSoundText('segnavia-sound-title', sound.title)}<span class="segnavia-sound-duration"><bdi dir="ltr">${duration}</bdi></span>${isolatedSoundText('segnavia-sound-credit', sound.credit)}</span></span>`
+}
+
+function replaceChildren(element: Element, children: ChildNode[]): void {
+  element.children = children
+  for (const child of children) child.parent = element
+}
+
+function applyResolvedSound(element: Element, resolved: ResolvedSoundPlacement, handle: string): void {
+  element.name = 'button'
+  element.attribs = {
+    type: 'button',
+    'data-segnavia-sound': handle,
+    ...(resolved.sound.title ? { 'aria-label': resolved.sound.title.text } : {}),
+  }
+  replaceChildren(element, parse(soundFace(resolved.sound)).children.filter(isTag))
+}
+
 function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -268,10 +310,18 @@ function applyPlacementResolution<R extends { kind: string }>(
     report?: PlacementReport
     pdfSources?: Map<string, PlacedPdfSource>
   },
+  sounds: Map<string, ResolvedSoundPlacement>,
 ): void {
   const { entry } = resolved
   const element = found[entry.index]
   if (!element) return
+  if (!('error' in resolved) && resolved.answer?.kind === 'sound' && 'sound' in resolved.answer && 'src' in resolved.answer) {
+    const handle = String(sounds.size)
+    const sound = { sound: resolved.answer.sound as Sound, src: resolved.answer.src as string }
+    sounds.set(handle, sound)
+    applyResolvedSound(element, sound, handle)
+    return
+  }
   const classified = 'error' in resolved ? classifyMediaAnswer({ error: resolved.error }) : classifyMediaAnswer({ answer: resolved.answer })
   let resolvedFailure: 'no-page' | undefined
   try {
@@ -293,7 +343,7 @@ function applyPlacementResolution<R extends { kind: string }>(
   })
 }
 
-export async function resolvePlacements<R extends { kind: string }>(
+export async function resolvePlacementsWithSounds<R extends { kind: string }>(
   html: string,
   options: {
     resolvePlacement: ResolvePlacement<R>
@@ -303,12 +353,13 @@ export async function resolvePlacements<R extends { kind: string }>(
     day?: AsOfDay
     report?: PlacementReport
     pdfSources?: Map<string, PlacedPdfSource>
+    sounds?: Map<string, ResolvedSoundPlacement>
   },
-): Promise<string> {
+): Promise<ResolvedPlacements> {
   const document = parse(html)
   const found = elements(document.children)
   const plan = planElements(found)
-  if (plan.entries.length === 0 && plan.refusals.length === 0) return html
+  if (plan.entries.length === 0 && plan.refusals.length === 0) return { html, sounds: options.sounds ?? new Map() }
   options.signal.throwIfAborted()
   for (const refusal of plan.refusals) {
     const element = found[refusal.index]
@@ -340,14 +391,27 @@ export async function resolvePlacements<R extends { kind: string }>(
     resolvedEntries.map((resolved) => ({ placement: resolved.entry.placement.address, answer: 'answer' in resolved ? resolved.answer : undefined })),
     options.purpose,
   )
+  const sounds = options.sounds ?? new Map<string, ResolvedSoundPlacement>()
   for (const resolved of resolvedEntries) {
-    applyPlacementResolution(found, resolved, {
-      purpose: options.purpose,
-      signal: options.signal,
-      report: options.report,
-      pdfSources: options.pdfSources,
-    })
+    applyPlacementResolution(
+      found,
+      resolved,
+      {
+        purpose: options.purpose,
+        signal: options.signal,
+        report: options.report,
+        pdfSources: options.pdfSources,
+      },
+      sounds,
+    )
   }
   options.signal.throwIfAborted()
-  return serialize(document)
+  return { html: serialize(document), sounds }
+}
+
+export async function resolvePlacements<R extends { kind: string }>(
+  html: string,
+  options: Parameters<typeof resolvePlacementsWithSounds<R>>[1],
+): Promise<string> {
+  return (await resolvePlacementsWithSounds(html, options)).html
 }

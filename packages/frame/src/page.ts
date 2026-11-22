@@ -10,11 +10,12 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
+import type { ResolvedSoundPlacement } from '@segnavia/html'
 import { type EstablishedPageDay, type HtmlPage, parseDocument, resolveEdition } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import type { PageSelection } from './bridge.ts'
+import { messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -36,6 +37,7 @@ import { loadPageUrl } from './page-url-load.ts'
 import { renderPageValue } from './page-value-render.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import type { PreparedSlots } from './slot-render.ts'
+import { dispatchSoundPlay } from './sound-play.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
@@ -65,6 +67,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
+  private sounds = new Map<string, ResolvedSoundPlacement>()
   private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
@@ -220,11 +223,18 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private loadValue(page: Page, established?: EstablishedPageDay) {
     this.hostServed = false
     const generation = this.releaseFrame()
+    this.sounds = new Map()
     const controller = new AbortController()
     this.slotPreparation = controller
     const iframe = this.mount(page)
     const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.loadGeneration && iframe === this.querySelector('iframe')
-    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '', fontFailures: FontFailure[] = []) => {
+    const show = (
+      shownPage: HtmlPage,
+      resolved?: PreparedSlots,
+      fontCss = '',
+      fontFailures: FontFailure[] = [],
+      sounds = new Map<string, ResolvedSoundPlacement>(),
+    ) => {
       if (!isCurrent()) return
       loadShownPageDocument(
         shownPage,
@@ -240,6 +250,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
         (document, hasLayoutScripts) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
+          this.sounds = sounds
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
           this.writeDocument(iframe, document, false, hasLayoutScripts)
@@ -395,5 +406,6 @@ export class SegnaviaPage extends PageParseOptionsElement {
         releaseReadyPageRequests(this.pageRequests)
       },
     })
+    dispatchSoundPlay(this, messageFrom(event, frame, resolvePreflightProfile(this.profileInput)), this.sounds)
   }
 }

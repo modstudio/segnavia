@@ -99,6 +99,10 @@ test('removes library-owned generated contents markers from author HTML', () => 
   )
 })
 
+test('removes the library-owned sound handle from author HTML', () => {
+  expect(sanitize('<p data-segnavia-sound="0">Authored</p>')).toBe('<p>Authored</p>')
+})
+
 const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
 

@@ -48,6 +48,7 @@ export { type ExpandedPrintedFramePage, expandPrintedFramePage } from './printed
 export type PlacementsOptions = AssetPlacementsOptions
 export interface ExpandedFramePage {
   page: HtmlPage
+  sounds: Map<string, import('@segnavia/html').ResolvedSoundPlacement>
   fonts: FontReference[]
   preflight?: PreflightEntry[]
 }
@@ -340,7 +341,8 @@ export async function expandFramePage(
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
-    return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths, day, preflight), fonts: [], preflight: preflight?.entries ?? [] }
+    const resolved = await resolvePagePlacements(page, placements, purpose, signal, pageWidths, day, preflight)
+    return { ...resolved, fonts: [], preflight: preflight?.entries ?? [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
   const { bodyResults, parentResults, fonts } = await expandPageMotifs(page, [{ html: page.html, lang }], regions, lang, motifs, signal, day)
@@ -353,8 +355,9 @@ export async function expandFramePage(
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
+  const resolved = await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight)
   return {
-    page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight),
+    ...resolved,
     fonts,
     preflight: preflight?.entries ?? [],
   }

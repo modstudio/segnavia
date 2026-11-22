@@ -18,6 +18,7 @@ import {
   type Point,
   pageOrPrintedFromDocument,
   revealView,
+  type Sound,
   zoomAt,
 } from '@segnavia/format'
 import { type PlacementsOptions, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
@@ -69,6 +70,7 @@ export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize })
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
+  | (ResolvedBase & { kind: 'sound'; sound: Sound; src: string })
 
 export interface UnavailableBoardItem {
   kind: ResolvedBoardItem['kind']
@@ -91,6 +93,7 @@ export type CheckedResolvedBoardItem =
   | (CheckedResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize })
   | (CheckedResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (CheckedResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
+  | (CheckedResolvedBase & { kind: 'sound'; sound: Sound; src: string })
 
 export type BoardResolutionOutcome =
   | { status: 'pending' }
@@ -110,7 +113,6 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: PixelSize) {
 }
 
 function expectedAnswerKind(item: BoardItem): ResolvedBoardItem['kind'] {
-  if (item.kind === 'sound') throw new Error(`The sound at ${item.address} has no board face.`)
   return item.kind === 'media' ? 'image' : item.kind
 }
 
@@ -139,7 +141,7 @@ export function checkResolved(
   const expected = expectedAnswerKind(item)
   if (resolved.kind !== expected) throw kindMismatch(resolved.kind, expected)
   if (resolved.kind === 'image' || resolved.kind === 'shot') checkSize(resolved.kind, { width: resolved.width, height: resolved.height })
-  else if (resolved.kind !== 'deck') checkSize(resolved.kind, resolved.size)
+  else if (resolved.kind !== 'deck' && resolved.kind !== 'sound') checkSize(resolved.kind, resolved.size)
   const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
   if (resolved.kind === 'deck') {
     const document = resolvedDocument(item, resolved.deck, ['deck'])
@@ -193,7 +195,7 @@ export function boardItemFact(outcome: BoardResolutionOutcome): BoardItemFact | 
     kind = outcome.value.kind
     if (outcome.value.kind === 'deck') deck = outcome.value.deck
     else if (outcome.value.kind === 'image' || outcome.value.kind === 'shot') size = { width: outcome.value.width, height: outcome.value.height }
-    else size = outcome.value.size
+    else if (outcome.value.kind !== 'sound') size = outcome.value.size
   }
   if (kind === 'deck') return deck ? { kind: 'deck', deck } : undefined
   if (!size) return undefined

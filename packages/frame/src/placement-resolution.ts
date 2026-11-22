@@ -11,13 +11,13 @@ import {
   resolvePageWidth,
   sheetMm,
 } from '@segnavia/format'
-import type { HtmlPage, PrintedHtmlPage } from '@segnavia/html'
+import type { HtmlPage, PrintedHtmlPage, ResolvedPlacements, ResolvedSoundPlacement } from '@segnavia/html'
 import {
   PLACED_PDF_SOURCES,
   type PlacementReport,
   placementMissingEntry,
   printedSectionBodies,
-  resolvePlacements,
+  resolvePlacementsWithSounds,
   withPrintedSectionBodies,
 } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -53,10 +53,11 @@ export function resolvePagePlacementHtml(
   pageWidths?: PageWidths,
   day?: AsOfDay,
   preflight?: PlacementPreflight,
-): Promise<string> {
-  if (!placements) return Promise.resolve(html)
+  sounds = new Map<string, ResolvedSoundPlacement>(),
+): Promise<ResolvedPlacements> {
+  if (!placements) return Promise.resolve({ html, sounds })
   const width = page.print ? paperPixels(sheetMm(page.print).width) : resolvePageWidth(page.size, pageWidths).viewportWidth
-  return resolvePlacements(html, {
+  return resolvePlacementsWithSounds(html, {
     resolvePlacement: placements.resolve,
     report: placementReportWithPreflight(placements.report, preflight),
     purpose,
@@ -64,7 +65,13 @@ export function resolvePagePlacementHtml(
     signal,
     day,
     pdfSources: placements[PLACED_PDF_SOURCES],
+    sounds,
   })
+}
+
+export interface ResolvedPagePlacements {
+  page: HtmlPage
+  sounds: Map<string, ResolvedSoundPlacement>
 }
 
 export async function resolvePagePlacements(
@@ -75,12 +82,13 @@ export async function resolvePagePlacements(
   pageWidths?: PageWidths,
   day?: AsOfDay,
   preflight?: PlacementPreflight,
-): Promise<HtmlPage> {
-  if (!placements) return page
-  const html = await resolvePagePlacementHtml(page, page.html, placements, purpose, signal, pageWidths, day, preflight)
-  if (!page.printedPages) return { ...page, html }
-  const parents = await resolveParentPlacements(page, placements, purpose, signal, pageWidths, day, preflight)
-  return { ...page, html, printedPages: { ...page.printedPages, parents } }
+): Promise<ResolvedPagePlacements> {
+  if (!placements) return { page, sounds: new Map() }
+  const sounds = new Map<string, ResolvedSoundPlacement>()
+  const resolved = await resolvePagePlacementHtml(page, page.html, placements, purpose, signal, pageWidths, day, preflight, sounds)
+  if (!page.printedPages) return { page: { ...page, html: resolved.html }, sounds }
+  const parents = await resolveParentPlacements(page, placements, purpose, signal, pageWidths, day, preflight, sounds)
+  return { page: { ...page, html: resolved.html, printedPages: { ...page.printedPages, parents } }, sounds }
 }
 
 export async function resolvePrintedPagePlacements(
@@ -98,7 +106,9 @@ export async function resolvePrintedPagePlacements(
       withPrintedSectionBodies(
         section,
         await Promise.all(
-          printedSectionBodies(section).map((html) => resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight)),
+          printedSectionBodies(section).map(
+            async (html) => (await resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight)).html,
+          ),
         ),
       ),
     ),
@@ -115,6 +125,7 @@ async function resolveParentPlacements(
   pageWidths?: PageWidths,
   day?: AsOfDay,
   preflight?: PlacementPreflight,
+  sounds = new Map<string, ResolvedSoundPlacement>(),
 ) {
   return Promise.all(
     (page.printedPages?.parents ?? []).map(async (parent) => ({
@@ -123,7 +134,7 @@ async function resolveParentPlacements(
         await Promise.all(
           Object.entries(parent.regions).map(async ([name, region]) => [
             name,
-            { ...region, html: await resolvePagePlacementHtml(page, region.html, placements, purpose, signal, pageWidths, day, preflight) },
+            { ...region, html: (await resolvePagePlacementHtml(page, region.html, placements, purpose, signal, pageWidths, day, preflight, sounds)).html },
           ]),
         ),
       ),

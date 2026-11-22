@@ -1,5 +1,5 @@
 import type { AsOfDay, FontFailure, PageWidths, SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, hasAsOfBinding, slotsWithDay } from '@segnavia/html'
+import { type HtmlPage, hasAsOfBinding, type ResolvedSoundPlacement, slotsWithDay } from '@segnavia/html'
 import { type ExpandedFramePage, expandFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
@@ -13,11 +13,11 @@ export async function prepareExpandedPage(
   pageWidths?: PageWidths,
   beforeFonts?: (expanded: ExpandedFramePage) => void,
   day?: AsOfDay,
-): Promise<{ page: HtmlPage; css: string; failures: FontFailure[] }> {
+): Promise<{ page: HtmlPage; sounds: Map<string, ResolvedSoundPlacement>; css: string; failures: FontFailure[] }> {
   const resolved = await expandFramePage(page, motifs, signal, placements, 'screen', pageWidths, day)
   beforeFonts?.(resolved)
   const { css, failures } = await pageFontCss(resolved.page, resolved.fonts, fonts, signal)
-  return { page: resolved.page, css, failures }
+  return { page: resolved.page, sounds: resolved.sounds, css, failures }
 }
 
 export async function prepareShownPage(
@@ -29,7 +29,7 @@ export async function prepareShownPage(
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
   day?: AsOfDay,
-): Promise<{ page: HtmlPage; resolved?: PreparedSlots; css: string; failures: FontFailure[] }> {
+): Promise<{ page: HtmlPage; sounds: Map<string, ResolvedSoundPlacement>; resolved?: PreparedSlots; css: string; failures: FontFailure[] }> {
   let effectiveSlots = slots
   const expanded = await prepareExpandedPage(
     page,

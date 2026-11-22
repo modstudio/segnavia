@@ -1,10 +1,11 @@
-import type { BoardItem } from '@segnavia/format'
+import { type BoardItem, soundCover } from '@segnavia/format'
 import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem, unavailablePlaceholder } from './board-live.ts'
 import type { BoardTier, CheckedResolvedBoardItem } from './board-policy.ts'
 import type { BoardResolutionOutcome } from './board-resolutions.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation } from './designed-cover-policy.ts'
+import { soundPlayDetail } from './sound-play.ts'
 
 export class BoardPainter {
   private readonly tiers = new Map<string, BoardTier>()
@@ -60,10 +61,34 @@ export class BoardPainter {
         this.disposals.set(id, mounted.dispose)
         return mounted.element
       }
+      if (resolved.kind === 'sound') {
+        const mounted = mountDesignedCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
+        this.disposals.set(id, mounted.dispose)
+        return mounted.element
+      }
       if (resolved.kind === 'image' || resolved.kind === 'shot') return boardImage(resolved.src)
       return resolved.cover ? boardImage(resolved.cover) : boardPlaceholder()
     }
     if (resolved.kind === 'image' || resolved.kind === 'shot') return boardImage(resolved.src)
+    if (resolved.kind === 'sound') {
+      const button = document.createElement('button')
+      button.type = 'button'
+      const mounted = mountDesignedCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
+      mounted.element.style.pointerEvents = 'none'
+      button.append(mounted.element)
+      button.addEventListener('click', () => {
+        button.dispatchEvent(
+          new CustomEvent('segnavia-sound-play', {
+            detail: soundPlayDetail(resolved.sound, resolved.src, id),
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+          }),
+        )
+      })
+      this.disposals.set(id, mounted.dispose)
+      return button
+    }
     const live = liveBoardItem(resolved, failed, inputs)
     this.disposals.set(id, live.dispose)
     return live.element

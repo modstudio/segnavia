@@ -24,6 +24,9 @@ import { baseLayerCss } from '@segnavia/html'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
+
+export type { FrameMessage } from './bridge-message.ts'
+
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
@@ -62,6 +65,7 @@ export const MESSAGE = {
   composeProgress: 'segnavia:compose-progress',
   fontFailures: 'segnavia:font-failures',
   preflight: 'segnavia:preflight',
+  soundPlay: 'segnavia:sound-play',
 } as const
 export const HEADING_ID_LIMIT = 256
 
@@ -263,6 +267,8 @@ ${composerSlotFit}
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
 window.addEventListener('click',function(e){
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+var sound=e.target;while(sound&&!(sound.tagName==='BUTTON'&&sound.hasAttribute('data-segnavia-sound')))sound=sound.parentElement;
+if(sound){post({type:'${MESSAGE.soundPlay}',placement:sound.getAttribute('data-segnavia-sound')});return;}
 var link=e.target;while(link&&link.tagName!=='A')link=link.parentElement;
 if(!link||link.hasAttribute('target')||link.hasAttribute('download'))return;
 var href=link.getAttribute('href');if(!href||href.charAt(0)!=='#')return;

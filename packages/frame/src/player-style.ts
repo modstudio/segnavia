@@ -14,7 +14,7 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
   border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
 .fit-reserve{position:absolute;visibility:hidden;pointer-events:none;block-size:var(--segnavia-fit-reserve,0px)}
-.player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;min-height:inherit}
+.player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "sound" "below";grid-template-rows:minmax(0,1fr) auto auto auto auto;min-height:inherit}
 :host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
 .screen{flex:1;min-width:0;container-type:inline-size;display:block;position:relative;padding-block-end:8px}
@@ -37,6 +37,7 @@ segnavia-caption{grid-area:caption;padding:6px 24px 10px;min-block-size:calc(var
 segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
 .bar{grid-area:bar;display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
+.sound-bar{grid-area:sound;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 12px 12px}.sound-bar[hidden],.sound-bar segnavia-sound{display:none}.sound-controls{display:flex;align-items:center;gap:4px}
 :host([controls="overlay"]:not([data-presenting])) .player{grid-template-areas:"body" "below";grid-template-rows:auto auto}
 :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);
   grid-template-areas:"rail body" "below below";grid-template-rows:auto auto}

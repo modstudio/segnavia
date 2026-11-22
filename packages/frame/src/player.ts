@@ -18,6 +18,7 @@ import { upgradeProperties } from './element-properties.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
+import type { SegnaviaSound } from './media-elements.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
 import { PLAYER_ATTRIBUTES } from './player-attributes.ts'
 import { definePlayerForwardedPropertyAccessors, type PlayerForwardedProperties } from './player-forwarded-properties.ts'
@@ -36,6 +37,7 @@ import { connectPlayerRefusal } from './player-refusal.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaRefusal } from './refusal.ts'
+import type { SoundPlayDetail } from './sound-play.ts'
 import type { SegnaviaStage } from './stage.ts'
 import { createSourceController } from './stage-source-controller.ts'
 import { CONTROLLER_STYLED_ELEMENTS, STYLED_ELEMENTS } from './styled-elements.ts'
@@ -50,7 +52,7 @@ const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="pl
       <div class="center"><segnavia-step to="previous" exportparts="step-button,button:previous-button">${forwardedIconSlot('previous')}</segnavia-step><segnavia-play exportparts="button:play-button">${forwardedIconSlot('play')}${forwardedIconSlot('pause')}</segnavia-play><segnavia-step to="next" exportparts="step-button,button:next-button">${forwardedIconSlot('next')}</segnavia-step></div>
       <div class="end"><div class="actions"><slot name="actions"></slot></div><div class="end-controls"><segnavia-mute exportparts="button:mute-button">${forwardedIconSlot('mute')}${forwardedIconSlot('unmute')}</segnavia-mute><segnavia-captions exportparts="button:captions-button">${forwardedIconSlot('captionsOn')}${forwardedIconSlot('captionsOff')}</segnavia-captions><button class="notes-toggle" part="notes-button" data-act="notes" hidden>${iconSlot('notes')}</button><segnavia-fullscreen exportparts="button:presentation-button">${forwardedIconSlot('enterPresentation')}${forwardedIconSlot('exitPresentation')}</segnavia-fullscreen></div></div>
     </div>
-  </div><segnavia-rail exportparts="rail,thumbnail,thumbnail-current,thumbnail-number"></segnavia-rail><div class="below"><slot name="below"></slot></div></div>`
+  </div><div class="sound-bar" hidden><segnavia-sound></segnavia-sound><segnavia-track exportparts="track:sound-track,segment:sound-segment"></segnavia-track><div class="sound-controls"><segnavia-play exportparts="button:sound-play-button">${forwardedIconSlot('play')}${forwardedIconSlot('pause')}</segnavia-play><segnavia-time exportparts="time:sound-time"></segnavia-time><segnavia-mute exportparts="button:sound-mute-button">${forwardedIconSlot('mute')}${forwardedIconSlot('unmute')}</segnavia-mute></div></div><segnavia-rail exportparts="rail,thumbnail,thumbnail-current,thumbnail-number"></segnavia-rail><div class="below"><slot name="below"></slot></div></div>`
 
 const COMPONENTS = Object.values(STYLED_ELEMENTS)
   .filter((tag) => tag !== STYLED_ELEMENTS.player)
@@ -80,6 +82,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
+  private sound: SegnaviaSound
   private words: PlayerLabels = ENGLISH_LABELS
   private resize = new ResizeObserver(() => this.scheduleMeasure())
   private measureFrame = 0
@@ -91,10 +94,26 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.controller = createSourceController(this)
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
+    this.sound = this.root.querySelector('segnavia-sound') as SegnaviaSound
     connectPlayerRefusal(this.root, this.stage)
     for (const control of this.controlElements()) if (control.tagName !== 'SEGNAVIA-RAIL' || this.rail) control.controller = this.controller
+    for (const control of this.root.querySelectorAll<SegnaviaControl>(
+      '.sound-bar segnavia-track,.sound-bar segnavia-play,.sound-bar segnavia-time,.sound-bar segnavia-mute',
+    ))
+      control.controller = this.sound.controller
     ;(this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen).targetElement = this
-    this.controller.addEventListener('change', (event) => this.update((event as CustomEvent<DeckState>).detail))
+    this.controller.addEventListener('change', (event) => {
+      const state = (event as CustomEvent<DeckState>).detail
+      if (state.playing && this.sound.controller.state.playing) this.sound.controller.pause()
+      this.update(state)
+    })
+    this.sound.controller.addEventListener('change', (event) => {
+      const playing = (event as CustomEvent<import('./playback.ts').PlaybackState>).detail.playing
+      this.root.querySelector<HTMLElement>('.sound-bar')?.toggleAttribute('hidden', !playing)
+      if (playing && this.controller.state.playing) this.controller.pause()
+      this.scheduleMeasure()
+    })
+    this.stage.addEventListener('segnavia-sound-play', this.onSoundPlay as EventListener)
     this.controller.addEventListener('exit', () => {
       if (document.fullscreenElement === this) void document.exitFullscreen()
     })
@@ -205,6 +224,15 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     window.removeEventListener('orientationchange', this.scheduleMeasure)
     window.visualViewport?.removeEventListener('resize', this.scheduleMeasure)
     this.overlay.dispose()
+    this.sound.controller.pause()
+  }
+
+  private onSoundPlay = (event: CustomEvent<SoundPlayDetail>) => {
+    event.preventDefault()
+    this.controller.pause()
+    this.sound.sound = event.detail.sound
+    this.sound.src = event.detail.src
+    void this.sound.controller.play()
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
