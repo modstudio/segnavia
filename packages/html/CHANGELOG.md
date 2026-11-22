@@ -21,7 +21,7 @@
 - 7e96c6d: Set generated contents depth for a whole book or cap it per section with
   `contentsDepth`. The contents node's former `depth` field is refused with a
   remedy naming `contentsDepth`.
-- 9cb0c13: Number note series and footnotes from authored heading levels, with labelled heading runs for collected notes.
+- 9cb0c13: Number note series and footnotes from authored heading levels, with labeled heading runs for collected notes.
 - c938142: List book-placed note sections in contents and outlines, with note-series `contents` and `contentsLabel` controls.
 - 4b4619a: Add sound as a placed asset kind for pages and decks, and refuse declared sounds on every print and PDF path.
 - 9121f04: Change preflight coverage shortfalls into the new `coverage-incomplete` check,
