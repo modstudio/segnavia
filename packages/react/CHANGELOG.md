@@ -1,5 +1,62 @@
 # @segnavia/react
 
+## 0.57.0
+
+### Minor Changes
+
+- 9121f04: Change preflight coverage shortfalls into the new `coverage-incomplete` check,
+  reported as a warning by default and refused under `strict`. Report `status` no
+  longer includes `incomplete`; hosts may turn the new check `off` in a custom
+  profile.
+
+  `boundPreflightReport` now accepts coverage units and custom bounds in one
+  trailing options object; pass custom bounds as `options.bounds`.
+
+- 54d8848: Add a slim page-only browser entry point.
+  Allow page elements to use a host-supplied ID mint when parsing documents, and accept it as the React page's `newId` prop.
+- a783a10: Add the headless `<segnavia-printed-pages>` windowed viewer with single and facing layouts, fitting, navigation, record mapping, reload preservation, failure reporting, and a React wrapper.
+- 5274414: Give sounds a directional cover, add natural and square thumbnail fits, and provide headless image and sound viewers that share the player controls. Shared controls expose their controller as either deck or playback controller, matching what the property accepts. `@segnavia/format` exports `formatDuration`, the clock text that frame's `formatTime` now uses, and `@segnavia/frame` exports `THUMBNAIL_RATIOS`, the table of thumbnail ratios.
+- ae7134d: Allow hosts to cap how far board reveals zoom in with `revealMaxZoom` or a per-call `reveal(id, { maxZoom })` override.
+
+### Patch Changes
+
+- Updated dependencies [f94cd2e]
+- Updated dependencies [19773f8]
+- Updated dependencies [6000aff]
+- Updated dependencies [73d203d]
+- Updated dependencies [b802e31]
+- Updated dependencies [76957b8]
+- Updated dependencies [4b4619a]
+- Updated dependencies [df8cb9f]
+- Updated dependencies [9121f04]
+- Updated dependencies [65df494]
+- Updated dependencies [d171860]
+- Updated dependencies [28b7acb]
+- Updated dependencies [d235969]
+- Updated dependencies [54d8848]
+- Updated dependencies [a783a10]
+- Updated dependencies [689c6aa]
+- Updated dependencies [1018e31]
+- Updated dependencies [34abdf5]
+- Updated dependencies [d0cd093]
+- Updated dependencies [df2f2cd]
+- Updated dependencies [74a8045]
+- Updated dependencies [993ff17]
+- Updated dependencies [6d22914]
+- Updated dependencies [b64e791]
+- Updated dependencies [fc68ebf]
+- Updated dependencies [943d69d]
+- Updated dependencies [8b08d16]
+- Updated dependencies [5274414]
+- Updated dependencies [dcb677e]
+- Updated dependencies [0919a03]
+- Updated dependencies [6058a2b]
+- Updated dependencies [a04d05b]
+- Updated dependencies [ae7134d]
+- Updated dependencies [a1419bb]
+- Updated dependencies [d7d637c]
+  - @segnavia/frame@0.57.0
+
 ## 0.56.0
 
 ### Minor Changes

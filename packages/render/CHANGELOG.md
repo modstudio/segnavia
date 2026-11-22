@@ -1,5 +1,143 @@
 # @segnavia/render
 
+## 0.57.0
+
+### Minor Changes
+
+- 7fd24f0: Add bounded received-PDF input limits and `renderer.stampPdf` for watermarking and protecting host-supplied PDFs, including the offline asset seam and documented watermark font precedence.
+- 6000aff: Report unmeasured slot fit explicitly, wait for hidden frames to become laid out,
+  and include measured and total slot coverage in preflight reports.
+- 73d203d: Add copyfit before pagination with ordered size, leading and tracking strategies,
+  shared fit groups, measured fit facts and `fit-limit` preflight reporting.
+
+  This is a clean break for book templates: the former region-only meaning of
+  `data-fit-min` and `data-fit-step` is removed. Without `data-fit`, the new
+  vocabulary defaults to the `size` strategy.
+
+  The `fitRegionSize` export is removed from `@segnavia/html`. Preflight fit facts
+  now have `{ subject, group?, values }` instead of `{ group, size }`; hosts that
+  read those facts must use the per-strategy `values` map.
+
+- 76957b8: Let `pageImage` select one page from a composed printed-page run, and let page, slide, and cover image renders preserve a transparent background in PNG and WebP output.
+- 4b4619a: Add sound as a placed asset kind for pages and decks, and refuse declared sounds on every print and PDF path.
+- 3714e95: Add AES-256 PDF protection with owner and open passwords and configurable permissions.
+- 9121f04: Change preflight coverage shortfalls into the new `coverage-incomplete` check,
+  reported as a warning by default and refused under `strict`. Report `status` no
+  longer includes `incomplete`; hosts may turn the new check `off` in a custom
+  profile.
+
+  `boundPreflightReport` now accepts coverage units and custom bounds in one
+  trailing options object; pass custom bounds as `options.bounds`.
+
+- 3e76201: Add named document editions, conditional HTML and nodes, and edition-aware server rendering.
+- 689c6aa: Draw Mermaid diagrams through the layout provider runtime.
+
+  - Replace `withDiagramScript` with the public `layoutScripts` frame option.
+  - Replace `loadDiagramScript` with `loadLayoutScripts`.
+  - Replace `loadDiagramScriptResult` with the rejection result from `loadLayoutScripts`.
+  - Replace `DIAGRAM_READY_EXPR` with layout phase settlement.
+  - Replace `DIAGRAM_READY_NAME` with `segnaviaLayout.run('galley')` settlement.
+  - Replace `DIAGRAMS_DRAWN_ATTRIBUTE` with layout phase settlement.
+  - Replace the render option `diagramScript` with `layoutScripts`.
+  - Replace the `@segnavia/diagrams/script` export `diagramScript` with `diagramProviderScript`.
+  - Use `hasLayoutProvider` from `@segnavia/frame/layout` to query the shared provider registry.
+
+- 4417f9e: Add independent heading listing facts, shared document outlines, and PDF outlines for printed documents.
+- df2f2cd: Number book parts and chapters in contents, outlines and running heads; give parts contents labels; and allow a part to continue on the current page with a generated heading.
+- 74a8045: Printed documents hold designed pages, flowing sections and records in any order, and a section can name its own paper with `pageGeometry`.
+- 6d22914: Count book division folios without printing them. Contents entries keep an empty number for unprinted pages, authored page references refuse those targets, and pages-total continues to report the counted total.
+
+  Saved plans from earlier plan versions must be recomputed. `pageReferenceFolio` now takes folio print status, division, and reference role in a named options object.
+
+- 89ac4e4: Ship the `segnavia-render` command for offline PDF rendering from one JSON standard-input request, with typed JSON refusal and failure outcomes. `directoryFontSource` now refuses an unusable `src` or root with a `RenderRefusedError` whose code is `font-source` and whose subject names the path.
+- 51666c8: Add validated font catalogs and ready-made URL, directory, custom-loader, and combined font sources with bounded per-instance caching.
+- 2ba990b: Add text and image watermarks to `pagePdf` and `pagesPdf`, including logical placement, page selection, right-to-left diagonal layout, offline assets, and PDF artifact stamping before finishing and imposition.
+- efe9484: Add `pdfPageImage` to rasterize a selected PDF page and box into an offline, white-ground PNG for host-managed screen renditions. It reads the crop box a page inherits from its page tree, and treats a malformed or zero-area optional box as absent. `@segnavia/format` exports `PAGE_BOXES`, the PDF page box names.
+- 053ab6a: Asset refusals identify whether their clearing advice is for the author or the host.
+- 9fbf790: Place PDF media pages as bounded vector Form XObjects in `pagePdf`, `pagesPdf`, and `bookPdf`, while preserving the host's existing image rendition path for screen views and source-only print answers.
+- a04d05b: Add the shared refusal base and document identity refusals to `@segnavia/format`.
+  Expose machine-readable refusal details from `@segnavia/html`.
+  Expose machine-readable refusal details from `@segnavia/frame`.
+  Expose machine-readable refusal details from `@segnavia/voice`.
+  Expose structured render and asset refusal details from `@segnavia/render`.
+- d968a17: Add text and image watermarks to `bookPdf` and `deckPdf`, with physical-page selection across front matter and notes sheets and reader-page stamping before deck imposition.
+- 3356448: Add render-only text and image watermarks to page, slide, and cover images with page selection, inherited page fonts and direction, and offline asset policy enforcement.
+- fe1cf51: Add `renderer.mergePdfs` to merge finished library PDFs into one, with one outline entry per part above that part's own outline. Links land in their own part, structure is kept when every part is tagged, and failed parts are collected as a `pdf-parts` refusal or skipped under `skipRefused`.
+- 6584b51: Breaking for hosts: an option key a render entry point does not define is now refused with the call and option path. The new refusals for an unknown key inside protection, protection.permissions, watermark and watermark.position use that form; value refusals for protection, permissions and watermark are unchanged.
+
+### Patch Changes
+
+- 9015cde: Keep offline rendering available under Chrome 158.
+- 9c31fae: Preserve tagged PDF structure when joining printed documents and book parts.
+- 9f27650: Report failures after reading a sound PDF as renderer errors.
+- Updated dependencies [7fd24f0]
+- Updated dependencies [f94cd2e]
+- Updated dependencies [19773f8]
+- Updated dependencies [6000aff]
+- Updated dependencies [73d203d]
+- Updated dependencies [7e96c6d]
+- Updated dependencies [b802e31]
+- Updated dependencies [9cb0c13]
+- Updated dependencies [76957b8]
+- Updated dependencies [c938142]
+- Updated dependencies [4b4619a]
+- Updated dependencies [df8cb9f]
+- Updated dependencies [054d18b]
+- Updated dependencies [9121f04]
+- Updated dependencies [65df494]
+- Updated dependencies [d171860]
+- Updated dependencies [28b7acb]
+- Updated dependencies [3e76201]
+- Updated dependencies [d235969]
+- Updated dependencies [0c02e6c]
+- Updated dependencies [54d8848]
+- Updated dependencies [e603def]
+- Updated dependencies [e2e58c9]
+- Updated dependencies [a783a10]
+- Updated dependencies [689c6aa]
+- Updated dependencies [4417f9e]
+- Updated dependencies [dac1f50]
+- Updated dependencies [1018e31]
+- Updated dependencies [8012f7a]
+- Updated dependencies [34abdf5]
+- Updated dependencies [d0cd093]
+- Updated dependencies [df2f2cd]
+- Updated dependencies [74a8045]
+- Updated dependencies [993ff17]
+- Updated dependencies [6d22914]
+- Updated dependencies [3ace440]
+- Updated dependencies [b64e791]
+- Updated dependencies [fc68ebf]
+- Updated dependencies [51666c8]
+- Updated dependencies [943d69d]
+- Updated dependencies [8b08d16]
+- Updated dependencies [5274414]
+- Updated dependencies [55d6829]
+- Updated dependencies [260c232]
+- Updated dependencies [d0cd093]
+- Updated dependencies [dcb677e]
+- Updated dependencies [efe9484]
+- Updated dependencies [b6a4273]
+- Updated dependencies [a898633]
+- Updated dependencies [053ab6a]
+- Updated dependencies [2b45442]
+- Updated dependencies [0919a03]
+- Updated dependencies [2a0a47f]
+- Updated dependencies [9fbf790]
+- Updated dependencies [6058a2b]
+- Updated dependencies [a04d05b]
+- Updated dependencies [cf01807]
+- Updated dependencies [b451aa0]
+- Updated dependencies [ae7134d]
+- Updated dependencies [a1419bb]
+- Updated dependencies [d7d637c]
+- Updated dependencies [31c2def]
+- Updated dependencies [6d3ecf6]
+  - @segnavia/format@0.57.0
+  - @segnavia/frame@0.57.0
+  - @segnavia/html@0.57.0
+  - @segnavia/layout@0.57.0
+
 ## 0.56.0
 
 ### Minor Changes
