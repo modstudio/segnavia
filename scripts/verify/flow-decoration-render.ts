@@ -52,6 +52,21 @@ function book(html: string): DocumentInput {
   }
 }
 
+function recordBook(html: string): DocumentInput {
+  return {
+    ...book(''),
+    templates: [
+      {
+        type: 'template',
+        name: 'row',
+        html: '<article><h1 data-slot-value="name"></h1><div data-record-body></div></article>',
+        slots: [{ key: 'name', label: 'Name', type: 'text' }],
+      },
+    ],
+    children: [{ type: 'record', id: 'entry', template: 'row', values: { name: 'Entry' }, children: [{ type: 'flow', html }] }],
+  }
+}
+
 interface PagePaint {
   bands: Array<{ start: number; end: number }>
   textAreaBands: Array<{ start: number; end: number }>
@@ -203,6 +218,32 @@ export async function verifyFlowDecorationRender(renderer: Renderer, work: strin
     hasBottom(sliced[1]) &&
     sliced.every((page) => page.leftSideRows > 20 && page.rightSideRows > 20)
   check('a box split between pages is sliced with side borders on both pages', slicedOk, detail(sliced))
+
+  const paragraphs = Array.from({ length: 80 }, (_, index) => `<p>Paragraph ${index + 1}</p>`).join('')
+  const items = Array.from({ length: 60 }, (_, index) => `<li>List item ${index + 1}</li>`).join('')
+  const nestedFlows = [
+    ['article-list', `<article><ul>${items}</ul></article>`],
+    ['div-list', `<div><ul>${items}</ul></div>`],
+    ['section-list', `<section><ul>${items}</ul></section>`],
+    ['blockquote-list', `<blockquote><ul>${items}</ul></blockquote>`],
+    ['article-ordered-list', `<article><ol>${items}</ol></article>`],
+    ['nested-div-paragraphs', `<div><div>${paragraphs}</div></div>`],
+  ] as const
+  for (const [name, html] of nestedFlows) {
+    const pages = await render(renderer, work, `nested-flow-${name}`, book(html), 'book')
+    check(`a nested ${name} flow breaks across pages`, pages.length >= 2, detail(pages))
+  }
+
+  const recordPages = await render(renderer, work, 'nested-flow-record-body', recordBook(paragraphs), 'book')
+  check('a record body inside an article breaks across pages', recordPages.length >= 2, detail(recordPages))
+
+  const borderedNested = await render(renderer, work, 'nested-flow-bordered', book(`<article style="${BOX}">${paragraphs}</article>`), 'book')
+  const borderedNestedOk =
+    borderedNested.length >= 2 &&
+    hasTop(borderedNested[0]) &&
+    hasBottom(borderedNested.at(-1)) &&
+    borderedNested.every((page) => page.leftSideRows > 20 && page.rightSideRows > 20)
+  check('a nested wrapper split between pages keeps its outer border edges', borderedNestedOk, detail(borderedNested))
 
   const nested = await render(renderer, work, 'decoration-nested', printed(`<section><aside style="${BOX}">${LINES}</aside></section>`), 'page')
   check('a nested bordered aside keeps both border bands', hasTop(nested[0]) && hasBottom(nested[0]), detail(nested))

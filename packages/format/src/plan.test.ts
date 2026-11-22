@@ -23,7 +23,7 @@ function page(): PlanValue['pages'][number] {
 
 function plan(): PlanValue {
   return {
-    version: 7,
+    version: 8,
     fingerprint: 'fnv1a64:0000000000000000',
     breaks: [],
     pages: [page()],

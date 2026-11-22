@@ -60,6 +60,182 @@ function measuredElement(options: {
   }
 }
 
+interface NestedMeasuredLeaf {
+  rects: Array<{ top: number; bottom: number }>
+}
+
+interface NestedMeasuredElement {
+  tagName: string
+  childNodes: NestedMeasuredNode[]
+  parentElement: NestedMeasuredElement | null
+  ownerDocument: unknown
+  closest: () => null
+  querySelectorAll: (selector: string) => NestedMeasuredElement[]
+  getBoundingClientRect: () => { top: number; bottom: number; height: number }
+  rects?: Array<{ top: number; bottom: number }>
+}
+
+type NestedMeasuredNode = NestedMeasuredElement | NestedMeasuredLeaf
+
+function nestedMeasuredElement(tag: string, children: NestedMeasuredNode[]): NestedMeasuredElement {
+  const element = {
+    tagName: tag.toUpperCase(),
+    childNodes: children,
+    parentElement: null,
+    ownerDocument: null,
+    closest: () => null,
+    querySelectorAll: (selector: string) => {
+      if (selector === ':scope > span[data-segnavia-line]' || selector === '[data-side-note]') return []
+      if (selector === 'table')
+        return children.flatMap((child) => ('tagName' in child && child.tagName === 'TABLE' ? [child] : (child.querySelectorAll?.(selector) ?? [])))
+      return []
+    },
+    getBoundingClientRect: () => ({ top: 0, bottom: 0, height: 0 }),
+  }
+  for (const child of children) if ('tagName' in child) child.parentElement = element
+  return element
+}
+
+function measureNested(element: NestedMeasuredElement): MeasuredLineBox[] {
+  const document = {
+    createRange: () => {
+      let selected: unknown
+      return {
+        selectNodeContents: (node: unknown) => {
+          selected = node
+        },
+        selectNode: (node: unknown) => {
+          selected = node
+        },
+        setStart: (node: unknown, start: number) => {
+          selected = { node, start }
+        },
+        setEnd: (node: unknown, end: number) => {
+          const start = selected && typeof selected === 'object' && 'start' in selected ? Number(selected.start) : 0
+          selected = { childNodes: (node as { childNodes: unknown[] }).childNodes.slice(start, end) }
+        },
+        getClientRects: () => {
+          if (selected && typeof selected === 'object' && 'rects' in selected) return selected.rects
+          if (selected && typeof selected === 'object' && 'childNodes' in selected)
+            return (selected.childNodes as NestedMeasuredNode[]).flatMap((child) => child.rects ?? [])
+          return []
+        },
+      }
+    },
+  }
+  const attach = (node: NestedMeasuredElement) => {
+    node.ownerDocument = document
+    for (const child of node.childNodes) if ('tagName' in child) attach(child)
+  }
+  attach(element)
+  return measureLineBoxes(element as unknown as Element, 0)
+}
+
+type MeasuredLineBox = ReturnType<typeof measureLineBoxes>[number]
+
+test.each([
+  [
+    'article > ul',
+    nestedMeasuredElement('article', [
+      nestedMeasuredElement('ul', [
+        {
+          rects: [
+            { top: 10, bottom: 20 },
+            { top: 20, bottom: 30 },
+          ],
+        },
+      ]),
+    ]),
+  ],
+  [
+    'div > div > p',
+    nestedMeasuredElement('div', [
+      nestedMeasuredElement('div', [
+        nestedMeasuredElement('p', [
+          {
+            rects: [
+              { top: 10, bottom: 20 },
+              { top: 20, bottom: 30 },
+            ],
+          },
+        ]),
+      ]),
+    ]),
+  ],
+  [
+    'blockquote > ul',
+    nestedMeasuredElement('blockquote', [
+      nestedMeasuredElement('ul', [
+        {
+          rects: [
+            { top: 10, bottom: 20 },
+            { top: 20, bottom: 30 },
+          ],
+        },
+      ]),
+    ]),
+  ],
+  [
+    'article > ol',
+    nestedMeasuredElement('article', [
+      nestedMeasuredElement('ol', [
+        {
+          rects: [
+            { top: 10, bottom: 20 },
+            { top: 20, bottom: 30 },
+          ],
+        },
+      ]),
+    ]),
+  ],
+])('%s measures one line per nested item', (_name, element) => {
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureNested(element)).toEqual([
+      { top: 10, bottom: 20 },
+      { top: 20, bottom: 30 },
+    ])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('inline text before a block child keeps its line before the child lines', () => {
+  const text = { rects: [{ top: 10, bottom: 20 }] }
+  const child = nestedMeasuredElement('div', [
+    {
+      rects: [
+        { top: 30, bottom: 40 },
+        { top: 40, bottom: 50 },
+      ],
+    },
+  ])
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureNested(nestedMeasuredElement('article', [text, child]))).toEqual([
+      { top: 10, bottom: 20 },
+      { top: 30, bottom: 40 },
+      { top: 40, bottom: 50 },
+    ])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('an image inside a wrapper remains one replaced box', () => {
+  const image = nestedMeasuredElement('img', [{ rects: [{ top: 10, bottom: 80 }] }])
+  ;(image as unknown as { rects: Array<{ top: number; bottom: number }> }).rects = [{ top: 10, bottom: 80 }]
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureNested(nestedMeasuredElement('article', [image]))).toEqual([{ top: 10, bottom: 80 }])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
 test('a hidden descendant table does not change its block lines', () => {
   const hiddenTable = {
     tagName: 'TABLE',

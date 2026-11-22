@@ -4,10 +4,12 @@ import { measureLineNoteAnchors } from './composer-line-label-measure.ts'
 import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
 import {
   applyBoxDecorations,
+  childLineBoxRanges,
   composerLayoutReady,
   decorationBoxTop,
   descendantKeepSignals,
   forcedPageBreak,
+  groupedLineBoxes,
   inlineLevelDisplay,
   keepSignals,
   lineNumberedLines,
@@ -20,6 +22,7 @@ import {
   measureLineBoxes,
   measurementRefusal,
   outermostKeepValue,
+  recursiveLineBoxChild,
   sizeFlowGalley,
   skippableDescendantBoxDisplay,
 } from './composer-measure.ts'
@@ -63,6 +66,9 @@ export function embeddedComposerMeasureFunctions(lineNotes = false): string {
     embedFunction('composerLayoutReady', composerLayoutReady),
     embedFunction('insideSideNote', insideSideNote),
     embedFunction('contentRangesExcludingSideNotes', contentRangesExcludingSideNotes),
+    embedFunction('recursiveLineBoxChild', recursiveLineBoxChild),
+    embedFunction('childLineBoxRanges', childLineBoxRanges),
+    embedFunction('groupedLineBoxes', groupedLineBoxes),
     embedFunction('sizeFlowGalley', sizeFlowGalley),
     embedFunction('tableRowLines', tableRowLines),
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),

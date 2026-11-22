@@ -48,7 +48,7 @@ function fixtures() {
     fingerprint: '',
   })
   const plan = {
-    version: 7,
+    version: 8,
     fingerprint: '',
     breaks: [],
     pages: [page(0, 80, 0, true), page(80, 170, 0, false)],

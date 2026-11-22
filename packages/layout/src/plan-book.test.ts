@@ -35,7 +35,7 @@ describe('planBook', () => {
     expect(result).toEqual({
       ok: true,
       plan: {
-        version: 7,
+        version: 8,
         pages: paginated.pages.map((page, index) => ({
           ...page,
           variables: { ...(expectedFolios[index] ? { 'segnavia:folio': expectedFolios[index] } : {}), 'segnavia:pages-total': total },

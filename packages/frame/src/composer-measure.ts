@@ -229,6 +229,74 @@ export function sizeFlowGalley(flow: HTMLElement, width: number, height: number,
   flow.style.widows = String(widows)
 }
 
+export function recursiveLineBoxChild(element: Element): boolean {
+  const style = getComputedStyle(element)
+  const tag = element.tagName.toLowerCase()
+  return (
+    !insideSideNote(element) &&
+    style.display !== 'none' &&
+    style.display !== 'contents' &&
+    !inlineLevelDisplay(style.display) &&
+    style.position !== 'absolute' &&
+    style.position !== 'fixed' &&
+    tag !== 'table' &&
+    tag !== 'img' &&
+    tag !== 'figure'
+  )
+}
+
+export function childLineBoxRanges(
+  element: Element,
+  origin: number,
+): { groups: MeasuredLineBox[]; ranges: Range[]; replacedBoxes: Array<{ top: number; bottom: number }> } {
+  const groups: MeasuredLineBox[] = []
+  const ranges: Range[] = []
+  const replacedBoxes: Array<{ top: number; bottom: number }> = []
+  const sideNotes = new Set(element.querySelectorAll('[data-side-note]'))
+  if (sideNotes.size > 0) ranges.push(...contentRangesExcludingSideNotes(element))
+  let rangeStart = 0
+  const addRange = (end: number) => {
+    if (end <= rangeStart) return
+    const range = element.ownerDocument.createRange()
+    range.setStart(element, rangeStart)
+    range.setEnd(element, end)
+    ranges.push(range)
+  }
+  for (const [index, child] of Array.from(element.childNodes).entries()) {
+    const childElement = 'tagName' in child ? (child as Element) : undefined
+    if (!childElement || !recursiveLineBoxChild(childElement)) continue
+    if (sideNotes.size === 0) addRange(index)
+    else {
+      const box = childElement.getBoundingClientRect()
+      replacedBoxes.push({ top: box.top, bottom: box.bottom })
+    }
+    groups.push(...measureLineBoxes(childElement, origin))
+    if (sideNotes.size === 0) rangeStart = index + 1
+  }
+  if (sideNotes.size === 0) addRange(element.childNodes.length)
+  if (element.childNodes.length === 0) ranges.push(...contentRangesExcludingSideNotes(element))
+  return { groups, ranges, replacedBoxes }
+}
+
+export function groupedLineBoxes(
+  groups: MeasuredLineBox[],
+  ranges: readonly Range[],
+  replacedBoxes: ReadonlyArray<{ top: number; bottom: number }>,
+  origin: number,
+): MeasuredLineBox[] {
+  for (const range of ranges) {
+    for (const rect of range.getClientRects()) {
+      if (replacedBoxes.some((box) => Math.abs(box.top - rect.top) < 0.5 && Math.abs(box.bottom - rect.bottom) < 0.5)) continue
+      const top = rect.top - origin
+      const bottom = rect.bottom - origin
+      const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
+      if (!found) groups.push({ top, bottom })
+      else if (bottom > found.bottom) found.bottom = bottom
+    }
+  }
+  return groups.sort((left, right) => left.top - right.top)
+}
+
 export function measureLineBoxes(element: Element, origin: number): MeasuredLineBox[] {
   const tag = element.tagName.toLowerCase()
   if (tag === 'img') {
@@ -251,17 +319,8 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
-  const groups: MeasuredLineBox[] = []
-  for (const range of contentRangesExcludingSideNotes(element)) {
-    for (const rect of range.getClientRects()) {
-      const top = rect.top - origin
-      const bottom = rect.bottom - origin
-      const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
-      if (!found) groups.push({ top, bottom })
-      else if (bottom > found.bottom) found.bottom = bottom
-    }
-  }
-  groups.sort((left, right) => left.top - right.top)
+  const measured = childLineBoxRanges(element, origin)
+  const groups = groupedLineBoxes(measured.groups, measured.ranges, measured.replacedBoxes, origin)
   if (groups.length > 0 || tables.length > 0) return linesWithDescendantTables(groups, tables)
   const box = element.getBoundingClientRect()
   return box.height > 0 ? [{ top: box.top - origin, bottom: box.bottom - origin }] : []
