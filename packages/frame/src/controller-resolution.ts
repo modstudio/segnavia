@@ -23,6 +23,7 @@ export async function resolveFreshContent(
       purpose: 'screen',
       width,
       signal,
+      sounds: new Map(),
     })
     return { ...content, html: resolved.html, sounds: resolved.sounds }
   }

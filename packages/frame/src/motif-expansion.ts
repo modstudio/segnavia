@@ -48,7 +48,7 @@ export { type ExpandedPrintedFramePage, expandPrintedFramePage } from './printed
 export type PlacementsOptions = AssetPlacementsOptions
 export interface ExpandedFramePage {
   page: HtmlPage
-  sounds: Map<string, import('@segnavia/html').ResolvedSoundPlacement>
+  sounds: import('@segnavia/html').SoundPlacements
   fonts: FontReference[]
   preflight?: PreflightEntry[]
 }

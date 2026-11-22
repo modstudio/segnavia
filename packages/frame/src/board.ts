@@ -343,6 +343,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
         (item) => item.id,
       ),
     )
+    const soundHandles = new Map(board.items.filter((item) => item.kind === 'sound').map((item, index) => [item.id, String(index)]))
     for (const item of board.items) {
       const mounted = this.mounts.nodes.has(item.id)
       if (!boardPolicy.shouldMountItem(mounted, half.has(item.id), full.has(item.id))) {
@@ -351,18 +352,18 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       }
       const node = this.mounts.nodes.get(item.id) ?? this.mounts.mount(item)
       placeBoardItem(node, this.currentView, item, this.shapeCache.value.shapes.items[item.id], this.titles)
-      this.paintItem(node, item)
+      this.paintItem(node, item, soundHandles.get(item.id))
       this.resolve(item)
     }
   }
 
-  private paintItem(node: HTMLElement, item: BoardItem) {
+  private paintItem(node: HTMLElement, item: BoardItem, soundPlacement?: string) {
     const outcome = this.resolutions.outcome(item.address)
     const name = this.names.name(item, this.resolutions.namingOutcome(item.address))
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, outcome, tier, (error) => this.fail(item, error), this.frameInputs)
+    this.painter.paint(node, item, outcome, tier, (error) => this.fail(item, error), this.frameInputs, soundPlacement)
   }
   private resolve(item: BoardItem) {
     this.resolutions.request(

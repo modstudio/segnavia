@@ -81,6 +81,7 @@ describe('resolvePlacements', () => {
       purpose: 'screen',
       width: 100,
       signal,
+      sounds: new Map(),
     })
     expect(output.html).toContain('<button type="button" data-segnavia-sound="0" aria-label="Theme" dir="ltr">')
     expect(output.html).toContain('<button type="button" data-segnavia-sound="1" aria-label="סיום" dir="rtl" lang="he">')
@@ -89,6 +90,36 @@ describe('resolvePlacements', () => {
       ['0', { sound: first, src: 'sound:theme' }],
       ['1', { sound: second, src: 'sound:end' }],
     ])
+  })
+
+  test('markup-only resolution keeps a placed sound as the book placeholder', async () => {
+    const reports: unknown[] = []
+    const output = await resolvePlacements('<img data-segnavia-media="theme">', {
+      resolvePlacement: async () => ({ kind: 'sound' as const, sound: { format: 'mp3' as const, durationMs: 1_000 }, src: 'theme.mp3' }),
+      purpose: 'screen',
+      width: 100,
+      signal,
+      report: (entry) => reports.push(entry),
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+    expect(output).not.toContain('data-segnavia-sound')
+    expect(reports).toEqual([{ address: 'theme', page: undefined, reason: 'invalid', message: 'resolved sound, not media' }])
+  })
+
+  test('uses the shared sound face and resolves its image placement', async () => {
+    const sound = { format: 'mp3' as const, durationMs: 3_723_000, image: 'art' }
+    const output = await resolvePlacementsWithSounds('<img data-segnavia-media="theme">', {
+      resolvePlacement: async (placement) =>
+        placement.address === 'theme' ? { kind: 'sound' as const, sound, src: 'theme.mp3' } : { kind: 'media' as const, media: media(), src: png },
+      purpose: 'screen',
+      width: 100,
+      signal,
+      sounds: new Map(),
+    })
+    expect(output.html).toContain('data-segnavia-sound="0"')
+    expect(output.html).toContain('>1:02:03</bdi>')
+    expect(output.html).toContain(`src="${png}"`)
+    expect(output.html).not.toContain('data-segnavia-media="art"')
   })
 
   test('reports a non-media answer as invalid and draws the placeholder', async () => {

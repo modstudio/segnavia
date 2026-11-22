@@ -11,7 +11,7 @@ import {
   resolvePageWidth,
   sheetMm,
 } from '@segnavia/format'
-import type { HtmlPage, PrintedHtmlPage, ResolvedPlacements, ResolvedSoundPlacement } from '@segnavia/html'
+import type { HtmlPage, PrintedHtmlPage, SoundPlacements } from '@segnavia/html'
 import {
   PLACED_PDF_SOURCES,
   type PlacementReport,
@@ -53,9 +53,9 @@ export function resolvePagePlacementHtml(
   pageWidths?: PageWidths,
   day?: AsOfDay,
   preflight?: PlacementPreflight,
-  sounds = new Map<string, ResolvedSoundPlacement>(),
-): Promise<ResolvedPlacements> {
-  if (!placements) return Promise.resolve({ html, sounds })
+  sounds: SoundPlacements = new Map(),
+): Promise<string> {
+  if (!placements) return Promise.resolve(html)
   const width = page.print ? paperPixels(sheetMm(page.print).width) : resolvePageWidth(page.size, pageWidths).viewportWidth
   return resolvePlacementsWithSounds(html, {
     resolvePlacement: placements.resolve,
@@ -66,12 +66,12 @@ export function resolvePagePlacementHtml(
     day,
     pdfSources: placements[PLACED_PDF_SOURCES],
     sounds,
-  })
+  }).then((resolved) => resolved.html)
 }
 
 export interface ResolvedPagePlacements {
   page: HtmlPage
-  sounds: Map<string, ResolvedSoundPlacement>
+  sounds: SoundPlacements
 }
 
 export async function resolvePagePlacements(
@@ -84,11 +84,11 @@ export async function resolvePagePlacements(
   preflight?: PlacementPreflight,
 ): Promise<ResolvedPagePlacements> {
   if (!placements) return { page, sounds: new Map() }
-  const sounds = new Map<string, ResolvedSoundPlacement>()
-  const resolved = await resolvePagePlacementHtml(page, page.html, placements, purpose, signal, pageWidths, day, preflight, sounds)
-  if (!page.printedPages) return { page: { ...page, html: resolved.html }, sounds }
+  const sounds: SoundPlacements = new Map()
+  const html = await resolvePagePlacementHtml(page, page.html, placements, purpose, signal, pageWidths, day, preflight, sounds)
+  if (!page.printedPages) return { page: { ...page, html }, sounds }
   const parents = await resolveParentPlacements(page, placements, purpose, signal, pageWidths, day, preflight, sounds)
-  return { page: { ...page, html: resolved.html, printedPages: { ...page.printedPages, parents } }, sounds }
+  return { page: { ...page, html, printedPages: { ...page.printedPages, parents } }, sounds }
 }
 
 export async function resolvePrintedPagePlacements(
@@ -107,7 +107,7 @@ export async function resolvePrintedPagePlacements(
         section,
         await Promise.all(
           printedSectionBodies(section).map(
-            async (html) => (await resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight)).html,
+            async (html) => resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight),
           ),
         ),
       ),
@@ -125,7 +125,7 @@ async function resolveParentPlacements(
   pageWidths?: PageWidths,
   day?: AsOfDay,
   preflight?: PlacementPreflight,
-  sounds = new Map<string, ResolvedSoundPlacement>(),
+  sounds: SoundPlacements = new Map(),
 ) {
   return Promise.all(
     (page.printedPages?.parents ?? []).map(async (parent) => ({
@@ -134,7 +134,7 @@ async function resolveParentPlacements(
         await Promise.all(
           Object.entries(parent.regions).map(async ([name, region]) => [
             name,
-            { ...region, html: (await resolvePagePlacementHtml(page, region.html, placements, purpose, signal, pageWidths, day, preflight, sounds)).html },
+            { ...region, html: await resolvePagePlacementHtml(page, region.html, placements, purpose, signal, pageWidths, day, preflight, sounds) },
           ]),
         ),
       ),

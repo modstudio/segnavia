@@ -8,7 +8,7 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
-import type { ResolvedSoundPlacement } from '@segnavia/html'
+import type { SoundPlacements } from '@segnavia/html'
 import { type HtmlPage, resolvePageHtml, slotsWithDay } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
@@ -36,7 +36,7 @@ export interface PageValueRenderHandlers {
     resolved?: PreparedSlots,
     fontCss?: string,
     fontFailures?: import('@segnavia/format').FontFailure[],
-    sounds?: Map<string, ResolvedSoundPlacement>,
+    sounds?: SoundPlacements,
   ): void
   report(error: unknown): void
   write(document: string, provisional: boolean, hasLayoutScripts: boolean): void

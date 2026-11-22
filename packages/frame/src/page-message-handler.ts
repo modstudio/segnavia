@@ -1,5 +1,5 @@
 import { type Page, type PreflightProfileInput, resolvePreflightProfile } from '@segnavia/format'
-import type { ResolvedSoundPlacement } from '@segnavia/html'
+import type { SoundPlacements } from '@segnavia/html'
 import { messageFrom } from './bridge.ts'
 import type { PageFrameHeightState } from './page-element-layout.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
@@ -20,19 +20,19 @@ interface PageMessageHost extends HTMLElement {
   fit(): void
 }
 
-type PageMessageFields = readonly [
-  PreparedSlots | undefined,
-  PageFrameIdentity | undefined,
-  PageFrameIdentity | undefined,
-  number | undefined,
-  Map<string, ResolvedSoundPlacement>,
-  boolean,
-]
+export interface PageMessageFields {
+  resolvedSlots: PreparedSlots | undefined
+  slotFrame: PageFrameIdentity | undefined
+  layoutFrame: PageFrameIdentity | undefined
+  loadedDocument: number | undefined
+  sounds: SoundPlacements
+  documentIsFinal: boolean
+}
 
 export function handlePageElementMessage(
   target: unknown,
   event: MessageEvent,
-  [resolvedSlots, slotFrame, layoutFrame, loadedDocument, sounds, documentIsFinal]: PageMessageFields,
+  { resolvedSlots, slotFrame, layoutFrame, loadedDocument, sounds, documentIsFinal }: PageMessageFields,
 ): void {
   const host = target as PageMessageHost
   const frame = host.querySelector('iframe')

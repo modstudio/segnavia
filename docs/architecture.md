@@ -48,11 +48,14 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 ### Standalone media
 
 A resolved sound placement is a library-owned button carrying a short handle,
-not the sound URL. The frame bridge reports that handle as one bounded
-`segnavia:sound-play` message. The page or stage that owns the frame resolves
-the handle and raises a bubbling, composed, cancelable `segnavia-sound-play`
-event with `{ sound, src, placement }`. Unknown handles and messages from any
-other frame are dropped. A host outside the player handles that event and plays
+not the sound URL. Each page, stage or board numbers its own sounds in surface
+order, so `placement` in every sound event is a per-surface decimal handle no
+longer than 256 characters, never a document id. The frame bridge reports that
+handle as one bounded `segnavia:sound-play` message. The page or stage that owns
+the frame resolves the handle; a board resolves it directly. Each raises a
+bubbling, composed, cancelable `segnavia-sound-play` event with
+`{ sound, src, placement }`. Unknown handles and messages from any other frame
+are dropped. A host outside the player handles that event and plays
 the detail in its own `<segnavia-sound>` with styled controls. The player does
 the same internally; its sound and deck playback pause each other, and its
 sound controls exist only while the placed sound is playing. Headless elements

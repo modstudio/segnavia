@@ -10,7 +10,7 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
-import type { ResolvedSoundPlacement } from '@segnavia/html'
+import type { SoundPlacements } from '@segnavia/html'
 import { type EstablishedPageDay, type HtmlPage, parseDocument, resolveEdition } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
@@ -66,7 +66,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
-  private sounds = new Map<string, ResolvedSoundPlacement>()
+  private sounds: SoundPlacements = new Map()
   private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
@@ -232,7 +232,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
       resolved?: PreparedSlots,
       fontCss = '',
       fontFailures: FontFailure[] = [],
-      sounds = new Map<string, ResolvedSoundPlacement>(),
+      sounds: SoundPlacements = new Map(),
     ) => {
       if (!isCurrent()) return
       loadShownPageDocument(
@@ -385,6 +385,13 @@ export class SegnaviaPage extends PageParseOptionsElement {
     fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
   private onMessage = (event: MessageEvent) => {
-    handlePageElementMessage(this, event, [this.resolvedSlots, this.slotFrame, this.layoutFrame, this.loadedDocument, this.sounds, this.documentIsFinal])
+    handlePageElementMessage(this, event, {
+      resolvedSlots: this.resolvedSlots,
+      slotFrame: this.slotFrame,
+      layoutFrame: this.layoutFrame,
+      loadedDocument: this.loadedDocument,
+      sounds: this.sounds,
+      documentIsFinal: this.documentIsFinal,
+    })
   }
 }

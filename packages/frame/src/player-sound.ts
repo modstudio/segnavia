@@ -9,6 +9,8 @@ export interface PlayerSoundElement {
 }
 
 export class PlayerSoundPlayback {
+  private soundSlide: number | undefined
+
   constructor(
     private readonly deck: Playback,
     private readonly sound: PlayerSoundElement,
@@ -20,12 +22,22 @@ export class PlayerSoundPlayback {
   handle = (event: CustomEvent<SoundPlayDetail>) => {
     event.preventDefault()
     this.deck.pause()
+    this.soundSlide = this.deck.state.index
     this.sound.sound = event.detail.sound
     this.sound.src = event.detail.src
-    void this.sound.controller.play()
+    void this.sound.controller.play().catch(() => {
+      this.soundSlide = undefined
+      this.visible(false)
+    })
   }
 
-  deckChanged(state: Pick<PlaybackState, 'playing'>): void {
+  deckChanged(state: Pick<PlaybackState, 'playing' | 'index'>): void {
+    if (this.soundSlide !== undefined && state.index !== this.soundSlide) {
+      this.soundSlide = undefined
+      this.sound.controller.pause()
+      this.visible(false)
+      return
+    }
     if (state.playing && this.sound.controller.state.playing) this.sound.controller.pause()
   }
 

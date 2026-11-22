@@ -1,5 +1,5 @@
 import type { Deck, NarrationPacing, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
-import type { ResolvedSoundPlacement } from '@segnavia/html'
+import type { SoundPlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import type { Clock } from './clock.ts'
@@ -15,7 +15,7 @@ export type ResolvedUrlContent = Extract<FormatResolvedContent, { kind: 'url' }>
   scripts?: 'refuse'
 }
 export type ResolvedHtmlContent = Extract<FormatResolvedContent, { kind: 'html' }> & {
-  sounds?: Map<string, ResolvedSoundPlacement>
+  sounds?: SoundPlacements
 }
 
 export type ResolvedContent = Exclude<FormatResolvedContent, { kind: 'url' | 'html' }> | ResolvedUrlContent | ResolvedHtmlContent

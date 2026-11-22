@@ -166,6 +166,7 @@ export {
   type ResolvedPlacement,
   type ResolvedPlacements,
   type ResolvedSoundPlacement,
+  type SoundPlacements,
   type ResolvePlacement,
   resolvePlacements,
   resolvePlacementsWithSounds,

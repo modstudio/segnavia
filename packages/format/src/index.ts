@@ -339,6 +339,7 @@ export * from './slot-values.ts'
 export * from './slots.ts'
 export { SOUND_FORMATS, Sound, SoundFormat, type SoundInput } from './sound.ts'
 export { soundCover } from './sound-cover.ts'
+export { soundFace } from './sound-face.ts'
 export {
   type MergedStyleSheet,
   type MergeStyleSheetsResult,
