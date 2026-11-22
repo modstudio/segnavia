@@ -63,7 +63,13 @@ function recordBook(html: string): DocumentInput {
         slots: [{ key: 'name', label: 'Name', type: 'text' }],
       },
     ],
-    children: [{ type: 'record', id: 'entry', template: 'row', values: { name: 'Entry' }, children: [{ type: 'flow', html }] }],
+    children: [
+      {
+        type: 'part',
+        name: 'records',
+        children: [{ type: 'record', id: 'entry', title: 'Entry', template: 'row', values: { name: 'Entry' }, children: [{ type: 'flow', html }] }],
+      },
+    ],
   }
 }
 
@@ -237,7 +243,7 @@ export async function verifyFlowDecorationRender(renderer: Renderer, work: strin
   const recordPages = await render(renderer, work, 'nested-flow-record-body', recordBook(paragraphs), 'book')
   check('a record body inside an article breaks across pages', recordPages.length >= 2, detail(recordPages))
 
-  const borderedNested = await render(renderer, work, 'nested-flow-bordered', book(`<article style="${BOX}">${paragraphs}</article>`), 'book')
+  const borderedNested = await render(renderer, work, 'nested-flow-bordered', book(`<article style="${BOX}"><div>${paragraphs}</div></article>`), 'book')
   const borderedNestedOk =
     borderedNested.length >= 2 &&
     hasTop(borderedNested[0]) &&
