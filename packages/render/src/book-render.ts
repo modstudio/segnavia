@@ -7,7 +7,6 @@ import {
   KEEP_WITH_CUSTOM_PROPERTY,
   type Limits,
   type OriginApproval,
-  Plan,
   type PreflightEntry,
   type PreflightProfile,
   PX_PER_MM,
@@ -31,6 +30,7 @@ import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { parseBookRenderPlan } from './book-plan-parse.ts'
 import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -96,8 +96,9 @@ export function lastBookPlanText(root: ParentNode = document): string | null | u
 export async function composedPlanFromTab(tab: Tab, limits: Pick<ResolvedLimits, 'pages' | 'pagesSource'>): Promise<SavedPlan> {
   const text = await tab.evaluate(lastBookPlanText)
   try {
-    return Plan.parse(JSON.parse(text ?? 'null'), { limits })
+    return parseBookRenderPlan(JSON.parse(text ?? 'null'), limits)
   } catch (error) {
+    if (error instanceof RenderRefusedError) throw error
     throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
   }
 }
@@ -331,11 +332,7 @@ export async function renderBrowserBookPdf(
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
   if (options.plan !== undefined) {
-    try {
-      options = { ...options, plan: Plan.parse(options.plan, { limits: resolveLimits(book.limits, options.limits) }) }
-    } catch (error) {
-      throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-    }
+    options = { ...options, plan: parseBookRenderPlan(options.plan, resolveLimits(book.limits, options.limits)) }
   }
   let resolvedLayouts: Promise<LoadedLayoutScript[]> | undefined
   const withTab = dependencies.withTab

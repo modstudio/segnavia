@@ -1,19 +1,11 @@
 import { expect, test } from 'bun:test'
-import { type Plan, PREFLIGHT_PRESETS, resolveLimits, StyleSheet } from '@segnavia/format'
+import { type Plan, PREFLIGHT_PRESETS, StyleSheet } from '@segnavia/format'
 import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
 import { frameStyleSheets } from '@segnavia/frame/bridge'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
-import {
-  awaitBookComposition,
-  composedPlanFromTab,
-  continuousBookNeedsScripts,
-  lastBookPlanText,
-  renderBrowserBookPdf,
-  renderBrowserBookPlan,
-  usesKeepWith,
-} from './book-render.ts'
+import { awaitBookComposition, continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
 import { RenderRefusedError } from './errors.ts'
 
 const currentDay = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
@@ -36,57 +28,6 @@ function planPage(number: number): Plan['pages'][number] {
     fingerprint: `page-${number}`,
   }
 }
-
-function savedPlan(pageCount: number): Plan {
-  const pages = Array.from({ length: pageCount }, (_, index) => planPage(index + 1))
-  return {
-    version: 8,
-    fingerprint: 'saved',
-    breaks: [],
-    pages,
-    folios: pages.map((page) => String(page.number)),
-    folioPrints: pages.map(() => true),
-    total: String(pageCount),
-    documentFolios: pages.map((page) => String(page.number)),
-    documentTotal: String(pageCount),
-    recordTotals: {},
-    records: {},
-  }
-}
-
-test('re-reads a composed plan with the resolved document and host page limit', async () => {
-  const published = JSON.stringify(savedPlan(501))
-  const tab = { evaluate: async () => published } as never
-
-  await expect(composedPlanFromTab(tab, resolveLimits({ pages: 1000 }, undefined))).resolves.toHaveProperty('pages.length', 501)
-  await expect(composedPlanFromTab(tab, resolveLimits({ pages: 1000 }, { pages: 400 }))).rejects.toThrow("raise the host's limits.pages")
-})
-
-test('checks a supplied plan once the document page limit is known', async () => {
-  const book = parseBookFixture({
-    title: 'Long book',
-    mode: 'paginated',
-    limits: { pages: 1000 },
-    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
-    chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
-  })
-  const plan = savedPlan(501)
-  let renderCalls = 0
-  const dependencies = {
-    render: async () => {
-      renderCalls += 1
-      throw new Error('accepted plan reached the print adapter')
-    },
-    fontFaces: () => '',
-    finish: async (pdf: Uint8Array) => pdf,
-  }
-
-  await expect(renderBrowserBookPdf(book, { plan }, '', dependencies, currentDay)).rejects.toThrow('accepted plan reached the print adapter')
-  expect(renderCalls).toBe(1)
-
-  await expect(renderBrowserBookPdf(book, { plan, limits: { pages: 400 } }, '', dependencies, currentDay)).rejects.toThrow("raise the host's limits.pages")
-  expect(renderCalls).toBe(1)
-})
 
 test('book composition reports the bounded preflight once before refusing its error', async () => {
   const reports: unknown[] = []

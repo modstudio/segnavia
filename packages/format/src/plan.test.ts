@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { resolveLimits } from './limits.ts'
+import { LimitExceededError, resolveLimits } from './limits.ts'
 import { Plan, type Plan as PlanValue } from './plan.ts'
 
 function page(): PlanValue['pages'][number] {
@@ -57,9 +57,7 @@ describe('Plan', () => {
 
   test('refuses the first invalid field with a clearing action', () => {
     expect(() => Plan.parse({ ...plan(), version: 3 })).toThrow(/version.*compute a new plan to clear this refusal/)
-    expect(() => Plan.parse({ ...plan(), pages: [page(), { ...page(), number: 2 }] }, { limits: { pages: 1 } })).toThrow(
-      /pages.*limits.pages.*clear this refusal/,
-    )
+    expect(() => Plan.parse(planWithPages(2), { limits: { pages: 1 } })).toThrow(/composed flow.*pages limit.*clear this refusal/)
     expect(() => Plan.parse({ ...plan(), pages: [{ ...page(), start: { flow: 'chapter', block: 0, line: -1 } }] })).toThrow(
       /pages.0.start.line.*non-negative.*clear this refusal/,
     )
@@ -74,7 +72,20 @@ describe('Plan', () => {
   test('checks saved pages against their resolved limit and its source', () => {
     const value = planWithPages(510)
     expect(Plan.parse(value, { limits: resolveLimits({ pages: 1000 }, undefined) })).toEqual(value)
-    expect(() => Plan.parse(value, { limits: resolveLimits({ pages: 1000 }, { pages: 400 }) })).toThrow("raise the host's limits.pages")
+    try {
+      Plan.parse(value, { limits: resolveLimits({ pages: 1000 }, { pages: 400 }) })
+      throw new Error('expected the plan to exceed the host page limit')
+    } catch (error) {
+      expect(error).toBeInstanceOf(LimitExceededError)
+      expect(error).toMatchObject({ exceeded: [{ measure: 'pages', actual: 510, limit: 400 }] })
+      expect((error as Error).message).toContain("raise the host's limits.pages")
+    }
     expect(() => Plan.parse(value, { limits: resolveLimits(undefined, undefined) })).toThrow('declare a higher limits.pages on the document')
+  })
+
+  test('checks structure without applying the default page bound', () => {
+    const value = planWithPages(510)
+    expect(Plan.parseStructure(value)).toEqual(value)
+    expect(() => Plan.parseStructure({ ...value, folios: [] })).toThrow(/folios.*pages.*compute a new plan to clear this refusal/)
   })
 })
