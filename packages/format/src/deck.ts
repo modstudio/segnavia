@@ -147,6 +147,12 @@ export type SlideContent = z.infer<typeof SlideContent>
 // A slide plays for its narration and surrounding pauses, or for its hold.
 export const Slide = closedObject({
   id: z.string(),
+  title: z
+    .string()
+    .refine((title) => title.trim().length > 0, {
+      message: 'a slide title needs visible text; give it text or remove title to clear this refusal',
+    })
+    .optional(),
   content: SlideContent,
   notes: z.string().optional(),
   narration: Narration.optional(),

@@ -7,6 +7,7 @@ import { STYLED_ELEMENT_NAMES } from './styled-elements.ts'
 
 const HTMLElementBase = globalThis.HTMLElement ?? class {}
 let trackPrototype: object | null = null
+let railPrototype: object | null = null
 
 class ValueElement extends HTMLElementBase {
   private current = 0
@@ -215,6 +216,7 @@ test('every declared property is an accessor on its element prototype', async ()
       itemSettings: itemSettings.SegnaviaItemSettings,
     }
     trackPrototype = controls.SegnaviaTrack.prototype
+    railPrototype = rail.SegnaviaRail.prototype
     for (const [key, descriptor] of Object.entries(ELEMENT_PROPERTIES)) {
       for (const property of descriptor.properties) {
         let prototype: object | null = classes[key]?.prototype ?? null
@@ -266,4 +268,73 @@ test('a continuous deck track renders segments beyond the furthest reach as lock
   renderer.renderContinuousSegments.call({}, list, playbackState)
 
   expect(segments.map((segment) => segment.dataset.state)).toEqual(['done', 'current', 'locked'])
+})
+
+test('a segmented deck track labels titled and untitled slides', () => {
+  const slides = [
+    { id: 'a', title: 'Intro', content: { kind: 'html' as const, html: '' } },
+    { id: 'b', content: { kind: 'html' as const, html: '' } },
+  ]
+  const state = { ...initialDeckState(), deck: { slides }, slide: slides[0], index: 0 } as unknown as DeckState
+  const labels: string[] = []
+  const items = slides.map((_, index) => ({
+    dataset: { go: String(index) },
+    style: { setProperty() {} },
+    setAttribute(name: string, value: string) {
+      if (name === 'aria-label') labels[index] = value
+    },
+    removeAttribute() {},
+  }))
+  const renderer = trackPrototype as {
+    renderSegments(list: unknown, state: unknown, continuous: boolean): void
+  }
+
+  renderer.renderSegments.call(
+    {
+      deckController: { state },
+      labels: { slide: (number: number, total: number, title?: string) => (title ? `${title}, ${number}/${total}` : `${number}/${total}`) },
+    },
+    { querySelectorAll: () => items },
+    {},
+    false,
+  )
+
+  expect(labels).toEqual(['Intro, 1/2', '2/2'])
+})
+
+test('the rail labels titled and untitled slides', () => {
+  const slides = [
+    { id: 'a', title: 'Intro', content: { kind: 'html' as const, html: '' } },
+    { id: 'b', content: { kind: 'html' as const, html: '' } },
+  ]
+  const labels: string[] = []
+  const items = slides.map((slide, index) => {
+    const number = { textContent: '' }
+    const button = {
+      dataset: {} as Record<string, string>,
+      querySelector: () => number,
+      setAttribute(name: string, value: string) {
+        if (name === 'aria-label') labels[index] = value
+      },
+    }
+    return { dataset: { slideId: slide.id }, querySelector: () => button }
+  })
+  const list = {
+    querySelectorAll: () => items,
+    insertBefore() {},
+  }
+  const renderer = railPrototype as { reconcile(state: DeckState): void }
+
+  renderer.reconcile.call(
+    {
+      root: { querySelector: () => list },
+      labels: { slide: (number: number, total: number, title?: string) => (title ? `${title}, ${number}/${total}` : `${number}/${total}`) },
+      decorateSlideSettings() {},
+      decorateItemSettings() {},
+      reorder: { sync() {} },
+    },
+    { ...initialDeckState(), deck: { slides }, slide: slides[0], index: 0 } as unknown as DeckState,
+  )
+
+  expect(labels).toEqual(['Intro, 1/2', '2/2'])
 })

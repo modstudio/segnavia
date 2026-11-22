@@ -314,7 +314,7 @@ export class SegnaviaTrack extends SegnaviaControl {
       item.dataset.state = trackSegmentState(deckState, index, deckState.index)
       item.style.setProperty('--progress', deckState.playing ? String(deckState.progress) : '1')
       const folio = deckFolioAt(folios, index)
-      item.setAttribute('aria-label', this.labels.slide(folio.number, total))
+      item.setAttribute('aria-label', this.labels.slide(folio.number, total, deckState.deck.slides[index]?.title))
       if (index === deckState.index) item.setAttribute('aria-current', 'step')
       else item.removeAttribute('aria-current')
     }

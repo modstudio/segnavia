@@ -68,6 +68,21 @@ describe('deckFromSlides', () => {
     expect(deck.children[0]).not.toHaveProperty('notes')
   })
 
+  test('keeps a slide title and omits it when absent', () => {
+    const document = deckFromSlides(
+      [
+        { id: 'intro', title: 'Introduction', kind: 'html', html: '<h1>Hello</h1>' },
+        { id: 'cover', kind: 'shot', src: 'cover.png', shot },
+      ],
+      { title: 'Talk' },
+    )
+
+    expect(document.children[0]).toHaveProperty('title', 'Introduction')
+    expect(document.children[1]).not.toHaveProperty('title')
+    expect(deckFromDocument(document).slides[0]).toHaveProperty('title', 'Introduction')
+    expect(deckFromDocument(document).slides[1]).not.toHaveProperty('title')
+  })
+
   test('renders a style like the same directly parsed document', () => {
     const style = {
       tokens: { colors: { accent: '#663399' } },

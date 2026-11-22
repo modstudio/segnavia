@@ -17,33 +17,26 @@ export type DeckFromSlidesOptions = Pick<
   omitNotes?: boolean
 }
 
-const optionalPrintAt = (printAtMs: number | undefined) => (printAtMs === undefined ? {} : { printAtMs })
-
 export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions) {
   const { omitNotes = false, title, size, layout, fit, frame, transition, playback, captions, readingSpeed, settings, style, data } = options
-  const slides = rows.map(({ kind, ...row }) => {
-    const { id, notes, narration, beforeMs, afterMs, holdMs, printAtMs } = row
-    const common = {
-      id,
-      ...(!omitNotes && notes !== undefined ? { notes } : {}),
-      ...(narration !== undefined ? { narration } : {}),
-      ...(beforeMs !== undefined ? { beforeMs } : {}),
-      ...(afterMs !== undefined ? { afterMs } : {}),
-      ...(holdMs !== undefined ? { holdMs } : {}),
-      ...optionalPrintAt(printAtMs),
+  const slides = rows.map((row) => {
+    if (row.kind === 'html') {
+      const { kind, html, notes, ...slide } = row
+      return { ...slide, ...(!omitNotes && notes !== undefined ? { notes } : {}), content: { kind, html } }
     }
-    return kind === 'html'
-      ? { ...common, content: { kind, html: (row as Extract<SlideRow, { kind: 'html' }>).html } }
-      : {
-          ...common,
-          content: {
-            kind,
-            src: (row as Extract<SlideRow, { kind: 'shot' }>).src,
-            shot: (row as Extract<SlideRow, { kind: 'shot' }>).shot,
-            ...((row as Extract<SlideRow, { kind: 'shot' }>).fit !== undefined ? { fit: (row as Extract<SlideRow, { kind: 'shot' }>).fit } : {}),
-            ...((row as Extract<SlideRow, { kind: 'shot' }>).frame !== undefined ? { frame: (row as Extract<SlideRow, { kind: 'shot' }>).frame } : {}),
-          },
-        }
+
+    const { kind, src, shot, fit, frame, notes, ...slide } = row
+    return {
+      ...slide,
+      ...(!omitNotes && notes !== undefined ? { notes } : {}),
+      content: {
+        kind,
+        src,
+        shot,
+        ...(fit !== undefined ? { fit } : {}),
+        ...(frame !== undefined ? { frame } : {}),
+      },
+    }
   })
   const document = Document.parse({
     type: 'document',
