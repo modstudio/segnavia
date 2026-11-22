@@ -28,7 +28,7 @@ test('the unnamed book label follows English and Hebrew', () => {
 
 test('slide labels include an isolated title and keep the untitled form', () => {
   expect(ENGLISH_LABELS.slide(3, 12)).toBe('Slide 3 of 12')
-  expect(ENGLISH_LABELS.slide(3, 12, 'Intro')).toBe('⁨Intro⁩, slide 3 of 12')
+  expect(ENGLISH_LABELS.slide(3, 12, 'Intro')).toBe('\u2068Intro\u2069, slide 3 of 12')
   expect(ENGLISH_LABELS.slide(3, 12, 'מבוא')).toBe('\u2068מבוא\u2069, slide 3 of 12')
 })
 

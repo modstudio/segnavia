@@ -73,7 +73,7 @@ export const ENGLISH_LABELS: PlayerLabels = {
   pause: 'Pause',
   previous: 'Previous slide',
   next: 'Next slide',
-  slide: (number, total, title) => (title === undefined ? `Slide ${number} of ${total}` : `⁨${title}⁩, slide ${number} of ${total}`),
+  slide: (number, total, title) => (title === undefined ? `Slide ${number} of ${total}` : `\u2068${title}\u2069, slide ${number} of ${total}`),
   frameTitle: defaultFrameTitle,
   slides: 'Slides',
   rail: 'Slides',
