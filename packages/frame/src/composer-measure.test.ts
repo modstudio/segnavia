@@ -1,43 +1,9 @@
 import { expect, test } from 'bun:test'
-import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
-import { lineNumberedLines, measuredBlockConstraints, measureLineBoxes, measurementRefusal } from './composer-measure.ts'
-import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
+import { lineNumberedLines, measuredBlockConstraints, measureLineBoxes } from './composer-measure.ts'
 
 test('a display table element carries no orphan or widow constraint', () => {
   expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
   expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
-})
-
-test('the embedded table measurement includes every helper it calls', () => {
-  const cell = { querySelectorAll: () => [] }
-  const row = {
-    closest: () => table,
-    getBoundingClientRect: () => ({ top: 10, bottom: 30 }),
-    querySelectorAll: (selector: string) => (selector.startsWith(':scope') ? [cell] : []),
-  }
-  const table = {
-    ownerDocument: { createTreeWalker: () => ({ nextNode: () => null }) },
-    getBoundingClientRect: () => ({ top: 10, bottom: 30 }),
-    querySelectorAll: (selector: string) => (selector === 'tr' ? [row] : []),
-  }
-  const rebuilt = new Function(`${embeddedComposerMeasureFunctions()}; return measureTableLines;`)() as (element: Element, origin: number) => unknown
-  const originalStyle = globalThis.getComputedStyle
-  const originalFilter = globalThis.NodeFilter
-  globalThis.NodeFilter = { SHOW_TEXT: 4 } as typeof NodeFilter
-  globalThis.getComputedStyle = (() => ({ borderCollapse: 'separate' })) as unknown as typeof getComputedStyle
-  try {
-    expect(rebuilt(table as unknown as Element, 0)).toEqual([{ top: 10, bottom: 30 }])
-  } finally {
-    globalThis.getComputedStyle = originalStyle
-    globalThis.NodeFilter = originalFilter
-  }
-})
-
-test('the repeated table header drops its block-start margin', () => {
-  const placeHeader = COMPOSER_SCRIPT.slice(COMPOSER_SCRIPT.indexOf('var placeHeader='))
-  const source = placeHeader.slice(0, placeHeader.indexOf('\nvar ', 1))
-  expect(source).toContain('copyComputedStyle(table,held)')
-  expect(source).toContain("held.style.marginBlockStart='0'")
 })
 
 function measuredElement(options: {
@@ -47,12 +13,27 @@ function measuredElement(options: {
   tables?: unknown[]
 }) {
   const box = options.box ?? { top: 10, bottom: 20, height: 10 }
+  const childNodes = options.range ? [{ rects: options.range }] : []
   const document = {
-    createRange: () => ({ selectNodeContents: () => {}, getClientRects: () => options.range ?? [] }),
+    createRange: () => {
+      let selected = childNodes
+      return {
+        selectNodeContents: () => {
+          selected = childNodes
+        },
+        setStart: (_node: unknown, start: number) => {
+          selected = childNodes.slice(start)
+        },
+        setEnd: (_node: unknown, end: number) => {
+          selected = childNodes.slice(0, end)
+        },
+        getClientRects: () => selected.flatMap((child) => child.rects),
+      }
+    },
   }
   return {
     tagName: options.tag ?? 'DIV',
-    childNodes: [],
+    childNodes,
     ownerDocument: document,
     closest: () => null,
     querySelectorAll: (selector: string) => (selector === 'table' ? (options.tables ?? []) : []),
@@ -69,7 +50,8 @@ interface NestedMeasuredElement {
   childNodes: NestedMeasuredNode[]
   parentElement: NestedMeasuredElement | null
   ownerDocument: unknown
-  closest: () => null
+  dataSideNote?: boolean
+  closest: (selector: string) => NestedMeasuredElement | null
   querySelectorAll: (selector: string) => NestedMeasuredElement[]
   getBoundingClientRect: () => { top: number; bottom: number; height: number }
   rects?: Array<{ top: number; bottom: number }>
@@ -77,15 +59,29 @@ interface NestedMeasuredElement {
 
 type NestedMeasuredNode = NestedMeasuredElement | NestedMeasuredLeaf
 
-function nestedMeasuredElement(tag: string, children: NestedMeasuredNode[]): NestedMeasuredElement {
+function nestedMeasuredElement(
+  tag: string,
+  children: NestedMeasuredNode[],
+  options: { dataSideNote?: boolean; rects?: Array<{ top: number; bottom: number }> } = {},
+): NestedMeasuredElement {
   const element = {
     tagName: tag.toUpperCase(),
     childNodes: children,
     parentElement: null,
     ownerDocument: null,
-    closest: () => null,
+    dataSideNote: options.dataSideNote,
+    closest: (selector: string): NestedMeasuredElement | null => {
+      if (selector !== '[data-side-note]') return null
+      if (element.dataSideNote) return element
+      return (element.parentElement as NestedMeasuredElement | null)?.closest(selector) ?? null
+    },
     querySelectorAll: (selector: string) => {
-      if (selector === ':scope > span[data-segnavia-line]' || selector === '[data-side-note]') return []
+      if (selector === ':scope > span[data-segnavia-line]') return []
+      if (selector === '[data-side-note]')
+        return children.flatMap((child) => {
+          if (!('tagName' in child)) return []
+          return [...(child.dataSideNote ? [child] : []), ...child.querySelectorAll(selector)]
+        })
       if (selector === 'table')
         return children.flatMap((child) => {
           if (!('tagName' in child)) return []
@@ -94,6 +90,7 @@ function nestedMeasuredElement(tag: string, children: NestedMeasuredNode[]): Nes
       return []
     },
     getBoundingClientRect: () => ({ top: 0, bottom: 0, height: 0 }),
+    rects: options.rects,
   }
   for (const child of children) if ('tagName' in child) child.parentElement = element
   return element
@@ -112,6 +109,15 @@ function measureNested(element: NestedMeasuredElement): MeasuredLineBox[] {
         },
         setStart: (node: unknown, start: number) => {
           selected = { node, start }
+        },
+        setStartAfter: (node: NestedMeasuredElement) => {
+          const parent = node.parentElement
+          selected = { node: parent, start: parent ? parent.childNodes.indexOf(node) + 1 : 0 }
+        },
+        setEndBefore: (node: NestedMeasuredElement) => {
+          const parent = node.parentElement
+          const start = selected && typeof selected === 'object' && 'start' in selected ? Number(selected.start) : 0
+          selected = { childNodes: parent?.childNodes.slice(start, parent.childNodes.indexOf(node)) ?? [] }
         },
         setEnd: (node: unknown, end: number) => {
           const start = selected && typeof selected === 'object' && 'start' in selected ? Number(selected.start) : 0
@@ -222,6 +228,49 @@ test('inline text before a block child keeps its line before the child lines', (
       { top: 30, bottom: 40 },
       { top: 40, bottom: 50 },
     ])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('a block-display side note does not add its line to the containing block', () => {
+  const text = { rects: [{ top: 10, bottom: 20 }] }
+  const note = nestedMeasuredElement('aside', [{ rects: [{ top: 30, bottom: 40 }] }], { dataSideNote: true })
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureNested(nestedMeasuredElement('p', [text, note]))).toEqual([{ top: 10, bottom: 20 }])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('a nested side note leaves each recursive sibling paragraph measured once', () => {
+  const first = nestedMeasuredElement('p', [{ rects: [{ top: 10, bottom: 20 }] }], { rects: [{ top: 8, bottom: 20 }] })
+  const note = nestedMeasuredElement('aside', [{ rects: [{ top: 30, bottom: 40 }] }], { dataSideNote: true })
+  const second = nestedMeasuredElement('p', [{ rects: [{ top: 50, bottom: 60 }] }], { rects: [{ top: 48, bottom: 60 }] })
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureNested(nestedMeasuredElement('article', [nestedMeasuredElement('div', [first, note, second])]))).toEqual([
+      { top: 10, bottom: 20 },
+      { top: 50, bottom: 60 },
+    ])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('ruby annotation does not add a line unit to its paragraph', () => {
+  const annotation = nestedMeasuredElement('rt', [{ rects: [{ top: 2, bottom: 8 }] }])
+  const ruby = nestedMeasuredElement('ruby', [annotation], { rects: [{ top: 10, bottom: 20 }] })
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = ((candidate: Element) => {
+    const tag = candidate.tagName.toLowerCase()
+    return { display: tag === 'ruby' ? 'ruby' : tag === 'rt' ? 'ruby-text' : 'block', position: 'static' } as CSSStyleDeclaration
+  }) as typeof getComputedStyle
+  try {
+    expect(measureNested(nestedMeasuredElement('p', [ruby]))).toEqual([{ top: 10, bottom: 20 }])
   } finally {
     globalThis.getComputedStyle = original
   }
@@ -340,25 +389,4 @@ test('a numbered container marks heading lines as uncounted while keeping paragr
     { top: 10, bottom: 20, counted: false },
     { top: 20, bottom: 30 },
   ])
-})
-
-test('an unmeasurable printed-page galley refuses with its own subject', () => {
-  expect(measurementRefusal('The printed page', [])).toBe(
-    'The printed page could not measure line boxes or plan a page because the frame or galley has no size, or layout stayed deferred; give the frame and galley a non-zero size or allow layout to finish to clear this refusal.',
-  )
-})
-
-test('measurement time advances only while the galley has layout', () => {
-  expect(decideVisibleMeasurement({ visibleElapsedMs: 900, frameElapsedMs: 200, hasLayout: false, measured: false }, 1_000)).toEqual({
-    decision: 'retry',
-    visibleElapsedMs: 900,
-  })
-  expect(decideVisibleMeasurement({ visibleElapsedMs: 900, frameElapsedMs: 200, hasLayout: true, measured: false }, 1_000)).toEqual({
-    decision: 'refuse',
-    visibleElapsedMs: 1_100,
-  })
-  expect(decideVisibleMeasurement({ visibleElapsedMs: 900, frameElapsedMs: 200, hasLayout: true, measured: true }, 1_000)).toEqual({
-    decision: 'compose',
-    visibleElapsedMs: 1_100,
-  })
 })

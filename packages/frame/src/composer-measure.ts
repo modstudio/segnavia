@@ -1,6 +1,6 @@
 import { defaultParentRules, type PaginateLine, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
 import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
-import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
+import { insideSideNote } from './composer-line-range.ts'
 import { descendantTables, linesWithDescendantTables, measureTableLines, tableRenderedInFlow } from './composer-table-measure.ts'
 
 export interface MeasuredKeepCandidate {
@@ -234,9 +234,7 @@ export function recursiveLineBoxChild(element: Element): boolean {
   const tag = element.tagName.toLowerCase()
   return (
     !insideSideNote(element) &&
-    style.display !== 'none' &&
-    style.display !== 'contents' &&
-    !inlineLevelDisplay(style.display) &&
+    !skippableDescendantBoxDisplay(style.display) &&
     style.position !== 'absolute' &&
     style.position !== 'fixed' &&
     tag !== 'table' &&
@@ -245,56 +243,52 @@ export function recursiveLineBoxChild(element: Element): boolean {
   )
 }
 
-export function childLineBoxRanges(
-  element: Element,
-  origin: number,
-): { groups: MeasuredLineBox[]; ranges: Range[]; replacedBoxes: Array<{ top: number; bottom: number }> } {
+export function childLineBoxRanges(element: Element, origin: number): { groups: MeasuredLineBox[]; ranges: Range[] } {
   const groups: MeasuredLineBox[] = []
   const ranges: Range[] = []
-  const replacedBoxes: Array<{ top: number; bottom: number }> = []
-  const sideNotes = new Set(element.querySelectorAll('[data-side-note]'))
-  if (sideNotes.size > 0) ranges.push(...contentRangesExcludingSideNotes(element))
+  const children = Array.from(element.childNodes)
+  const sideNotes = Array.from(element.querySelectorAll('[data-side-note]'))
   let rangeStart = 0
   const addRange = (end: number) => {
     if (end <= rangeStart) return
-    const range = element.ownerDocument.createRange()
+    let range = element.ownerDocument.createRange()
     range.setStart(element, rangeStart)
+    for (const note of sideNotes) {
+      let directChild = note
+      while (directChild.parentElement && directChild.parentElement !== element) directChild = directChild.parentElement
+      const childIndex = children.indexOf(directChild)
+      if (childIndex < rangeStart || childIndex >= end) continue
+      range.setEndBefore(note)
+      ranges.push(range)
+      range = element.ownerDocument.createRange()
+      range.setStartAfter(note)
+    }
     range.setEnd(element, end)
     ranges.push(range)
   }
-  for (const [index, child] of Array.from(element.childNodes).entries()) {
+  for (const [index, child] of children.entries()) {
     const childElement = 'tagName' in child ? (child as Element) : undefined
     if (!childElement || !recursiveLineBoxChild(childElement)) continue
-    if (sideNotes.size === 0) addRange(index)
-    else {
-      const box = childElement.getBoundingClientRect()
-      replacedBoxes.push({ top: box.top, bottom: box.bottom })
-    }
+    addRange(index)
     groups.push(...measureLineBoxes(childElement, origin))
-    if (sideNotes.size === 0) rangeStart = index + 1
+    rangeStart = index + 1
   }
-  if (sideNotes.size === 0) addRange(element.childNodes.length)
-  if (element.childNodes.length === 0) ranges.push(...contentRangesExcludingSideNotes(element))
-  return { groups, ranges, replacedBoxes }
+  addRange(children.length)
+  return { groups, ranges }
 }
 
-export function groupedLineBoxes(
-  groups: MeasuredLineBox[],
-  ranges: readonly Range[],
-  replacedBoxes: ReadonlyArray<{ top: number; bottom: number }>,
-  origin: number,
-): MeasuredLineBox[] {
+export function groupedLineBoxes(groups: readonly MeasuredLineBox[], ranges: readonly Range[], origin: number): MeasuredLineBox[] {
+  const measured = groups.map((group) => ({ ...group }))
   for (const range of ranges) {
     for (const rect of range.getClientRects()) {
-      if (replacedBoxes.some((box) => Math.abs(box.top - rect.top) < 0.5 && Math.abs(box.bottom - rect.bottom) < 0.5)) continue
       const top = rect.top - origin
       const bottom = rect.bottom - origin
-      const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
-      if (!found) groups.push({ top, bottom })
+      const found = measured.find((group) => Math.abs(group.top - top) < 0.5)
+      if (!found) measured.push({ top, bottom })
       else if (bottom > found.bottom) found.bottom = bottom
     }
   }
-  return groups.sort((left, right) => left.top - right.top)
+  return measured.sort((left, right) => left.top - right.top)
 }
 
 export function measureLineBoxes(element: Element, origin: number): MeasuredLineBox[] {
@@ -320,7 +314,7 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
   const measured = childLineBoxRanges(element, origin)
-  const groups = groupedLineBoxes(measured.groups, measured.ranges, measured.replacedBoxes, origin)
+  const groups = groupedLineBoxes(measured.groups, measured.ranges, origin)
   if (groups.length > 0 || tables.length > 0) return linesWithDescendantTables(groups, tables)
   const box = element.getBoundingClientRect()
   return box.height > 0 ? [{ top: box.top - origin, bottom: box.bottom - origin }] : []

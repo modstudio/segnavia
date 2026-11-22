@@ -1,7 +1,7 @@
 import { embedFunction } from '@segnavia/html'
 import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
 import { measureLineNoteAnchors } from './composer-line-label-measure.ts'
-import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
+import { insideSideNote } from './composer-line-range.ts'
 import {
   applyBoxDecorations,
   childLineBoxRanges,
@@ -65,7 +65,6 @@ export function embeddedComposerMeasureFunctions(lineNotes = false): string {
     embedFunction('forcedPageBreak', forcedPageBreak),
     embedFunction('composerLayoutReady', composerLayoutReady),
     embedFunction('insideSideNote', insideSideNote),
-    embedFunction('contentRangesExcludingSideNotes', contentRangesExcludingSideNotes),
     embedFunction('recursiveLineBoxChild', recursiveLineBoxChild),
     embedFunction('childLineBoxRanges', childLineBoxRanges),
     embedFunction('groupedLineBoxes', groupedLineBoxes),

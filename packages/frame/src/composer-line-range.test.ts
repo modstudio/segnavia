@@ -29,7 +29,7 @@ test('a multi-line side-note descendant does not change its block lines', () => 
   })
   const element = (sideNote: boolean) => ({
     tagName: 'P',
-    childNodes: sideNote ? [{}, note, {}] : [],
+    childNodes: sideNote ? [{}, note, {}] : [{}, {}],
     ownerDocument: document(sideNote),
     querySelectorAll: (selector: string) => (sideNote && selector === '[data-side-note]' ? [note] : []),
     getBoundingClientRect: () => ({ top: 10, bottom: 60, height: 50 }),
