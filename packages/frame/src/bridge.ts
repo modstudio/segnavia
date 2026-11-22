@@ -24,11 +24,15 @@ import { baseLayerCss } from '@segnavia/html'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
+
+export type { FrameMessage } from './bridge-message.ts'
+
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 import { fieldSizeCss } from './field-style.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
+import { MESSAGE } from './frame-message-types.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
 import type { LoadedLayoutScript } from './layout.ts'
@@ -41,28 +45,9 @@ export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type Selectio
 export { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 export { documentNeedsSlotFit } from './document-slot-fit.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
+export { MESSAGE } from './frame-message-types.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 export { FontRefusedError, type FontsOptions, type ResolvedFonts, type ResolveFontsOptions, resolveFonts } from './page-fonts.ts'
-export const MESSAGE = {
-  key: 'segnavia:key',
-  height: 'segnavia:height',
-  ready: 'segnavia:ready',
-  animation: 'segnavia:animation',
-  slotFit: 'segnavia:slot-fit',
-  freeze: 'segnavia:freeze',
-  release: 'segnavia:release',
-  inspect: 'segnavia:inspect',
-  selectionRequest: 'segnavia:selection-request',
-  selection: 'segnavia:selection',
-  headingRequest: 'segnavia:heading-request',
-  heading: 'segnavia:heading',
-  bookLayout: 'segnavia:book-layout',
-  bookPlace: 'segnavia:book-place',
-  composeFailure: 'segnavia:compose-failure',
-  composeProgress: 'segnavia:compose-progress',
-  fontFailures: 'segnavia:font-failures',
-  preflight: 'segnavia:preflight',
-} as const
 export const HEADING_ID_LIMIT = 256
 
 export function scriptJson(value: unknown): string {
@@ -263,6 +248,8 @@ ${composerSlotFit}
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
 window.addEventListener('click',function(e){
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+var sound=e.target;while(sound&&!(sound.tagName==='BUTTON'&&sound.hasAttribute('data-segnavia-sound')))sound=sound.parentElement;
+if(sound){post({type:'${MESSAGE.soundPlay}',placement:sound.getAttribute('data-segnavia-sound')});return;}
 var link=e.target;while(link&&link.tagName!=='A')link=link.parentElement;
 if(!link||link.hasAttribute('target')||link.hasAttribute('download'))return;
 var href=link.getAttribute('href');if(!href||href.charAt(0)!=='#')return;

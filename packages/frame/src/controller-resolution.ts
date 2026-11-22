@@ -1,4 +1,5 @@
 import { PublishedShot, type Slide } from '@segnavia/format'
+import { resolvePlacementsWithSounds } from '@segnavia/html'
 import { assertValidCues } from './controller-cues.ts'
 import { referenceOverrides, resolvedPublishedShot } from './controller-options.ts'
 import type { ControllerOptions, ResolvedContent } from './controller-types.ts'
@@ -15,6 +16,17 @@ export async function resolveFreshContent(
   signal: AbortSignal,
 ): Promise<ResolvedContent> {
   const content = resolveSlide ? await resolveSlide(slide, index) : slide.content
+  if ('kind' in content && content.kind === 'html' && placements) {
+    const resolved = await resolvePlacementsWithSounds(content.html, {
+      resolvePlacement: placements.resolve,
+      report: placements.report,
+      purpose: 'screen',
+      width,
+      signal,
+      sounds: new Map(),
+    })
+    return { ...content, html: resolved.html, sounds: resolved.sounds }
+  }
   if ('media' in content) return resolveMediaContent(content, placements, 'screen', width, signal)
   if (content.kind === 'shot') {
     assertValidCues(slide, content.shot.annotations.length)

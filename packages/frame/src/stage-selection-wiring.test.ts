@@ -105,6 +105,7 @@ function harness(scripts: 'refuse' | 'sandboxed' = 'refuse') {
     attached: { state, addEventListener() {}, removeEventListener() {} },
     pool: {
       activeFrame: () => frame,
+      contentFor: () => state.content,
       shownFrame: () => shownFrame,
       waitForActiveFrame(_frame: HTMLIFrameElement, post: () => void) {
         ready = post
@@ -228,6 +229,7 @@ test("a frame's ready window message clears its bridge timeout refusal", () => {
     resolvedSlots: undefined,
     pool: {
       activeFrame: () => frame,
+      contentFor: () => content,
       cancelPending() {},
       clear() {},
       failureFor: (shown: DeckState) => (shown.content === entry.content ? entry.failure : null),

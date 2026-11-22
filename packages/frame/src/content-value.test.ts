@@ -29,6 +29,19 @@ describe('resolved content values', () => {
     ).toBe(false)
   })
 
+  test('does not reuse html content when a resolved sound source changed', () => {
+    const sound = { format: 'mp3' as const, durationMs: 1_000 }
+    const value = (src: string) =>
+      comparableContent(
+        { kind: 'html', html: '<button data-segnavia-sound="0"></button>', sounds: new Map([['0', { sound, src }]]) },
+        (path) => path,
+        'refuse',
+        '',
+        '',
+      )
+    expect(sameContent(value('before.mp3'), value('after.mp3'))).toBe(false)
+  })
+
   test('changes the reuse key when an approved path prefix changes', () => {
     const value = (pathname: string) =>
       comparableContent({ kind: 'html', html: '<p>same</p>' }, (path) => path, 'refuse', '', '', [

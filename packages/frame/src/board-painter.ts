@@ -1,10 +1,11 @@
-import type { BoardItem } from '@segnavia/format'
+import { type BoardItem, soundCover } from '@segnavia/format'
 import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import { boardImage, boardPlaceholder, boardShield, liveBoardItem, unavailablePlaceholder } from './board-live.ts'
 import type { BoardTier, CheckedResolvedBoardItem } from './board-policy.ts'
 import type { BoardResolutionOutcome } from './board-resolutions.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation } from './designed-cover-policy.ts'
+import { raiseSoundPlay } from './sound-play.ts'
 
 export class BoardPainter {
   private readonly tiers = new Map<string, BoardTier>()
@@ -12,7 +13,17 @@ export class BoardPainter {
   private readonly frameInputs = new Map<string, BoardFrameInputs>()
   private readonly disposals = new Map<string, () => void>()
 
-  paint(node: HTMLElement, item: BoardItem, outcome: BoardResolutionOutcome, tier: BoardTier, failed: (error: unknown) => void, inputs: BoardFrameInputs) {
+  constructor(private readonly mountCover = mountDesignedCover) {}
+
+  paint(
+    node: HTMLElement,
+    item: BoardItem,
+    outcome: BoardResolutionOutcome,
+    tier: BoardTier,
+    failed: (error: unknown) => void,
+    inputs: BoardFrameInputs,
+    soundPlacement?: string,
+  ) {
     if (
       this.tiers.get(item.id) === tier &&
       sameOutcome(this.painted.get(item.id), outcome) &&
@@ -29,12 +40,13 @@ export class BoardPainter {
       node.removeAttribute('data-board-item-state')
       const content =
         outcome.status === 'resolved'
-          ? this.content(item.id, outcome.value, tier, failed, inputs)
+          ? this.content(item.id, outcome.value, tier, failed, inputs, soundPlacement)
           : outcome.status === 'unavailable'
             ? unavailablePlaceholder(outcome.value.label, outcome.value.kind)
             : boardPlaceholder()
       if (outcome.status === 'unavailable') node.dataset.boardItemState = outcome.value.state
-      node.append(content, boardShield())
+      const interactiveSound = outcome.status === 'resolved' && outcome.value.kind === 'sound' && tier === 'live'
+      node.append(content, ...(interactiveSound ? [] : [boardShield()]))
     } catch (error) {
       failed(error)
     }
@@ -52,11 +64,23 @@ export class BoardPainter {
     this.disposals.delete(id)
   }
 
-  private content(id: string, resolved: CheckedResolvedBoardItem, tier: BoardTier, failed: (error: unknown) => void, inputs: BoardFrameInputs): HTMLElement {
+  private content(
+    id: string,
+    resolved: CheckedResolvedBoardItem,
+    tier: BoardTier,
+    failed: (error: unknown) => void,
+    inputs: BoardFrameInputs,
+    soundPlacement?: string,
+  ): HTMLElement {
     if (tier === 'cover') {
       const presentation = coverPresentation(resolved.designedCover)
       if (presentation.kind !== 'fallback') {
-        const mounted = mountDesignedCover(presentation, failed, inputs)
+        const mounted = this.mountCover(presentation, failed, inputs)
+        this.disposals.set(id, mounted.dispose)
+        return mounted.element
+      }
+      if (resolved.kind === 'sound') {
+        const mounted = this.mountCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
         this.disposals.set(id, mounted.dispose)
         return mounted.element
       }
@@ -64,6 +88,19 @@ export class BoardPainter {
       return resolved.cover ? boardImage(resolved.cover) : boardPlaceholder()
     }
     if (resolved.kind === 'image' || resolved.kind === 'shot') return boardImage(resolved.src)
+    if (resolved.kind === 'sound') {
+      if (soundPlacement === undefined) throw new Error('A live board sound needs its board handle.')
+      const button = document.createElement('button')
+      button.type = 'button'
+      const mounted = this.mountCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
+      mounted.element.style.pointerEvents = 'none'
+      button.append(mounted.element)
+      button.addEventListener('click', () => {
+        raiseSoundPlay(button, { sound: resolved.sound, src: resolved.src }, soundPlacement)
+      })
+      this.disposals.set(id, mounted.dispose)
+      return button
+    }
     const live = liveBoardItem(resolved, failed, inputs)
     this.disposals.set(id, live.dispose)
     return live.element

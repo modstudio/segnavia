@@ -45,6 +45,27 @@ Inside `frame` there are three layers. A host takes the first two, or all three:
 
 `unstyled` on the stage, page or paper drops even the geometry, for a host that lays them out itself.
 
+### Standalone media
+
+A resolved sound placement is a library-owned button carrying a short handle,
+not the sound URL. It shows the same face as `soundCover`, built by `soundFace`.
+Only a surface that can play a sound draws the button: page, stage and board
+resolution carry a handle map, and markup-only resolution, such as a book's,
+keeps the missing-placement placeholder for a sound answer. Each page, stage or
+board numbers its own sounds in surface
+order, so `placement` in every sound event is a per-surface decimal handle no
+longer than 256 characters, never a document id. The frame bridge reports that
+handle as one bounded `segnavia:sound-play` message. The page or stage that owns
+the frame resolves the handle; a board resolves it directly. Each raises a
+bubbling, composed, cancelable `segnavia-sound-play` event with
+`{ sound, src, placement }`. Unknown handles and messages from any other frame
+are dropped. A host outside the player handles that event and plays
+the detail in its own `<segnavia-sound>` with styled controls. The player does
+the same internally; its sound and deck playback pause each other, its
+sound controls exist only while the placed sound is playing, and the sound stops
+when the reader leaves the slide it was started from. Headless elements
+add no media controls or appearance.
+
 Hosts read watched progress from `DeckController.state.watched` and the
 controller's `change` and `complete` events; this works directly from custom
 elements and does not require React. `seek: 'furthest'` is an optional client

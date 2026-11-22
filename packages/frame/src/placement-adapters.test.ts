@@ -75,6 +75,12 @@ test('boardItemFrom maps media answers to the unchanged board image answer', asy
   expect(calls).toEqual([{ placement: { kind: 'media', address: 'logo' }, purpose: 'screen', width: 120 }])
 })
 
+test('boardItemFrom keeps a resolved sound for its board face', async () => {
+  const sound = { format: 'mp3' as const, durationMs: 1_000, title: { text: 'Theme' } }
+  const resolved = { kind: 'sound' as const, sound, src: 'theme.mp3' }
+  await expect(boardItemFrom(async () => resolved)({ id: 'theme', kind: 'sound', address: 'theme', x: 0, y: 0, width: 120 })).resolves.toBe(resolved)
+})
+
 test('deck media content resolves through placements as existing image content', async () => {
   const controller = new DeckController({ placements: { resolve: async () => ({ kind: 'media', media, src }) }, hash: null, persist: false })
   await controller.loadDeckValue({

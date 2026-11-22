@@ -25,6 +25,7 @@ interface FrameMessageFields {
   slots?: Record<string, SlotFitState>
   failures?: FontFailure[]
   report?: PreflightReport
+  placement?: string
 }
 
 export type FrameMessage = FrameMessageFields & ({ pages?: never; total?: never } | ComposeProgress)
@@ -72,6 +73,14 @@ interface MessageTypes {
   ready: string
   slotFit: string
   animation: string
+  soundPlay: string
+}
+
+function soundPlayMessage(data: Record<string, unknown>, type: string): FrameMessage | null {
+  const fields = Object.keys(data)
+  return data.type === type && fields.length === 2 && fields.includes('placement') && typeof data.placement === 'string' && data.placement.length <= 256
+    ? { type, placement: data.placement }
+    : null
 }
 
 export function slotFitMessageData(data: unknown, slotFit = 'segnavia:slot-fit'): { type: string; slots: Record<string, SlotFitState> } | null {
@@ -110,6 +119,8 @@ export function messageFromFrames(
   if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
   const data = event.data
   if (!data || typeof data !== 'object') return null
+  const soundPlay = soundPlayMessage(data as Record<string, unknown>, types.soundPlay)
+  if (soundPlay) return soundPlay
   if (data.type === types.key && typeof data.key === 'string' && relayedKeys.includes(data.key)) return { type: types.key, key: data.key }
   const place = bookPlaceMessage(data as Record<string, unknown>, types.bookPlace)
   if (place) return place

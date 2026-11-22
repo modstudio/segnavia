@@ -35,7 +35,6 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
       if (size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
       return { kind: 'page', page: document, size }
     }
-    if (answer.kind === 'sound') throw new Error(`The sound at ${item.address} has no board face.`)
     return answer
   }
 }

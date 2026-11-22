@@ -47,6 +47,10 @@ function sameValue(left: unknown, right: unknown): boolean {
     if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false
     return left.every((value, index) => sameValue(value, right[index]))
   }
+  if (left instanceof Map || right instanceof Map) {
+    if (!(left instanceof Map) || !(right instanceof Map) || left.size !== right.size) return false
+    return [...left].every(([key, value]) => right.has(key) && sameValue(value, right.get(key)))
+  }
   const leftRecord = left as Record<string, unknown>
   const rightRecord = right as Record<string, unknown>
   const leftKeys = Object.keys(leftRecord)

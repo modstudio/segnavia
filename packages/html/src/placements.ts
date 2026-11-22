@@ -12,6 +12,7 @@ import {
 } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
+import { applyResolvedSound, type ResolvedSoundPlacement } from './sound-placement.ts'
 import { refuseSoundsForPrint } from './sound-print-refusal.ts'
 
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
@@ -21,6 +22,12 @@ export type ResolvedPlacement =
   | { kind: 'media'; media: Media; src: string; bytes?: Uint8Array }
   | { kind: 'sound'; sound: Sound; src: string }
   | { kind: 'page'; page: DocumentInput }
+export type { ResolvedSoundPlacement } from './sound-placement.ts'
+export type SoundPlacements = Map<string, ResolvedSoundPlacement>
+export interface ResolvedPlacements {
+  html: string
+  sounds: SoundPlacements
+}
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
   context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal; day?: AsOfDay },
@@ -268,10 +275,18 @@ function applyPlacementResolution<R extends { kind: string }>(
     report?: PlacementReport
     pdfSources?: Map<string, PlacedPdfSource>
   },
+  sounds: SoundPlacements | undefined,
 ): void {
   const { entry } = resolved
   const element = found[entry.index]
   if (!element) return
+  if (sounds && !('error' in resolved) && resolved.answer?.kind === 'sound' && 'sound' in resolved.answer && 'src' in resolved.answer) {
+    const handle = String(sounds.size)
+    const sound = { sound: resolved.answer.sound as Sound, src: resolved.answer.src as string }
+    sounds.set(handle, sound)
+    applyResolvedSound(element, sound, handle)
+    return
+  }
   const classified = 'error' in resolved ? classifyMediaAnswer({ error: resolved.error }) : classifyMediaAnswer({ answer: resolved.answer })
   let resolvedFailure: 'no-page' | undefined
   try {
@@ -293,7 +308,7 @@ function applyPlacementResolution<R extends { kind: string }>(
   })
 }
 
-export async function resolvePlacements<R extends { kind: string }>(
+export async function resolvePlacementsWithSounds<R extends { kind: string }>(
   html: string,
   options: {
     resolvePlacement: ResolvePlacement<R>
@@ -303,12 +318,13 @@ export async function resolvePlacements<R extends { kind: string }>(
     day?: AsOfDay
     report?: PlacementReport
     pdfSources?: Map<string, PlacedPdfSource>
+    sounds?: SoundPlacements
   },
-): Promise<string> {
+): Promise<ResolvedPlacements> {
   const document = parse(html)
   const found = elements(document.children)
   const plan = planElements(found)
-  if (plan.entries.length === 0 && plan.refusals.length === 0) return html
+  if (plan.entries.length === 0 && plan.refusals.length === 0) return { html, sounds: options.sounds ?? new Map() }
   options.signal.throwIfAborted()
   for (const refusal of plan.refusals) {
     const element = found[refusal.index]
@@ -340,14 +356,33 @@ export async function resolvePlacements<R extends { kind: string }>(
     resolvedEntries.map((resolved) => ({ placement: resolved.entry.placement.address, answer: 'answer' in resolved ? resolved.answer : undefined })),
     options.purpose,
   )
+  const sounds = options.sounds ?? new Map<string, ResolvedSoundPlacement>()
   for (const resolved of resolvedEntries) {
-    applyPlacementResolution(found, resolved, {
-      purpose: options.purpose,
-      signal: options.signal,
-      report: options.report,
-      pdfSources: options.pdfSources,
-    })
+    applyPlacementResolution(
+      found,
+      resolved,
+      {
+        purpose: options.purpose,
+        signal: options.signal,
+        report: options.report,
+        pdfSources: options.pdfSources,
+      },
+      options.sounds,
+    )
   }
   options.signal.throwIfAborted()
-  return serialize(document)
+  const resolvedHtml = serialize(document)
+  const hasNestedSoundImage = options.sounds && [...sounds.values()].some(({ sound }) => sound.image)
+  if (!hasNestedSoundImage) return { html: resolvedHtml, sounds }
+  const { sounds: _sounds, ...nestedOptions } = options
+  return { html: (await resolvePlacementsWithSounds(resolvedHtml, nestedOptions)).html, sounds }
+}
+
+/** Resolves markup without enabling playable sound handles. Sound answers retain the missing-placement fallback. */
+export async function resolvePlacements<R extends { kind: string }>(
+  html: string,
+  options: Parameters<typeof resolvePlacementsWithSounds<R>>[1],
+): Promise<string> {
+  const { sounds: _sounds, ...markupOptions } = options
+  return (await resolvePlacementsWithSounds(html, markupOptions)).html
 }

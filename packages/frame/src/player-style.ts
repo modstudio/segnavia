@@ -14,8 +14,8 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 :host([data-presenting]){position:fixed;inset:0;z-index:2147483647;inline-size:auto;block-size:auto;max-inline-size:none;max-block-size:none;
   border-radius:0;background:var(--segnavia-backdrop,#111);overflow:hidden;color-scheme:dark}
 .fit-reserve{position:absolute;visibility:hidden;pointer-events:none;block-size:var(--segnavia-fit-reserve,0px)}
-.player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;min-height:inherit}
-:host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
+.player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "sound" "below";grid-template-rows:minmax(0,1fr) auto auto auto auto;min-height:inherit}
+:host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "sound sound" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
 .screen{flex:1;min-width:0;container-type:inline-size;display:block;position:relative;padding-block-end:8px}
 segnavia-refusal{position:absolute;inset:0;z-index:1}
@@ -37,9 +37,10 @@ segnavia-caption{grid-area:caption;padding:6px 24px 10px;min-block-size:calc(var
 segnavia-caption[data-empty]{display:block}
 .silent segnavia-caption{display:none}
 .bar{grid-area:bar;display:flex;flex-direction:column;gap:4px;padding:8px 12px 12px}
-:host([controls="overlay"]:not([data-presenting])) .player{grid-template-areas:"body" "below";grid-template-rows:auto auto}
+.sound-bar{grid-area:sound;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 12px 12px}.sound-bar[hidden],.sound-bar segnavia-sound{display:none}.sound-controls{display:flex;align-items:center;gap:4px}
+:host([controls="overlay"]:not([data-presenting])) .player{grid-template-areas:"body" "sound" "below";grid-template-rows:auto auto auto}
 :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);
-  grid-template-areas:"rail body" "below below";grid-template-rows:auto auto}
+  grid-template-areas:"rail body" "sound sound" "below below";grid-template-rows:auto auto auto}
 :host([controls="overlay"]:not([data-presenting])){min-height:0}
 :host([controls="overlay"]:not([data-presenting])) .body,:host([controls="overlay"]:not([data-presenting])) segnavia-caption,
 :host([controls="overlay"]:not([data-presenting])) .bar{grid-area:body}
@@ -72,11 +73,11 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
 .notes-toggle[hidden]{display:none}
 ::slotted([slot="actions"]){flex:none}
 :host([data-presenting]) .below,:host([data-presenting]) segnavia-rail,:host([data-presenting]) .actions{display:none}
-:host([data-presenting]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below"}
+:host([data-presenting]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "sound" "below"}
 @container (max-width:${COMPACT_PLAYER_WIDTH}px){segnavia-counter,.time-separator,segnavia-notes{display:none}
-  .player,:host([rail]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "rail" "below";grid-template-rows:auto auto auto auto auto}
-  :host([data-layout="responsive"][fit="height"]) .player,:host([data-layout="responsive"][data-presenting]) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto}
-  :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "rail" "below";grid-template-rows:auto auto auto}
+  .player,:host([rail]) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "sound" "rail" "below";grid-template-rows:auto auto auto auto auto auto}
+  :host([data-layout="responsive"][fit="height"]) .player,:host([data-layout="responsive"][data-presenting]) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto auto}
+  :host([rail][controls="overlay"]:not([data-presenting])) .player{grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "sound" "rail" "below";grid-template-rows:auto auto auto auto}
   .body{min-block-size:auto}.screen,:host([fit="height"]) .screen,:host([data-presenting]) .screen{container-type:normal;display:block;padding:0 0 4px}segnavia-stage,:host([fit="height"]) segnavia-stage,:host([data-presenting]) segnavia-stage{width:100%}segnavia-caption{min-block-size:0}
   :host([rail]) segnavia-rail{border-inline-end:0;border-block-start:1px solid var(--_line);contain:none;block-size:auto;min-block-size:0;overflow:visible}
   /* Compact: a light, even edge; the desk shadow's downward throw muddies the controls packed right under the slide. */
@@ -89,9 +90,9 @@ slot[slot^="icon-"]::slotted(*){inline-size:20px;block-size:20px;pointer-events:
   .actions slot[name="actions"]::slotted(*){flex:1 1 0;inline-size:auto;min-inline-size:0;box-sizing:border-box;padding-inline:12px}
   .end-controls{display:flex;grid-area:end;justify-self:end;align-items:center;gap:4px;min-inline-size:0}
   :host(:not([controls="overlay"]):not([data-presenting])) .player{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
-    grid-template-areas:"body body body" "caption caption caption" "track track track" "start center end" "rail rail rail" "actions actions actions" "below below below";
-    grid-template-rows:auto auto auto auto auto auto auto}
-  :host([data-layout="responsive"][fit="height"]:not([controls="overlay"]):not([data-presenting])) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto auto auto}
+    grid-template-areas:"body body body" "caption caption caption" "track track track" "start center end" "sound sound sound" "rail rail rail" "actions actions actions" "below below below";
+    grid-template-rows:auto auto auto auto auto auto auto auto}
+  :host([data-layout="responsive"][fit="height"]:not([controls="overlay"]):not([data-presenting])) .player{grid-template-rows:minmax(0,1fr) auto auto auto auto auto auto auto}
   :host(:not([controls="overlay"]):not([data-presenting])) :is(.bar,.control-row){display:contents}
   :host(:not([controls="overlay"]):not([data-presenting])) segnavia-track{grid-area:track;box-sizing:border-box;padding:8px 12px 4px}
   :host(:not([controls="overlay"]):not([data-presenting])) .start{padding-block-end:12px;padding-inline-start:12px}

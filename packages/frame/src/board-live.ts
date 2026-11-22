@@ -61,7 +61,7 @@ function listenForError(element: HTMLElement, failed: (error: unknown) => void):
 }
 
 export function liveBoardItem(
-  resolved: Exclude<CheckedResolvedBoardItem, { kind: 'image' | 'shot' }>,
+  resolved: Exclude<CheckedResolvedBoardItem, { kind: 'image' | 'shot' | 'sound' }>,
   failed: (error: unknown) => void,
   inputs: BoardFrameInputs,
 ): MountedElement {

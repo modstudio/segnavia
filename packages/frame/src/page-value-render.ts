@@ -8,6 +8,7 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
+import type { SoundPlacements } from '@segnavia/html'
 import { type HtmlPage, resolvePageHtml, slotsWithDay } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
@@ -30,7 +31,7 @@ export interface PageValueRenderOptions {
 }
 
 export interface PageValueRenderHandlers {
-  show(page: HtmlPage, resolved?: PreparedSlots, fontCss?: string, fontFailures?: import('@segnavia/format').FontFailure[]): void
+  show(page: HtmlPage, resolved?: PreparedSlots, fontCss?: string, fontFailures?: import('@segnavia/format').FontFailure[], sounds?: SoundPlacements): void
   report(error: unknown): void
   write(document: string, provisional: boolean, hasLayoutScripts: boolean): void
   composed(identity: PageFrameIdentity): void
@@ -119,6 +120,6 @@ export function renderPageValue(
     return
   }
   void prepareShownPage(resolvedPage, options.motifs, slots, options.fonts, signal, options.placements, options.widths, day)
-    .then(({ page: shownPage, resolved, css, failures }) => handlers.show(shownPage, resolved, css, failures))
+    .then(({ page: shownPage, resolved, css, failures, sounds }) => handlers.show(shownPage, resolved, css, failures, sounds))
     .catch(handlers.report)
 }

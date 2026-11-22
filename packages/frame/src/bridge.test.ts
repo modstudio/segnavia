@@ -173,6 +173,7 @@ describe('frame document', () => {
       MESSAGE.animation,
       MESSAGE.slotFit,
       MESSAGE.key,
+      MESSAGE.soundPlay,
       MESSAGE.height,
       MESSAGE.fontFailures,
       MESSAGE.ready,

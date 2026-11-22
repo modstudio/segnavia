@@ -10,6 +10,7 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
+import type { SoundPlacements } from '@segnavia/html'
 import { type EstablishedPageDay, type HtmlPage, parseDocument, resolveEdition } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
@@ -26,11 +27,11 @@ import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
-import { handlePageFrameMessage } from './page-frame-message.ts'
 import { scrollPageToHeading } from './page-heading.ts'
+import { handlePageElementMessage } from './page-message-handler.ts'
 import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
 import { printedPageRequestRefusal } from './page-printed.ts'
-import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
+import { cancelPageRequests, createPageRequestState } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
 import { loadPageUrl } from './page-url-load.ts'
 import { renderPageValue } from './page-value-render.ts'
@@ -65,6 +66,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
+  private sounds: SoundPlacements = new Map()
   private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
@@ -220,11 +222,12 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private loadValue(page: Page, established?: EstablishedPageDay) {
     this.hostServed = false
     const generation = this.releaseFrame()
+    this.sounds = new Map()
     const controller = new AbortController()
     this.slotPreparation = controller
     const iframe = this.mount(page)
     const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.loadGeneration && iframe === this.querySelector('iframe')
-    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '', fontFailures: FontFailure[] = []) => {
+    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '', fontFailures: FontFailure[] = [], sounds: SoundPlacements = new Map()) => {
       if (!isCurrent()) return
       loadShownPageDocument(
         shownPage,
@@ -240,6 +243,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
         (document, hasLayoutScripts) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
+          this.sounds = sounds
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
           this.writeDocument(iframe, document, false, hasLayoutScripts)
@@ -375,25 +379,13 @@ export class SegnaviaPage extends PageParseOptionsElement {
     fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
   private onMessage = (event: MessageEvent) => {
-    const frame = this.querySelector('iframe')
-    const currentFrame = { frame, generation: this.loadGeneration }
-    handlePageFrameMessage(this, event, {
-      composedFrame: this.composedFrame,
-      currentFrame,
-      documentIsFinal: this.documentIsFinal,
-      documentIsLoaded: this.loadedDocument === this.documentWrites,
-      frameHeight: this.frameHeight,
-      frameReady: this.frameReady,
-      layoutFrame: this.layoutFrame,
-      page: this.pageValue,
-      profile: resolvePreflightProfile(this.profileInput),
+    handlePageElementMessage(this, event, {
       resolvedSlots: this.resolvedSlots,
       slotFrame: this.slotFrame,
-      fit: () => this.fit(),
-      ready: () => {
-        this.frameReady = true
-        releaseReadyPageRequests(this.pageRequests)
-      },
+      layoutFrame: this.layoutFrame,
+      loadedDocument: this.loadedDocument,
+      sounds: this.sounds,
+      documentIsFinal: this.documentIsFinal,
     })
   }
 }

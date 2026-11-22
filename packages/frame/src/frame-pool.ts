@@ -96,6 +96,11 @@ export class FramePool {
     return frame?.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId
   }
 
+  contentFor(source: MessageEventSource | null): ResolvedContent | undefined {
+    const slideId = this.slideIdFor(source)
+    return slideId ? this.entries.get(slideId)?.content : undefined
+  }
+
   failureFor(state: DeckState): Error | null {
     const slideId = state.slide?.id
     if (!slideId || !state.content) return null

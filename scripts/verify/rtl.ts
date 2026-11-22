@@ -36,8 +36,8 @@ export async function verifyRtl(h: Harness) {
   const buttons = {
     previous: await x(`${PLAYER} segnavia-step[to="previous"] button`),
     next: await x(`${PLAYER} segnavia-step[to="next"] button`),
-    first: await x(`${PLAYER} segnavia-track button[data-go="0"]`),
-    second: await x(`${PLAYER} segnavia-track button[data-go="1"]`),
+    first: await x(`${PLAYER} .bar segnavia-track button[data-go="0"]`),
+    second: await x(`${PLAYER} .bar segnavia-track button[data-go="1"]`),
     label: await page.locator(`${PLAYER} segnavia-step[to="next"] button`).getAttribute('aria-label'),
     count: await count.textContent(),
     countOrder: await count.evaluate((span) => {
