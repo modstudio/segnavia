@@ -87,7 +87,10 @@ function nestedMeasuredElement(tag: string, children: NestedMeasuredNode[]): Nes
     querySelectorAll: (selector: string) => {
       if (selector === ':scope > span[data-segnavia-line]' || selector === '[data-side-note]') return []
       if (selector === 'table')
-        return children.flatMap((child) => ('tagName' in child && child.tagName === 'TABLE' ? [child] : (child.querySelectorAll?.(selector) ?? [])))
+        return children.flatMap((child) => {
+          if (!('tagName' in child)) return []
+          return child.tagName === 'TABLE' ? [child] : child.querySelectorAll(selector)
+        })
       return []
     },
     getBoundingClientRect: () => ({ top: 0, bottom: 0, height: 0 }),
