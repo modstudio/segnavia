@@ -59,7 +59,7 @@ function heads(file: string): string[] {
 export async function verifyContinuousContentVariables(renderer: Renderer, work: string, check: Check): Promise<void> {
   for (const { pick, css, expected } of [
     { pick: 'first' as const, css: 'body{font:12px/16px serif}div+div{break-before:page}h2{margin-block:0 8px}', expected: topics.map(compact) },
-    { pick: 'start' as const, css: 'body{font:12px/16px serif}h2{break-before:page}', expected: undefined },
+    { pick: 'start' as const, css: 'body{font:16px/24px serif}', expected: topics.map(compact) },
   ]) {
     const found: Partial<Record<'continuous' | 'paginated', string[]>> = {}
     for (const mode of ['continuous', 'paginated'] as const) {
