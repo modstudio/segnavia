@@ -183,7 +183,7 @@ export async function verifyProgress(h: Harness) {
   )
   await page.locator(`${PLAYER} segnavia-stage`).press('ArrowRight')
   check('furthest mode refuses the keyboard next key past the watched limit', (await currentSlide()) === '1')
-  await page.locator(`${PLAYER} segnavia-track button[data-go="2"]`).click()
+  await page.locator(`${PLAYER} .bar segnavia-track button[data-go="2"]`).click()
   check('furthest mode refuses a later track segment past the watched limit', (await currentSlide()) === '1')
   const step = page.locator(`${PLAYER} segnavia-step[to="next"] button`)
   const stepDisabled = await step.isDisabled()
@@ -191,7 +191,7 @@ export async function verifyProgress(h: Harness) {
   await page.locator(`${PLAYER} segnavia-rail button[data-index="2"]`).click()
   check('furthest mode refuses a later rail slide past the watched limit', (await currentSlide()) === '1')
   const locked = await page
-    .locator(`${PLAYER} segnavia-track [data-go]`)
+    .locator(`${PLAYER} .bar segnavia-track [data-go]`)
     .evaluateAll((segments) => segments.slice(1).map((segment) => segment.getAttribute('data-state')))
   check('furthest mode marks every later track segment locked', locked.length === 2 && locked.every((state) => state === 'locked'), locked.join(','))
   await page.evaluate(() => {

@@ -281,7 +281,7 @@ export async function verifyRailAuthoring(h: Harness) {
   check('notes autosave and emit dirty changes', facts.saves.length === 1 && facts.dirty.includes(true) && facts.dirty.includes(false), JSON.stringify(facts))
   await page.evaluate(() => ((window as unknown as { authoringFacts: { deferNotes: boolean } }).authoringFacts.deferNotes = true))
   await notes.fill('Track draft')
-  const track = page.locator(`${PLAYER} segnavia-track ol`)
+  const track = page.locator(`${PLAYER} .bar > segnavia-track ol`)
   const trackBox = await track.boundingBox()
   if (!trackBox) throw new Error('The authoring continuous track has no box.')
   await page.mouse.click(trackBox.x + trackBox.width * 0.75, trackBox.y + trackBox.height / 2)

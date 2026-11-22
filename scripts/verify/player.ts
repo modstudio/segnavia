@@ -191,7 +191,7 @@ async function verifyContinuousPlayer(h: Harness) {
   await verifyControlBar(h, 'continuous')
   check('an actions slot button appears in the end group', await page.locator('#host-action').isVisible())
 
-  const track = page.locator(`${PLAYER} segnavia-track ol`)
+  const track = page.locator(`${PLAYER} .bar > segnavia-track ol`)
   const box = await track.boundingBox()
   if (!box) throw new Error('The continuous track has no box.')
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height / 2)
@@ -213,7 +213,7 @@ async function verifyContinuousPlayer(h: Harness) {
     .evaluate((player: HTMLElement & { controller: { state: { elapsedMs: number } } }) => player.controller.state.elapsedMs)
   check('continuous slider arrows seek five seconds', Math.abs(afterKey - beforeKey - 5000) < 50, `${beforeKey} -> ${afterKey}`)
 
-  const mute = page.locator(`${PLAYER} segnavia-mute button`)
+  const mute = page.locator(`${PLAYER} .bar segnavia-mute button`)
   await mute.click()
   check('mute toggles with aria-pressed', (await mute.getAttribute('aria-pressed')) === 'true')
   await mute.click()
@@ -253,7 +253,7 @@ async function verifySlottedPlayIcons(h: Harness) {
     })
   const stopped = await activeIcon()
   check('a player play-icon slot replaces the built-in icon', stopped.slot === 'icon-play' && stopped.custom === 'play', JSON.stringify(stopped))
-  await page.locator(`${PLAYER} segnavia-play button`).click()
+  await page.locator(`${PLAYER} .bar segnavia-play button`).click()
   await h.waitFor(PLAYER, (d) => d.playing === 'true')
   const playing = await activeIcon()
   check(
@@ -261,7 +261,7 @@ async function verifySlottedPlayIcons(h: Harness) {
     playing.slot === 'icon-pause' && playing.custom === 'pause',
     JSON.stringify(playing),
   )
-  await page.locator(`${PLAYER} segnavia-play button`).click()
+  await page.locator(`${PLAYER} .bar segnavia-play button`).click()
 }
 
 async function verifyScripted(h: Harness) {

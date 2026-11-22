@@ -62,7 +62,7 @@ export async function verifyMedia(h: Harness) {
   await page.goto(h.url('media.html'))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
   const started = Date.now()
-  await page.locator(`${PLAYER} segnavia-play button`).click()
+  await page.locator(`${PLAYER} .bar segnavia-play button`).click()
   await h.waitFor(PLAYER, (d) => d.shown === '0', { timeout: 10000 })
   check('a cue fires on its word while recorded audio plays', (await h.state(PLAYER)).shown === '0')
   await h.waitFor(PLAYER, (d) => d.slide === '2', { timeout: 10000 })
