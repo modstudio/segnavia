@@ -22,7 +22,7 @@ import { elements, parse, serialize } from '../sanitize.ts'
 import { chapterSection } from './book-chapter-section.ts'
 import { addContents } from './book-contents.ts'
 import { continuingFlowRoots } from './book-continue.ts'
-import { notesGalleys, targetLinks, withBlankPages } from './book-document-nodes.ts'
+import { notesGalleys, targetLinks, variableSetPoints, withBlankPages } from './book-document-nodes.ts'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
   authoredSection,
@@ -358,6 +358,8 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   if (requestedBuild !== 'print') markBlockPositions(sections)
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.division) === options.part)
+  const setPointsBySection = variableSetPoints(sections, options.targets === true)
+  const setPoints = visible.flatMap((section) => setPointsBySection.get(section) ?? [])
   const visibleRoots = continuingFlowRoots(visible)
   const document = parse('') as Document
   document.children =
@@ -377,6 +379,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
     html: serialize(document),
     sections: sections.map((section) => section.info),
     headings,
+    setPoints,
     pageReferenceTargets: referenceTargets,
     issues: [
       ...(buildIssue ? [buildIssue] : []),

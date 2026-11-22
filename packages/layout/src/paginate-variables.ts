@@ -7,6 +7,48 @@ export interface PaginateVariableValues {
   last: string
 }
 
+export interface ContinuousVariableSetPoint {
+  name: string
+  value: string
+  atStart: boolean
+}
+
+export interface ContinuousVariablePage {
+  blank: boolean
+  flow: string
+  setPoints: readonly ContinuousVariableSetPoint[]
+}
+
+function continuousUnits(page: ContinuousVariablePage): PaginateUnit[] {
+  const units: PaginateUnit[] = []
+  const atStart = page.setPoints.filter((point) => point.atStart)
+  if (atStart.length > 0) units.push(continuousUnit(0, atStart))
+  else units.push(continuousUnit(0))
+  for (const [offset, point] of page.setPoints.filter((candidate) => !candidate.atStart).entries()) units.push(continuousUnit(offset + 1, [point]))
+  return units
+}
+
+function continuousUnit(index: number, points: readonly ContinuousVariableSetPoint[] = []): PaginateUnit {
+  return {
+    flowId: '',
+    index,
+    top: index,
+    bottom: index + 1,
+    refs: [],
+    block: {
+      kind: 'text',
+      tag: 'span',
+      position: { chapter: 0, block: index },
+      lines: [{ top: index, bottom: index + 1 }],
+      ...(points.length > 0 ? { variables: points.map((point) => ({ name: point.name, value: point.value, line: index })) } : {}),
+    },
+  }
+}
+
+export function continuousPageVariables(pages: readonly ContinuousVariablePage[], declarations: readonly TextVariable[]): Array<Record<string, string>> {
+  return resolveVariablesAcrossPages(pages, continuousUnits, declarations)
+}
+
 export function pageSetPoints(placed: PaginateUnit[]): Record<string, Array<PaginateVariable & { firstLine: boolean }>> {
   const setOnPage = Object.create(null) as Record<string, Array<PaginateVariable & { firstLine: boolean }>>
   const firstUnit = placed[0]

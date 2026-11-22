@@ -4,6 +4,7 @@ import path from 'node:path'
 import { bookFromDocument, Document, type DocumentInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
+import { verifyContinuousContentVariables } from './book-content-variables.ts'
 import { verifyBookCssRender } from './book-css-render.ts'
 import { verifyBookOpeners } from './book-openers.ts'
 import { verifyContinuousPageReference } from './book-page-reference.ts'
@@ -299,6 +300,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   await verifyBookSectionPaper(renderer, work, check)
   await verifySectionNumbering(renderer, check)
   await verifyBookCssRender(renderer, work, check)
+  await verifyContinuousContentVariables(renderer, work, check)
   await verifyBookWindowPlacement(renderer, work, check)
   await verifyFixture(renderer, work, bookRenderFixture('english'), check)
   await verifyFixture(renderer, work, bookRenderFixture('hebrew'), check)

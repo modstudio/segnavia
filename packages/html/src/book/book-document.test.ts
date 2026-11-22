@@ -31,7 +31,6 @@ describe('book document', () => {
     ])
     expect([...result.html.matchAll(/<section[^>]+id="([^"]+)"/g)].map((match) => match[1])).toEqual(result.sections.map((section) => section.id))
   })
-
   test('lists contents levels through depth, excluding opted-out and chapter h1 headings while keeping an author id (mutation: omit the depth cut)', () => {
     const html =
       '<h1>Author chapter title</h1><h2 id="kept">Alpha <span data-note="footnote">not in heading</span></h2><h3 data-segnavia-id="heading-beta">Beta</h3><h3 data-segnavia-listed="none">No</h3><h4>Deep</h4>'
@@ -217,6 +216,7 @@ describe('book document', () => {
     }
     expect(bookDocument(book, { build: 'galley', targets: true }).html).toMatch(/inline-size:1px.*class="segnavia-targets"/)
   })
+
   test('a paginated document keeps footnote refs in the flow and moves notes to a notes galley', () => {
     const book = parseBookFixture(
       input({

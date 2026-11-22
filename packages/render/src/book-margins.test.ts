@@ -55,6 +55,27 @@ test('resolves chapter-number on the server margin path', () => {
   expect(facts[0]?.variables?.chapter).toBe('4')
 })
 
+test('resolves content variables from ordered continuous-page set points', () => {
+  const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const }]
+  const facts = marginFactsFor(
+    sections,
+    new Map([['chapter', { page: 1, x: 0, y: 700 }]]),
+    3,
+    new Set(),
+    { system: 'arabic', printed: true },
+    [{ name: 'topic', kind: 'text', from: 'content', pick: 'first' }],
+    undefined,
+    {},
+    undefined,
+    [
+      { id: 'one', name: 'topic', value: 'Three Phases', section: 'chapter', page: 1, y: 700, atStart: true },
+      { id: 'two', name: 'topic', value: 'Practice', section: 'chapter', page: 2, y: 600, atStart: false },
+      { id: 'three', name: 'topic', value: 'Questioning', section: 'chapter', page: 3, y: 650, atStart: false },
+    ],
+  )
+  expect(facts.map((page) => page.variables?.topic)).toEqual(['Three Phases', 'Practice', 'Questioning'])
+})
+
 test('leaves chapter-number empty on a part opening page', () => {
   const facts = marginFactsFor(
     [{ id: 'part', kind: 'part', division: 'body', partNumbers: { gate: 'II' } }],

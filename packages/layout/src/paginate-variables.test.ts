@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { block, flow, input } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
 import type { PaginateUnit } from './paginate-types.ts'
-import { paginateVariables } from './paginate-variables.ts'
+import { continuousPageVariables, paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
 
 const declarations = [
   { name: 'start', kind: 'text' as const, from: 'content' as const, pick: 'start' as const },
@@ -31,6 +31,46 @@ function unit(index: number, variables: Array<{ name: string; value: string }> =
 }
 
 describe('paginateVariables', () => {
+  test('resolves continuous page set points with paginated carry, start, first, last, blanks and flow scope', () => {
+    const pages = [
+      {
+        blank: false,
+        flow: 'one',
+        setPoints: [
+          { name: 'start', value: 'Opening', atStart: true },
+          { name: 'first', value: 'First', atStart: false },
+          { name: 'last', value: 'First', atStart: false },
+          { name: 'last', value: 'Last', atStart: false },
+        ],
+      },
+      { blank: false, flow: 'one', setPoints: [] },
+      { blank: true, flow: 'one', setPoints: [{ name: 'first', value: 'Hidden', atStart: true }] },
+      { blank: false, flow: 'two', setPoints: [{ name: 'start', value: 'Later', atStart: false }] },
+    ]
+    expect(continuousPageVariables(pages, declarations)).toEqual([
+      { start: 'Opening', first: 'First', last: 'Last' },
+      { start: 'Opening', first: 'First', last: 'Last' },
+      {},
+      { start: 'Opening', first: 'First', last: 'Last' },
+    ])
+
+    const equivalent = resolveVariablesAcrossPages(
+      pages,
+      (page) => {
+        const opening = page.setPoints.filter((point) => point.atStart)
+        return [
+          unit(
+            0,
+            opening.map(({ name, value }) => ({ name, value })),
+          ),
+          ...page.setPoints.filter((point) => !point.atStart).map((point, index) => unit(index + 1, [{ name: point.name, value: point.value }])),
+        ]
+      },
+      declarations,
+    )
+    expect(continuousPageVariables(pages, declarations)).toEqual(equivalent)
+  })
+
   test('start carries a value set on an earlier page', () => {
     const earlier = paginateVariables([unit(0, [{ name: 'start', value: 'Earlier' }])], {}, declarations)
     expect(paginateVariables([unit(1)], earlier.carried, declarations).values.start?.start).toBe('Earlier')
