@@ -134,7 +134,7 @@ test('bookPdf labels a fresh paginated composition from its published plan', asy
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
   const published = JSON.stringify({
-    version: 7,
+    version: 8,
     fingerprint: 'fresh',
     breaks: [],
     pages: [planPage(1), planPage(2)],
@@ -185,7 +185,7 @@ test('bookPdf labels a supplied plan without reading a carrier', async () => {
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
   const plan: Plan = {
-    version: 7,
+    version: 8,
     fingerprint: 'saved',
     breaks: [],
     pages: [planPage(1)],

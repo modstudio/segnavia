@@ -1,6 +1,6 @@
 import { defaultParentRules, type PaginateLine, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
 import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
-import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
+import { insideSideNote } from './composer-line-range.ts'
 import { descendantTables, linesWithDescendantTables, measureTableLines, tableRenderedInFlow } from './composer-table-measure.ts'
 
 export interface MeasuredKeepCandidate {
@@ -229,6 +229,82 @@ export function sizeFlowGalley(flow: HTMLElement, width: number, height: number,
   flow.style.widows = String(widows)
 }
 
+export function recursiveLineBoxChild(element: Element): boolean {
+  const style = getComputedStyle(element)
+  const tag = element.tagName.toLowerCase()
+  return (
+    !insideSideNote(element) &&
+    !skippableDescendantBoxDisplay(style.display) &&
+    style.position !== 'absolute' &&
+    style.position !== 'fixed' &&
+    tag !== 'table' &&
+    tag !== 'img' &&
+    tag !== 'figure'
+  )
+}
+
+export function linesWithChildContentBox(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
+  if (lines.length === 0) return []
+  const measured = lines.map((line) => ({ ...line }))
+  const style = getComputedStyle(element)
+  const box = element.getBoundingClientRect()
+  const contentTop = box.top + (Number.parseFloat(style.borderTopWidth) || 0) + (Number.parseFloat(style.paddingTop) || 0) - origin
+  const contentBottom = box.bottom - (Number.parseFloat(style.borderBottomWidth) || 0) - (Number.parseFloat(style.paddingBottom) || 0) - origin
+  const first = measured[0]
+  const last = measured.at(-1)
+  if (first) first.top = Math.min(first.top, contentTop)
+  if (last) last.bottom = Math.max(last.bottom, contentBottom)
+  return measured
+}
+
+export function childLineBoxRanges(element: Element, origin: number): { groups: MeasuredLineBox[]; ranges: Range[] } {
+  const groups: MeasuredLineBox[] = []
+  const ranges: Range[] = []
+  const children = Array.from(element.childNodes)
+  const sideNotes = Array.from(element.querySelectorAll('[data-side-note]'))
+  let rangeStart = 0
+  const addRange = (end: number) => {
+    if (end <= rangeStart) return
+    let range = element.ownerDocument.createRange()
+    range.setStart(element, rangeStart)
+    for (const note of sideNotes) {
+      let directChild = note
+      while (directChild.parentElement && directChild.parentElement !== element) directChild = directChild.parentElement
+      const childIndex = children.indexOf(directChild)
+      if (childIndex < rangeStart || childIndex >= end) continue
+      range.setEndBefore(note)
+      ranges.push(range)
+      range = element.ownerDocument.createRange()
+      range.setStartAfter(note)
+    }
+    range.setEnd(element, end)
+    ranges.push(range)
+  }
+  for (const [index, child] of children.entries()) {
+    const childElement = 'tagName' in child ? (child as Element) : undefined
+    if (!childElement || !recursiveLineBoxChild(childElement)) continue
+    addRange(index)
+    groups.push(...linesWithChildContentBox(measureLineBoxes(childElement, origin), childElement, origin))
+    rangeStart = index + 1
+  }
+  addRange(children.length)
+  return { groups, ranges }
+}
+
+export function groupedLineBoxes(groups: readonly MeasuredLineBox[], ranges: readonly Range[], origin: number): MeasuredLineBox[] {
+  const measured = groups.map((group) => ({ ...group }))
+  for (const range of ranges) {
+    for (const rect of range.getClientRects()) {
+      const top = rect.top - origin
+      const bottom = rect.bottom - origin
+      const found = measured.find((group) => Math.abs(group.top - top) < 0.5)
+      if (!found) measured.push({ top, bottom })
+      else if (bottom > found.bottom) found.bottom = bottom
+    }
+  }
+  return measured.sort((left, right) => left.top - right.top)
+}
+
 export function measureLineBoxes(element: Element, origin: number): MeasuredLineBox[] {
   const tag = element.tagName.toLowerCase()
   if (tag === 'img') {
@@ -251,17 +327,8 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
-  const groups: MeasuredLineBox[] = []
-  for (const range of contentRangesExcludingSideNotes(element)) {
-    for (const rect of range.getClientRects()) {
-      const top = rect.top - origin
-      const bottom = rect.bottom - origin
-      const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
-      if (!found) groups.push({ top, bottom })
-      else if (bottom > found.bottom) found.bottom = bottom
-    }
-  }
-  groups.sort((left, right) => left.top - right.top)
+  const measured = childLineBoxRanges(element, origin)
+  const groups = groupedLineBoxes(measured.groups, measured.ranges, origin)
   if (groups.length > 0 || tables.length > 0) return linesWithDescendantTables(groups, tables)
   const box = element.getBoundingClientRect()
   return box.height > 0 ? [{ top: box.top - origin, bottom: box.bottom - origin }] : []

@@ -1,16 +1,19 @@
 import { embedFunction } from '@segnavia/html'
 import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
 import { measureLineNoteAnchors } from './composer-line-label-measure.ts'
-import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
+import { insideSideNote } from './composer-line-range.ts'
 import {
   applyBoxDecorations,
+  childLineBoxRanges,
   composerLayoutReady,
   decorationBoxTop,
   descendantKeepSignals,
   forcedPageBreak,
+  groupedLineBoxes,
   inlineLevelDisplay,
   keepSignals,
   lineNumberedLines,
+  linesWithChildContentBox,
   lineWithinBox,
   measuredBlockConstraints,
   measuredCandidateKeeps,
@@ -20,6 +23,7 @@ import {
   measureLineBoxes,
   measurementRefusal,
   outermostKeepValue,
+  recursiveLineBoxChild,
   sizeFlowGalley,
   skippableDescendantBoxDisplay,
 } from './composer-measure.ts'
@@ -62,7 +66,10 @@ export function embeddedComposerMeasureFunctions(lineNotes = false): string {
     embedFunction('forcedPageBreak', forcedPageBreak),
     embedFunction('composerLayoutReady', composerLayoutReady),
     embedFunction('insideSideNote', insideSideNote),
-    embedFunction('contentRangesExcludingSideNotes', contentRangesExcludingSideNotes),
+    embedFunction('recursiveLineBoxChild', recursiveLineBoxChild),
+    embedFunction('linesWithChildContentBox', linesWithChildContentBox),
+    embedFunction('childLineBoxRanges', childLineBoxRanges),
+    embedFunction('groupedLineBoxes', groupedLineBoxes),
     embedFunction('sizeFlowGalley', sizeFlowGalley),
     embedFunction('tableRowLines', tableRowLines),
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),

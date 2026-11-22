@@ -33,11 +33,9 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
     return rects
   }
 
-  function lineBoxes(element: Element, origin: number) {
-    const range = document.createRange()
-    range.selectNodeContents(element)
+  function textLineBoxes(element: Element, origin: number) {
     const groups: Array<{ top: number; bottom: number }> = []
-    for (const rect of Array.from(range.getClientRects())) {
+    for (const rect of textInkRects(element)) {
       const top = rect.top - origin
       const bottom = rect.bottom - origin
       const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
@@ -60,7 +58,7 @@ export function inspectNoteViewGeometry(): NoteViewGeometry {
     const clone = view.querySelector('[data-segnavia-note]') ?? view.firstElementChild
     const origin = clone?.getBoundingClientRect().top ?? box.top
     const lines = clone
-      ? lineBoxes(clone, origin).filter((line) => {
+      ? textLineBoxes(clone, origin).filter((line) => {
           const top = line.top + origin
           return top >= box.top - 0.5 && top <= box.bottom + 0.5
         }).length
