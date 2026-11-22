@@ -258,7 +258,7 @@ without rewriting author HTML.
 | deck `lang` | `settings.lang` |
 | deck `slots` | `data.slots` |
 | deck `slides` | root `children`, with `type: 'slide'` on every slide |
-| slide fields | unchanged beside the added node `type`; `id`, `content`, `notes`, `narration`, and timing fields stay on the slide node |
+| slide fields | unchanged beside the added node `type`; `id`, optional non-empty `title`, `content`, `notes`, `narration`, and timing fields stay on the slide node. The title supplies the rail and segmented-track accessible name without becoming visible slide content. |
 | page root | `{ type: 'document', kind: 'page', children: [{ type: 'page', ... }] }` |
 | page `id` | `children[0].id` |
 | page `body` | `children[0].body` |

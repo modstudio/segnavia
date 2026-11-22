@@ -110,6 +110,12 @@ describe('Document closed objects', () => {
       return type?.const === 'flow'
     })
     expect(flowNode?.additionalProperties).toBeFalse()
+    const slideNode = objects(schemas.document).find((object) => {
+      const properties = object.properties as Record<string, unknown> | undefined
+      const type = properties?.type as Record<string, unknown> | undefined
+      return type?.const === 'slide'
+    })
+    expect(slideNode?.properties).toHaveProperty('title')
     for (const legacy of ['deck', 'page', 'book', 'board']) expect(schemas).not.toHaveProperty(legacy)
   })
 })

@@ -10,7 +10,7 @@ export interface PlayerLabels {
   pause: string
   previous: string
   next: string
-  slide: (number: number, total: number) => string
+  slide: (number: number, total: number, title?: string) => string
   frameTitle: FrameTitle
   slides: string
   rail: string
@@ -73,7 +73,7 @@ export const ENGLISH_LABELS: PlayerLabels = {
   pause: 'Pause',
   previous: 'Previous slide',
   next: 'Next slide',
-  slide: (number, total) => `Slide ${number} of ${total}`,
+  slide: (number, total, title) => (title === undefined ? `Slide ${number} of ${total}` : `⁨${title}⁩, slide ${number} of ${total}`),
   frameTitle: defaultFrameTitle,
   slides: 'Slides',
   rail: 'Slides',

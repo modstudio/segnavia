@@ -213,7 +213,7 @@ export class SegnaviaRail extends SegnaviaDeckControl {
       const button = item.querySelector('button') as HTMLButtonElement
       button.dataset.index = String(index)
       const folio = deckFolioAt(folios, index)
-      button.setAttribute('aria-label', this.labels.slide(folio.number, total))
+      button.setAttribute('aria-label', this.labels.slide(folio.number, total, slide.title))
       ;(button.querySelector('.number') as HTMLElement).textContent = folio.text
       ordered.set(slide.id, item)
       this.decorateSlideSettings(item, slide.id)
