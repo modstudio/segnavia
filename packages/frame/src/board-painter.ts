@@ -35,7 +35,8 @@ export class BoardPainter {
             ? unavailablePlaceholder(outcome.value.label, outcome.value.kind)
             : boardPlaceholder()
       if (outcome.status === 'unavailable') node.dataset.boardItemState = outcome.value.state
-      node.append(content, boardShield())
+      const interactiveSound = outcome.status === 'resolved' && outcome.value.kind === 'sound' && tier === 'live'
+      node.append(content, ...(interactiveSound ? [] : [boardShield()]))
     } catch (error) {
       failed(error)
     }

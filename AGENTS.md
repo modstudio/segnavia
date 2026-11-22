@@ -123,6 +123,11 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   is exactly `pages` or `flow` and `place` is absent or obeys that same bound.
   Slot fit is safe because filled items refuse author scripts, leaving only
   the nonce-authorized bridge able to post from a filled frame.
+  A page or slide frame may send `segnavia:sound-play` with exactly one
+  `placement` handle of at most 256 characters. The host re-applies that bound,
+  trusts the message only by `event.source`, and drops handles absent from the
+  current resolved document. A scripted frame can start its own placed sounds
+  without a click.
 - Rendering is offline: Chromium never reaches the network. In every author document, a request under an approved origin and path is answered by the host's `assets` seam within the host-only `limits.assets` caps. An unapproved or unanswered request refuses the render. Service workers are blocked. The render tab's own document is served once from the reserved origin `http://segnavia.invalid/` under a CSP `sandbox` without `allow-same-origin`, so its origin stays opaque; every other request to that origin is refused.
 - No secret is stored. A provider reads its key from the host at the moment
   of use (`elevenLabsProvider({ apiKey: () => ... })`), never at import.

@@ -1,5 +1,24 @@
 import { expect, test } from 'bun:test'
-import { dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
+import { PREFLIGHT_PRESETS } from '@segnavia/format'
+import { MESSAGE } from './bridge.ts'
+import { dispatchFontFailures, dispatchPreflight, messageFromFrames } from './bridge-message.ts'
+
+const messageTypes = MESSAGE
+
+function soundMessage(data: unknown, source: object, frameSource: object = source) {
+  const frame = { contentWindow: frameSource } as HTMLIFrameElement
+  return messageFromFrames({ data, source } as MessageEvent, frame, messageTypes, [], 1024, PREFLIGHT_PRESETS.default)
+}
+
+test('accepts only an exact bounded sound-play message from the named frame', () => {
+  const source = {}
+  expect(soundMessage({ type: MESSAGE.soundPlay, placement: 'x'.repeat(256) }, source)).toEqual({ type: MESSAGE.soundPlay, placement: 'x'.repeat(256) })
+  expect(soundMessage({ type: MESSAGE.soundPlay, placement: 'x'.repeat(257) }, source)).toBeNull()
+  expect(soundMessage({ type: MESSAGE.soundPlay, placement: 0 }, source)).toBeNull()
+  expect(soundMessage({ type: MESSAGE.soundPlay }, source)).toBeNull()
+  expect(soundMessage({ type: MESSAGE.soundPlay, placement: '0', extra: true }, source)).toBeNull()
+  expect(soundMessage({ type: MESSAGE.soundPlay, placement: '0' }, source, {})).toBeNull()
+})
 
 test('dispatches the shared bubbling and composed fontfailure event', () => {
   const target = new EventTarget()

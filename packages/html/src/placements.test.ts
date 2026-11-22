@@ -82,8 +82,8 @@ describe('resolvePlacements', () => {
       width: 100,
       signal,
     })
-    expect(output.html).toContain('<button type="button" data-segnavia-sound="0" aria-label="Theme">')
-    expect(output.html).toContain('<button type="button" data-segnavia-sound="1" aria-label="סיום">')
+    expect(output.html).toContain('<button type="button" data-segnavia-sound="0" aria-label="Theme" dir="ltr">')
+    expect(output.html).toContain('<button type="button" data-segnavia-sound="1" aria-label="סיום" dir="rtl" lang="he">')
     expect(output.html).not.toContain('data-segnavia-placement="missing"')
     expect([...output.sounds]).toEqual([
       ['0', { sound: first, src: 'sound:theme' }],

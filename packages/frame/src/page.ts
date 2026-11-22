@@ -15,7 +15,7 @@ import { type EstablishedPageDay, type HtmlPage, parseDocument, resolveEdition }
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { messageFrom, type PageSelection } from './bridge.ts'
+import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -27,17 +27,16 @@ import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
-import { handlePageFrameMessage } from './page-frame-message.ts'
 import { scrollPageToHeading } from './page-heading.ts'
+import { handlePageElementMessage } from './page-message-handler.ts'
 import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
 import { printedPageRequestRefusal } from './page-printed.ts'
-import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
+import { cancelPageRequests, createPageRequestState } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
 import { loadPageUrl } from './page-url-load.ts'
 import { renderPageValue } from './page-value-render.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import type { PreparedSlots } from './slot-render.ts'
-import { dispatchSoundPlay } from './sound-play.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
@@ -386,26 +385,6 @@ export class SegnaviaPage extends PageParseOptionsElement {
     fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
   private onMessage = (event: MessageEvent) => {
-    const frame = this.querySelector('iframe')
-    const currentFrame = { frame, generation: this.loadGeneration }
-    handlePageFrameMessage(this, event, {
-      composedFrame: this.composedFrame,
-      currentFrame,
-      documentIsFinal: this.documentIsFinal,
-      documentIsLoaded: this.loadedDocument === this.documentWrites,
-      frameHeight: this.frameHeight,
-      frameReady: this.frameReady,
-      layoutFrame: this.layoutFrame,
-      page: this.pageValue,
-      profile: resolvePreflightProfile(this.profileInput),
-      resolvedSlots: this.resolvedSlots,
-      slotFrame: this.slotFrame,
-      fit: () => this.fit(),
-      ready: () => {
-        this.frameReady = true
-        releaseReadyPageRequests(this.pageRequests)
-      },
-    })
-    dispatchSoundPlay(this, messageFrom(event, frame, resolvePreflightProfile(this.profileInput)), this.sounds)
+    handlePageElementMessage(this, event)
   }
 }

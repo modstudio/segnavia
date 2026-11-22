@@ -125,6 +125,15 @@ describe('board policy', () => {
     )
   })
 
+  test('accepts a sound face and still refuses the wrong answer kind', () => {
+    const soundItem: BoardItem = { id: 'sound', kind: 'sound', address: 'sound', x: 0, y: 0, width: 100 }
+    const sound = { format: 'mp3' as const, durationMs: 1_000, title: { text: 'Theme' } }
+    expect(checkResolved(soundItem, { kind: 'sound', sound, src: 'theme.mp3' })).toEqual({ kind: 'sound', sound, src: 'theme.mp3', designedCover: undefined })
+    expect(() => checkResolved(soundItem, { kind: 'image', src: 'cover.png', width: 4, height: 3 })).toThrow(
+      'The resolved item kind is image, not sound; return a resolved sound.',
+    )
+  })
+
   test('refuses zero, negative and non-finite resolved dimensions', () => {
     expect(() => checkResolved(paperItem, { kind: 'paper', pages: [], imposition, size: { width: 0, height: 10 } })).toThrow(
       'The resolved paper size has a width of 0; return a positive width.',

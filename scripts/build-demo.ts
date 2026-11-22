@@ -191,8 +191,7 @@ const hebrew = Document.parse({
 })
 writeFileSync(path.join(SITE, 'deck-he.json'), JSON.stringify(hebrew, null, 2))
 
-// Narration with recorded audio, narration spoken live by the browser, and
-// the other two kinds of slide content: a host URL and a plain image.
+// Recorded and live narration beside the other media slide kinds.
 mkdirSync(path.join(SITE, 'audio'), { recursive: true })
 writeFileSync(path.join(SITE, 'audio/tone.wav'), sineWav(2.4))
 const recorded = await narration('Recorded narration drives this slide, then it moves on.', (n) => [{ word: wordIndex(n, 'drives'), annotation: 0 }])
@@ -225,6 +224,7 @@ writeFileSync(
             cues: [{ word: 6, annotation: 0 }],
           },
         },
+        { type: 'slide', id: 'placed-sound', content: { kind: 'html', html: '<img data-segnavia-media="demo-sound">' } },
         { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html' } },
         { type: 'slide', id: 'image', content: { kind: 'image', src: `shots/${formShot.file}`, alt: 'The new class form' } },
       ],

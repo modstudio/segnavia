@@ -8,11 +8,11 @@ import {
   type PreflightEntry,
   placedPdfPage,
   pointsToCssPixels,
-  resolveDirection,
   type Sound,
 } from '@segnavia/format'
-import { type ChildNode, type Element, isTag } from 'domhandler'
+import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
+import { applyResolvedSound, type ResolvedSoundPlacement } from './sound-placement.ts'
 import { refuseSoundsForPrint } from './sound-print-refusal.ts'
 
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
@@ -22,10 +22,7 @@ export type ResolvedPlacement =
   | { kind: 'media'; media: Media; src: string; bytes?: Uint8Array }
   | { kind: 'sound'; sound: Sound; src: string }
   | { kind: 'page'; page: DocumentInput }
-export interface ResolvedSoundPlacement {
-  sound: Sound
-  src: string
-}
+export type { ResolvedSoundPlacement } from './sound-placement.ts'
 export interface ResolvedPlacements {
   html: string
   sounds: Map<string, ResolvedSoundPlacement>
@@ -243,39 +240,6 @@ function applyResolved(
   }
   element.attribs.src = resolved.src
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
-}
-
-function isolatedSoundText(className: string, value: Sound['title'] | Sound['credit']): string {
-  if (!value) return ''
-  const dir = resolveDirection(value.dir, value.lang, value.text)
-  const lang = value.lang ? ` lang="${escapeSoundText(value.lang)}"` : ''
-  return `<span class="${className}"><bdi dir="${dir}"${lang}>${escapeSoundText(value.text)}</bdi></span>`
-}
-
-function escapeSoundText(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;')
-}
-
-function soundFace(sound: Sound): string {
-  const minutes = Math.floor(sound.durationMs / 60_000)
-  const seconds = Math.floor((sound.durationMs % 60_000) / 1_000)
-  const duration = `${minutes}:${String(seconds).padStart(2, '0')}`
-  return `<span class="segnavia-sound-face"><span class="segnavia-sound-glyph" aria-hidden="true">♪</span><span class="segnavia-sound-text">${isolatedSoundText('segnavia-sound-title', sound.title)}<span class="segnavia-sound-duration"><bdi dir="ltr">${duration}</bdi></span>${isolatedSoundText('segnavia-sound-credit', sound.credit)}</span></span>`
-}
-
-function replaceChildren(element: Element, children: ChildNode[]): void {
-  element.children = children
-  for (const child of children) child.parent = element
-}
-
-function applyResolvedSound(element: Element, resolved: ResolvedSoundPlacement, handle: string): void {
-  element.name = 'button'
-  element.attribs = {
-    type: 'button',
-    'data-segnavia-sound': handle,
-    ...(resolved.sound.title ? { 'aria-label': resolved.sound.title.text } : {}),
-  }
-  replaceChildren(element, parse(soundFace(resolved.sound)).children.filter(isTag))
 }
 
 function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {

@@ -9,6 +9,9 @@ export const urlSlidePlayer = `<segnavia-player id="player" hash="off" presentat
   <script type="module">
     await customElements.whenDefined('segnavia-player')
     const player = document.getElementById('player')
+    player.placements = { resolve: async ({ address }) => address === 'demo-sound' ? {
+      kind: 'sound', sound: { format: 'wav', durationMs: 2400, title: { text: 'Demo tone' } }, src: 'audio/tone.wav'
+    } : undefined }
     player.resolveSlide = (slide) => slide.content.kind === 'url' ? { ...slide.content, bridge: true } : slide.content
     player.setAttribute('src', 'deck-media.json')
   </script>`
