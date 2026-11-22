@@ -1,5 +1,153 @@
 # @segnavia/frame
 
+## 0.57.0
+
+### Minor Changes
+
+- f94cd2e: Report composed paragraphs whose worst line falls outside its word-spacing limits through the `hj-violations` preflight check.
+- 19773f8: Place rich block and inline side notes in paginated margins with shared side resolution, downward stacking, direction isolation, and margin-overset preflight reporting.
+- 6000aff: Report unmeasured slot fit explicitly, wait for hidden frames to become laid out,
+  and include measured and total slot coverage in preflight reports.
+- 73d203d: Add copyfit before pagination with ordered size, leading and tracking strategies,
+  shared fit groups, measured fit facts and `fit-limit` preflight reporting.
+
+  This is a clean break for book templates: the former region-only meaning of
+  `data-fit-min` and `data-fit-step` is removed. Without `data-fit`, the new
+  vocabulary defaults to the `size` strategy.
+
+  The `fitRegionSize` export is removed from `@segnavia/html`. Preflight fit facts
+  now have `{ subject, group?, values }` instead of `{ group, size }`; hosts that
+  read those facts must use the per-strategy `values` map.
+
+- b802e31: A server-safe `@segnavia/frame/deck-model` entry exposes the deck's types and pure helpers without registering elements.
+- 76957b8: Let `pageImage` select one page from a composed printed-page run, and let page, slide, and cover image renders preserve a transparent background in PNG and WebP output.
+- 4b4619a: Add sound as a placed asset kind for pages and decks, and refuse declared sounds on every print and PDF path.
+- 9121f04: Change preflight coverage shortfalls into the new `coverage-incomplete` check,
+  reported as a warning by default and refused under `strict`. Report `status` no
+  longer includes `incomplete`; hosts may turn the new check `off` in a custom
+  profile.
+
+  `boundPreflightReport` now accepts coverage units and custom bounds in one
+  trailing options object; pass custom bounds as `options.bounds`.
+
+- 65df494: Cover one declared font face with the union of supplied weight bands and Unicode ranges in both resolution and frame loading. Font failure and `font-missing` subjects now name each uncovered weight and Unicode range, so hosts should display the more specific subject text unchanged.
+- d171860: Compose justified paragraphs into explicit total-fit lines in paginated books and printed pages. `@segnavia/format` now exports the plain composition-style reader and word-spacing validation used by embedded layout scripts.
+- 28b7acb: Clip flow blocks at their column instead of tiling printed pages, and report
+  block box, descendant and scroll overflow through preflight as a warning by default and an error under
+  the strict profile. Remove the unused layout exports for inline-tiled plan
+  pages now that composed pages never tile.
+- d235969: Key note series to numbered text lines, with measured lemma anchors and converged line labels in paginated books.
+- 54d8848: Add a slim page-only browser entry point.
+  Allow page elements to use a host-supplied ID mint when parsing documents, and accept it as the React page's `newId` prop.
+- a783a10: Add the headless `<segnavia-printed-pages>` windowed viewer with single and facing layouts, fitting, navigation, record mapping, reload preservation, failure reporting, and a React wrapper.
+- 689c6aa: Draw Mermaid diagrams through the layout provider runtime.
+
+  - Replace `withDiagramScript` with the public `layoutScripts` frame option.
+  - Replace `loadDiagramScript` with `loadLayoutScripts`.
+  - Replace `loadDiagramScriptResult` with the rejection result from `loadLayoutScripts`.
+  - Replace `DIAGRAM_READY_EXPR` with layout phase settlement.
+  - Replace `DIAGRAM_READY_NAME` with `segnaviaLayout.run('galley')` settlement.
+  - Replace `DIAGRAMS_DRAWN_ATTRIBUTE` with layout phase settlement.
+  - Replace the render option `diagramScript` with `layoutScripts`.
+  - Replace the `@segnavia/diagrams/script` export `diagramScript` with `diagramProviderScript`.
+  - Use `hasLayoutProvider` from `@segnavia/frame/layout` to query the shared provider registry.
+
+- 1018e31: Add repeat fill and per-region grow, truncate and refuse overflow policies,
+  with bounded fill and truncation facts in preflight reports.
+- 34abdf5: Choose a document edition in browser players, frames, thumbnails, and print options.
+- df2f2cd: Number book parts and chapters in contents, outlines and running heads; give parts contents labels; and allow a part to continue on the current page with a generated heading.
+- 74a8045: Printed documents hold designed pages, flowing sections and records in any order, and a section can name its own paper with `pageGeometry`.
+- 993ff17: Draw withheld or gone board items without exposing their names, and let hosts invalidate cached item resolutions.
+- 6d22914: Count book division folios without printing them. Contents entries keep an empty number for unprinted pages, authored page references refuse those targets, and pages-total continues to report the counted total.
+
+  Saved plans from earlier plan versions must be recomputed. `pageReferenceFolio` now takes folio print status, division, and reference role in a named options object.
+
+- b64e791: Resolve placed sounds as bounded library buttons, relay their handles from page
+  and slide frames, and let the player or a host play them through
+  `<segnavia-sound>`. Boards now resolve and show sound items in both tiers.
+  `soundFace` in `@segnavia/format` returns the sound face that `soundCover` and
+  the placed-sound button share.
+- fc68ebf: Accept text-only narration paced by a deck reading speed, with actionable narration-kind refusals. Shared pacing now gives pointed and unpointed Hebrew the same duration by excluding combining marks, and paced voice provider IDs name this timing-rule version so cached timings are not reused.
+
+  Breaking: `slideDurationMs`, `phaseBounds`, `slideStateAt`, `momentAt`, `timedClock`, `speechClock` and the controller `clock` option now take the deck's pacing input (`NarrationPacing`, the deck's `readingSpeed`) as a required argument, so every host times text narration at the deck's reading speed. Pass the deck where you call them.
+
+- 943d69d: Add print-safe checkbox, answer-line, and answer-box fields to authored content. Markdown task lists now emit checkbox field spans instead of native disabled inputs, and converter policies no longer exempt inert controls from sanitizing.
+- 8b08d16: Change the controller `error` event to an `ErrorEvent` carrying a `DeckRefusedError` or `SlideRefusedError`, replacing the custom-event detail `{ index, message }`; a slide refusal's index is now `event.error.index`. `SlideFrameError` is now a `Refusal` with code `slide-frame`, a message that wraps its cause, and constructor `(slideId, index, cause)`. Add the required `refused` field to `PlayerLabels`. Add the stage's headless `data-refused`, `refusal`, and `refusalchange` state, including frame failures retained by pooled slide frames, and show that refusal in the styled player.
+- 5274414: Give sounds a directional cover, add natural and square thumbnail fits, and provide headless image and sound viewers that share the player controls. Shared controls expose their controller as either deck or playback controller, matching what the property accepts. `@segnavia/format` exports `formatDuration`, the clock text that frame's `formatTime` now uses, and `@segnavia/frame` exports `THUMBNAIL_RATIOS`, the table of thumbnail ratios.
+- 0919a03: Carry a book's canonical outline into its composed view and make PDF heading tags match the outline's structural depths, including title-only parts and right-to-left books.
+- 6058a2b: Measure source block size, fitted line count or child max-content inline width
+  into an authored CSS custom property before pagination. Include the values in
+  composition measurements and in the optional `describeDocument` measured
+  section.
+- a04d05b: Add the shared refusal base and document identity refusals to `@segnavia/format`.
+  Expose machine-readable refusal details from `@segnavia/html`.
+  Expose machine-readable refusal details from `@segnavia/frame`.
+  Expose machine-readable refusal details from `@segnavia/voice`.
+  Expose structured render and asset refusal details from `@segnavia/render`.
+- ae7134d: Allow hosts to cap how far board reveals zoom in with `revealMaxZoom` or a per-call `reveal(id, { maxZoom })` override.
+- a1419bb: Add configurable line numbers to paginated books and printed documents, including Hebrew numbering, section restarts, margin placement, and preflight collision reports.
+
+### Patch Changes
+
+- df8cb9f: Size template fit and fill staging clones from the holder's resolved parent rules.
+- d0cd093: Break nested tables between their own rows and repeat every crossed table header.
+- dcb677e: A table header now repeats when the table sits inside any chain of single-content wrappers.
+- d7d637c: Keep every block after a wrapper element in a paginated book flow. A window that holds a wrapper whose first child has a block-start margin, such as `<div><p>…</p></div>`, now places its content at the galley offset, so later blocks are no longer clipped out of the printed book.
+- Updated dependencies [7fd24f0]
+- Updated dependencies [f94cd2e]
+- Updated dependencies [19773f8]
+- Updated dependencies [6000aff]
+- Updated dependencies [73d203d]
+- Updated dependencies [7e96c6d]
+- Updated dependencies [9cb0c13]
+- Updated dependencies [c938142]
+- Updated dependencies [4b4619a]
+- Updated dependencies [054d18b]
+- Updated dependencies [9121f04]
+- Updated dependencies [65df494]
+- Updated dependencies [d171860]
+- Updated dependencies [28b7acb]
+- Updated dependencies [3e76201]
+- Updated dependencies [d235969]
+- Updated dependencies [0c02e6c]
+- Updated dependencies [e603def]
+- Updated dependencies [e2e58c9]
+- Updated dependencies [689c6aa]
+- Updated dependencies [4417f9e]
+- Updated dependencies [dac1f50]
+- Updated dependencies [1018e31]
+- Updated dependencies [8012f7a]
+- Updated dependencies [df2f2cd]
+- Updated dependencies [74a8045]
+- Updated dependencies [6d22914]
+- Updated dependencies [3ace440]
+- Updated dependencies [b64e791]
+- Updated dependencies [fc68ebf]
+- Updated dependencies [51666c8]
+- Updated dependencies [943d69d]
+- Updated dependencies [5274414]
+- Updated dependencies [55d6829]
+- Updated dependencies [260c232]
+- Updated dependencies [d0cd093]
+- Updated dependencies [efe9484]
+- Updated dependencies [b6a4273]
+- Updated dependencies [a898633]
+- Updated dependencies [053ab6a]
+- Updated dependencies [2b45442]
+- Updated dependencies [0919a03]
+- Updated dependencies [2a0a47f]
+- Updated dependencies [9fbf790]
+- Updated dependencies [6058a2b]
+- Updated dependencies [a04d05b]
+- Updated dependencies [cf01807]
+- Updated dependencies [b451aa0]
+- Updated dependencies [a1419bb]
+- Updated dependencies [31c2def]
+- Updated dependencies [6d3ecf6]
+  - @segnavia/format@0.57.0
+  - @segnavia/html@0.57.0
+  - @segnavia/layout@0.57.0
+
 ## 0.56.0
 
 ### Minor Changes

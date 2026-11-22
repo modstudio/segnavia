@@ -1,5 +1,84 @@
 # @segnavia/layout
 
+## 0.57.0
+
+### Minor Changes
+
+- 19773f8: Place rich block and inline side notes in paginated margins with shared side resolution, downward stacking, direction isolation, and margin-overset preflight reporting.
+- 73d203d: Add copyfit before pagination with ordered size, leading and tracking strategies,
+  shared fit groups, measured fit facts and `fit-limit` preflight reporting.
+
+  This is a clean break for book templates: the former region-only meaning of
+  `data-fit-min` and `data-fit-step` is removed. Without `data-fit`, the new
+  vocabulary defaults to the `size` strategy.
+
+  The `fitRegionSize` export is removed from `@segnavia/html`. Preflight fit facts
+  now have `{ subject, group?, values }` instead of `{ group, size }`; hosts that
+  read those facts must use the per-strategy `values` map.
+
+- d171860: Compose justified paragraphs into explicit total-fit lines in paginated books and printed pages. `@segnavia/format` now exports the plain composition-style reader and word-spacing validation used by embedded layout scripts.
+- 28b7acb: Clip flow blocks at their column instead of tiling printed pages, and report
+  block box, descendant and scroll overflow through preflight as a warning by default and an error under
+  the strict profile. Remove the unused layout exports for inline-tiled plan
+  pages now that composed pages never tile.
+- d235969: Key note series to numbered text lines, with measured lemma anchors and converged line labels in paginated books.
+- 8012f7a: Add English Liang-pattern hyphenation points, including dictionary exceptions and maqaf break opportunities.
+- 6d22914: Count book division folios without printing them. Contents entries keep an empty number for unprinted pages, authored page references refuse those targets, and pages-total continues to report the counted total.
+
+  Saved plans from earlier plan versions must be recomputed. `pageReferenceFolio` now takes folio print status, division, and reference role in a named options object.
+
+- d0cd093: Move the repeated table header height from `PaginateBlock.headerHeight` to `PaginateLine.headerHeight` in the `Measurements` schema. A page that starts at a line reserves the headers of every table crossing that line, so a break in a block's paragraphs reserves nothing. Set `headerHeight` on the measured line instead of the block; a block-level `headerHeight` is now dropped when measurements are parsed.
+- a1419bb: Add configurable line numbers to paginated books and printed documents, including Hebrew numbering, section restarts, margin placement, and preflight collision reports.
+- 6d3ecf6: Add total-fit line breaking with box, glue, and penalty items.
+
+### Patch Changes
+
+- Updated dependencies [7fd24f0]
+- Updated dependencies [f94cd2e]
+- Updated dependencies [19773f8]
+- Updated dependencies [6000aff]
+- Updated dependencies [73d203d]
+- Updated dependencies [7e96c6d]
+- Updated dependencies [9cb0c13]
+- Updated dependencies [c938142]
+- Updated dependencies [4b4619a]
+- Updated dependencies [054d18b]
+- Updated dependencies [9121f04]
+- Updated dependencies [65df494]
+- Updated dependencies [d171860]
+- Updated dependencies [28b7acb]
+- Updated dependencies [3e76201]
+- Updated dependencies [d235969]
+- Updated dependencies [0c02e6c]
+- Updated dependencies [e603def]
+- Updated dependencies [e2e58c9]
+- Updated dependencies [4417f9e]
+- Updated dependencies [dac1f50]
+- Updated dependencies [1018e31]
+- Updated dependencies [df2f2cd]
+- Updated dependencies [74a8045]
+- Updated dependencies [6d22914]
+- Updated dependencies [b64e791]
+- Updated dependencies [fc68ebf]
+- Updated dependencies [51666c8]
+- Updated dependencies [5274414]
+- Updated dependencies [55d6829]
+- Updated dependencies [260c232]
+- Updated dependencies [d0cd093]
+- Updated dependencies [efe9484]
+- Updated dependencies [053ab6a]
+- Updated dependencies [2b45442]
+- Updated dependencies [0919a03]
+- Updated dependencies [2a0a47f]
+- Updated dependencies [9fbf790]
+- Updated dependencies [6058a2b]
+- Updated dependencies [a04d05b]
+- Updated dependencies [cf01807]
+- Updated dependencies [b451aa0]
+- Updated dependencies [a1419bb]
+- Updated dependencies [31c2def]
+  - @segnavia/format@0.57.0
+
 ## 0.56.0
 
 ### Patch Changes

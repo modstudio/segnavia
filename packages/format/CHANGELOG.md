@@ -1,5 +1,100 @@
 # @segnavia/format
 
+## 0.57.0
+
+### Minor Changes
+
+- 7fd24f0: Add bounded received-PDF input limits and `renderer.stampPdf` for watermarking and protecting host-supplied PDFs, including the offline asset seam and documented watermark font precedence.
+- f94cd2e: Report composed paragraphs whose worst line falls outside its word-spacing limits through the `hj-violations` preflight check.
+- 19773f8: Place rich block and inline side notes in paginated margins with shared side resolution, downward stacking, direction isolation, and margin-overset preflight reporting.
+- 6000aff: Report unmeasured slot fit explicitly, wait for hidden frames to become laid out,
+  and include measured and total slot coverage in preflight reports.
+- 73d203d: Add copyfit before pagination with ordered size, leading and tracking strategies,
+  shared fit groups, measured fit facts and `fit-limit` preflight reporting.
+
+  This is a clean break for book templates: the former region-only meaning of
+  `data-fit-min` and `data-fit-step` is removed. Without `data-fit`, the new
+  vocabulary defaults to the `size` strategy.
+
+  The `fitRegionSize` export is removed from `@segnavia/html`. Preflight fit facts
+  now have `{ subject, group?, values }` instead of `{ group, size }`; hosts that
+  read those facts must use the per-strategy `values` map.
+
+- 7e96c6d: Set generated contents depth for a whole book or cap it per section with
+  `contentsDepth`. The contents node's former `depth` field is refused with a
+  remedy naming `contentsDepth`.
+- 9cb0c13: Number note series and footnotes from authored heading levels, with labelled heading runs for collected notes.
+- c938142: List book-placed note sections in contents and outlines, with note-series `contents` and `contentsLabel` controls.
+- 4b4619a: Add sound as a placed asset kind for pages and decks, and refuse declared sounds on every print and PDF path.
+- 9121f04: Change preflight coverage shortfalls into the new `coverage-incomplete` check,
+  reported as a warning by default and refused under `strict`. Report `status` no
+  longer includes `incomplete`; hosts may turn the new check `off` in a custom
+  profile.
+
+  `boundPreflightReport` now accepts coverage units and custom bounds in one
+  trailing options object; pass custom bounds as `options.bounds`.
+
+- 65df494: Cover one declared font face with the union of supplied weight bands and Unicode ranges in both resolution and frame loading. Font failure and `font-missing` subjects now name each uncovered weight and Unicode range, so hosts should display the more specific subject text unchanged.
+- d171860: Compose justified paragraphs into explicit total-fit lines in paginated books and printed pages. `@segnavia/format` now exports the plain composition-style reader and word-spacing validation used by embedded layout scripts.
+- 28b7acb: Clip flow blocks at their column instead of tiling printed pages, and report
+  block box, descendant and scroll overflow through preflight as a warning by default and an error under
+  the strict profile. Remove the unused layout exports for inline-tiled plan
+  pages now that composed pages never tile.
+- 3e76201: Add named document editions, conditional HTML and nodes, and edition-aware server rendering.
+- d235969: Key note series to numbered text lines, with measured lemma anchors and converged line labels in paginated books.
+- 0c02e6c: Report document node validation errors at their full paths and list the known node types when a node type is missing or unknown; the document kind then names the types it accepts.
+- 4417f9e: Add independent heading listing facts, shared document outlines, and PDF outlines for printed documents.
+- dac1f50: Let each record carry one flowing body, either by itself or inserted at a template's `data-record-body` element.
+- 1018e31: Add repeat fill and per-region grow, truncate and refuse overflow policies,
+  with bounded fill and truncation facts in preflight reports.
+- df2f2cd: Number book parts and chapters in contents, outlines and running heads; give parts contents labels; and allow a part to continue on the current page with a generated heading.
+- 74a8045: Printed documents hold designed pages, flowing sections and records in any order, and a section can name its own paper with `pageGeometry`.
+- 6d22914: Count book division folios without printing them. Contents entries keep an empty number for unprinted pages, authored page references refuse those targets, and pages-total continues to report the counted total.
+
+  Saved plans from earlier plan versions must be recomputed. `pageReferenceFolio` now takes folio print status, division, and reference role in a named options object.
+
+- b64e791: Resolve placed sounds as bounded library buttons, relay their handles from page
+  and slide frames, and let the player or a host play them through
+  `<segnavia-sound>`. Boards now resolve and show sound items in both tiers.
+  `soundFace` in `@segnavia/format` returns the sound face that `soundCover` and
+  the placed-sound button share.
+- fc68ebf: Accept text-only narration paced by a deck reading speed, with actionable narration-kind refusals. Shared pacing now gives pointed and unpointed Hebrew the same duration by excluding combining marks, and paced voice provider IDs name this timing-rule version so cached timings are not reused.
+
+  Breaking: `slideDurationMs`, `phaseBounds`, `slideStateAt`, `momentAt`, `timedClock`, `speechClock` and the controller `clock` option now take the deck's pacing input (`NarrationPacing`, the deck's `readingSpeed`) as a required argument, so every host times text narration at the deck's reading speed. Pass the deck where you call them.
+
+- 51666c8: Add validated font catalogs and ready-made URL, directory, custom-loader, and combined font sources with bounded per-instance caching.
+- 5274414: Give sounds a directional cover, add natural and square thumbnail fits, and provide headless image and sound viewers that share the player controls. Shared controls expose their controller as either deck or playback controller, matching what the property accepts. `@segnavia/format` exports `formatDuration`, the clock text that frame's `formatTime` now uses, and `@segnavia/frame` exports `THUMBNAIL_RATIOS`, the table of thumbnail ratios.
+- 55d6829: Breaking: document parsing now refuses keys the document model does not define instead of silently removing them. Each refusal names the full path and unknown key; remove the key, or move a parent page's `margin` to `geometry.margin`, to clear it.
+- 260c232: Breaking: `Document.parse` now refuses book and printed-page errors during parsing instead of deferring them until render. A paginated book without a page now uses the Book refusal wording. Parsing also refuses `data-motif-*` fields without `data-motif`, and undeclared `data-variable` refusals now name the document node that contains them.
+- d0cd093: Move the repeated table header height from `PaginateBlock.headerHeight` to `PaginateLine.headerHeight` in the `Measurements` schema. A page that starts at a line reserves the headers of every table crossing that line, so a break in a block's paragraphs reserves nothing. Set `headerHeight` on the measured line instead of the block; a block-level `headerHeight` is now dropped when measurements are parsed.
+- efe9484: Add `pdfPageImage` to rasterize a selected PDF page and box into an offline, white-ground PNG for host-managed screen renditions. It reads the crop box a page inherits from its page tree, and treats a malformed or zero-area optional box as absent. `@segnavia/format` exports `PAGE_BOXES`, the PDF page box names.
+- 053ab6a: Asset refusals identify whether their clearing advice is for the author or the host.
+- 2b45442: Publish the document JSON Schema as per-kind branches derived from the document profiles.
+- 0919a03: Carry a book's canonical outline into its composed view and make PDF heading tags match the outline's structural depths, including title-only parts and right-to-left books.
+- 2a0a47f: Store a page body's markdown source beside its lowered HTML, and let `resolvePageHtml` lower markdown-only bodies with alert-label and origin options through `ResolvePageHtmlOptions`.
+- 9fbf790: Place PDF media pages as bounded vector Form XObjects in `pagePdf`, `pagesPdf`, and `bookPdf`, while preserving the host's existing image rendition path for screen views and source-only print answers.
+- 6058a2b: Measure source block size, fitted line count or child max-content inline width
+  into an authored CSS custom property before pagination. Include the values in
+  composition measurements and in the optional `describeDocument` measured
+  section.
+- a04d05b: Add the shared refusal base and document identity refusals to `@segnavia/format`.
+  Expose machine-readable refusal details from `@segnavia/html`.
+  Expose machine-readable refusal details from `@segnavia/frame`.
+  Expose machine-readable refusal details from `@segnavia/voice`.
+  Expose structured render and asset refusal details from `@segnavia/render`.
+- cf01807: Allow section and part titles, contents labels and subtitles to carry directed language runs, and preserve authored subheading inline content in generated contents.
+  Allow `plainText` to flatten optional run text without a separate presence check.
+- b451aa0: Offer `deterministicNewId` for hosts that need repeatable document and block ids.
+- a1419bb: Add configurable line numbers to paginated books and printed documents, including Hebrew numbering, section restarts, margin placement, and preflight collision reports.
+- 31c2def: Add paragraph composer, word-spacing, and hyphenation style properties with CSS compilation, reading, and IDML import support.
+
+### Patch Changes
+
+- 054d18b: Refusal and preflight messages name the right fact and remedy for required fields, slotless templates, non-https URLs, library font properties and font faces.
+- e603def: List each normalized origin approval once when host approvals repeat a default.
+  Clarify that sanitizer origin approvals add to the defaults.
+- e2e58c9: Document that `approvedOrigins` leaves out path-scoped approvals and that a Content-Security-Policy should be built from `approvedSources`.
+
 ## 0.56.0
 
 ### Minor Changes

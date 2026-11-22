@@ -1,5 +1,141 @@
 # @segnavia/html
 
+## 0.57.0
+
+### Minor Changes
+
+- 19773f8: Place rich block and inline side notes in paginated margins with shared side resolution, downward stacking, direction isolation, and margin-overset preflight reporting.
+- 6000aff: Report unmeasured slot fit explicitly, wait for hidden frames to become laid out,
+  and include measured and total slot coverage in preflight reports.
+- 73d203d: Add copyfit before pagination with ordered size, leading and tracking strategies,
+  shared fit groups, measured fit facts and `fit-limit` preflight reporting.
+
+  This is a clean break for book templates: the former region-only meaning of
+  `data-fit-min` and `data-fit-step` is removed. Without `data-fit`, the new
+  vocabulary defaults to the `size` strategy.
+
+  The `fitRegionSize` export is removed from `@segnavia/html`. Preflight fit facts
+  now have `{ subject, group?, values }` instead of `{ group, size }`; hosts that
+  read those facts must use the per-strategy `values` map.
+
+- 7e96c6d: Set generated contents depth for a whole book or cap it per section with
+  `contentsDepth`. The contents node's former `depth` field is refused with a
+  remedy naming `contentsDepth`.
+- 9cb0c13: Number note series and footnotes from authored heading levels, with labelled heading runs for collected notes.
+- c938142: List book-placed note sections in contents and outlines, with note-series `contents` and `contentsLabel` controls.
+- 4b4619a: Add sound as a placed asset kind for pages and decks, and refuse declared sounds on every print and PDF path.
+- 9121f04: Change preflight coverage shortfalls into the new `coverage-incomplete` check,
+  reported as a warning by default and refused under `strict`. Report `status` no
+  longer includes `incomplete`; hosts may turn the new check `off` in a custom
+  profile.
+
+  `boundPreflightReport` now accepts coverage units and custom bounds in one
+  trailing options object; pass custom bounds as `options.bounds`.
+
+- 3e76201: Add named document editions, conditional HTML and nodes, and edition-aware server rendering.
+- d235969: Key note series to numbered text lines, with measured lemma anchors and converged line labels in paginated books.
+- 689c6aa: Draw Mermaid diagrams through the layout provider runtime.
+
+  - Replace `withDiagramScript` with the public `layoutScripts` frame option.
+  - Replace `loadDiagramScript` with `loadLayoutScripts`.
+  - Replace `loadDiagramScriptResult` with the rejection result from `loadLayoutScripts`.
+  - Replace `DIAGRAM_READY_EXPR` with layout phase settlement.
+  - Replace `DIAGRAM_READY_NAME` with `segnaviaLayout.run('galley')` settlement.
+  - Replace `DIAGRAMS_DRAWN_ATTRIBUTE` with layout phase settlement.
+  - Replace the render option `diagramScript` with `layoutScripts`.
+  - Replace the `@segnavia/diagrams/script` export `diagramScript` with `diagramProviderScript`.
+  - Use `hasLayoutProvider` from `@segnavia/frame/layout` to query the shared provider registry.
+
+- 4417f9e: Add independent heading listing facts, shared document outlines, and PDF outlines for printed documents.
+- dac1f50: Let each record carry one flowing body, either by itself or inserted at a template's `data-record-body` element.
+- 1018e31: Add repeat fill and per-region grow, truncate and refuse overflow policies,
+  with bounded fill and truncation facts in preflight reports.
+- df2f2cd: Number book parts and chapters in contents, outlines and running heads; give parts contents labels; and allow a part to continue on the current page with a generated heading.
+- 74a8045: Printed documents hold designed pages, flowing sections and records in any order, and a section can name its own paper with `pageGeometry`.
+- 6d22914: Count book division folios without printing them. Contents entries keep an empty number for unprinted pages, authored page references refuse those targets, and pages-total continues to report the counted total.
+
+  Saved plans from earlier plan versions must be recomputed. `pageReferenceFolio` now takes folio print status, division, and reference role in a named options object.
+
+- b64e791: Resolve placed sounds as bounded library buttons, relay their handles from page
+  and slide frames, and let the player or a host play them through
+  `<segnavia-sound>`. Boards now resolve and show sound items in both tiers.
+  `soundFace` in `@segnavia/format` returns the sound face that `soundCover` and
+  the placed-sound button share.
+- 943d69d: Add print-safe checkbox, answer-line, and answer-box fields to authored content. Markdown task lists now emit checkbox field spans instead of native disabled inputs, and converter policies no longer exempt inert controls from sanitizing.
+- a898633: Add structured active-content findings that pair removed HTML and CSS constructs with their asset refusals.
+- 053ab6a: Asset refusals identify whether their clearing advice is for the author or the host.
+- 0919a03: Carry a book's canonical outline into its composed view and make PDF heading tags match the outline's structural depths, including title-only parts and right-to-left books.
+- 2a0a47f: Store a page body's markdown source beside its lowered HTML, and let `resolvePageHtml` lower markdown-only bodies with alert-label and origin options through `ResolvePageHtmlOptions`.
+- 9fbf790: Place PDF media pages as bounded vector Form XObjects in `pagePdf`, `pagesPdf`, and `bookPdf`, while preserving the host's existing image rendition path for screen views and source-only print answers.
+- 6058a2b: Measure source block size, fitted line count or child max-content inline width
+  into an authored CSS custom property before pagination. Include the values in
+  composition measurements and in the optional `describeDocument` measured
+  section.
+- a04d05b: Add the shared refusal base and document identity refusals to `@segnavia/format`.
+  Expose machine-readable refusal details from `@segnavia/html`.
+  Expose machine-readable refusal details from `@segnavia/frame`.
+  Expose machine-readable refusal details from `@segnavia/voice`.
+  Expose structured render and asset refusal details from `@segnavia/render`.
+- cf01807: Allow section and part titles, contents labels and subtitles to carry directed language runs, and preserve authored subheading inline content in generated contents.
+  Allow `plainText` to flatten optional run text without a separate presence check.
+- a1419bb: Add configurable line numbers to paginated books and printed documents, including Hebrew numbering, section restarts, margin placement, and preflight collision reports.
+- 31c2def: Add paragraph composer, word-spacing, and hyphenation style properties with CSS compilation, reading, and IDML import support.
+
+### Patch Changes
+
+- e603def: List each normalized origin approval once when host approvals repeat a default.
+  Clarify that sanitizer origin approvals add to the defaults.
+- 3ace440: Keep a `contents: false` section's title and headings out of generated contents and PDF outlines, including headings on designed and templated pages.
+- b6a4273: Set multi-block note bodies without nesting their authored blocks in a paragraph.
+- Updated dependencies [7fd24f0]
+- Updated dependencies [f94cd2e]
+- Updated dependencies [19773f8]
+- Updated dependencies [6000aff]
+- Updated dependencies [73d203d]
+- Updated dependencies [7e96c6d]
+- Updated dependencies [9cb0c13]
+- Updated dependencies [c938142]
+- Updated dependencies [4b4619a]
+- Updated dependencies [054d18b]
+- Updated dependencies [9121f04]
+- Updated dependencies [65df494]
+- Updated dependencies [d171860]
+- Updated dependencies [28b7acb]
+- Updated dependencies [3e76201]
+- Updated dependencies [d235969]
+- Updated dependencies [0c02e6c]
+- Updated dependencies [e603def]
+- Updated dependencies [e2e58c9]
+- Updated dependencies [4417f9e]
+- Updated dependencies [dac1f50]
+- Updated dependencies [1018e31]
+- Updated dependencies [8012f7a]
+- Updated dependencies [df2f2cd]
+- Updated dependencies [74a8045]
+- Updated dependencies [6d22914]
+- Updated dependencies [b64e791]
+- Updated dependencies [fc68ebf]
+- Updated dependencies [51666c8]
+- Updated dependencies [5274414]
+- Updated dependencies [55d6829]
+- Updated dependencies [260c232]
+- Updated dependencies [d0cd093]
+- Updated dependencies [efe9484]
+- Updated dependencies [053ab6a]
+- Updated dependencies [2b45442]
+- Updated dependencies [0919a03]
+- Updated dependencies [2a0a47f]
+- Updated dependencies [9fbf790]
+- Updated dependencies [6058a2b]
+- Updated dependencies [a04d05b]
+- Updated dependencies [cf01807]
+- Updated dependencies [b451aa0]
+- Updated dependencies [a1419bb]
+- Updated dependencies [31c2def]
+- Updated dependencies [6d3ecf6]
+  - @segnavia/format@0.57.0
+  - @segnavia/layout@0.57.0
+
 ## 0.56.0
 
 ### Minor Changes

@@ -1,5 +1,68 @@
 # @segnavia/voice
 
+## 0.57.0
+
+### Minor Changes
+
+- 7bc1be6: Expose case-insensitive lexicon collisions as a typed refusal with every colliding term group.
+- fc68ebf: Accept text-only narration paced by a deck reading speed, with actionable narration-kind refusals. Shared pacing now gives pointed and unpointed Hebrew the same duration by excluding combining marks, and paced voice provider IDs name this timing-rule version so cached timings are not reused.
+
+  Breaking: `slideDurationMs`, `phaseBounds`, `slideStateAt`, `momentAt`, `timedClock`, `speechClock` and the controller `clock` option now take the deck's pacing input (`NarrationPacing`, the deck's `readingSpeed`) as a required argument, so every host times text narration at the deck's reading speed. Pass the deck where you call them.
+
+- a04d05b: Add the shared refusal base and document identity refusals to `@segnavia/format`.
+  Expose machine-readable refusal details from `@segnavia/html`.
+  Expose machine-readable refusal details from `@segnavia/frame`.
+  Expose machine-readable refusal details from `@segnavia/voice`.
+  Expose structured render and asset refusal details from `@segnavia/render`.
+
+### Patch Changes
+
+- Updated dependencies [7fd24f0]
+- Updated dependencies [f94cd2e]
+- Updated dependencies [19773f8]
+- Updated dependencies [6000aff]
+- Updated dependencies [73d203d]
+- Updated dependencies [7e96c6d]
+- Updated dependencies [9cb0c13]
+- Updated dependencies [c938142]
+- Updated dependencies [4b4619a]
+- Updated dependencies [054d18b]
+- Updated dependencies [9121f04]
+- Updated dependencies [65df494]
+- Updated dependencies [d171860]
+- Updated dependencies [28b7acb]
+- Updated dependencies [3e76201]
+- Updated dependencies [d235969]
+- Updated dependencies [0c02e6c]
+- Updated dependencies [e603def]
+- Updated dependencies [e2e58c9]
+- Updated dependencies [4417f9e]
+- Updated dependencies [dac1f50]
+- Updated dependencies [1018e31]
+- Updated dependencies [df2f2cd]
+- Updated dependencies [74a8045]
+- Updated dependencies [6d22914]
+- Updated dependencies [b64e791]
+- Updated dependencies [fc68ebf]
+- Updated dependencies [51666c8]
+- Updated dependencies [5274414]
+- Updated dependencies [55d6829]
+- Updated dependencies [260c232]
+- Updated dependencies [d0cd093]
+- Updated dependencies [efe9484]
+- Updated dependencies [053ab6a]
+- Updated dependencies [2b45442]
+- Updated dependencies [0919a03]
+- Updated dependencies [2a0a47f]
+- Updated dependencies [9fbf790]
+- Updated dependencies [6058a2b]
+- Updated dependencies [a04d05b]
+- Updated dependencies [cf01807]
+- Updated dependencies [b451aa0]
+- Updated dependencies [a1419bb]
+- Updated dependencies [31c2def]
+  - @segnavia/format@0.57.0
+
 ## 0.56.0
 
 ### Minor Changes
