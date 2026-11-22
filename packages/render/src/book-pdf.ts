@@ -6,7 +6,6 @@ import {
   bookPageName,
   bookParents,
   bookVariableDocumentFacts,
-  MM_PER_PT,
   physicalMargins,
   pressBoxes,
   resolveDirection,
@@ -25,13 +24,14 @@ import {
   planBookPages,
 } from '@segnavia/html'
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
-import { type MarginContentSetPoint, marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
+import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 import { joinBookPdf } from './book-pdf-join.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { writeDocumentStructure } from './book-structure.ts'
 import { bookWatermarkPageFacts } from './book-watermark.ts'
+import { continuousContentSetPoints } from './continuous-variable-set-points.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
 import { type OutputDate, outputDate } from './output-date.ts'
@@ -81,24 +81,6 @@ function requireTargets(part: PrintedPart, expected: string[]): void {
       `Chromium wrote ${expected.length - missing.length} of ${expected.length} named destinations for hidden targets; missing ${missing.join(', ')}.`,
     )
   }
-}
-
-function continuousTextBlockStart(book: Book): number {
-  if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before resolving content variables.')
-  const trim = sheetMm(book.page)
-  const bleed = book.print && usesPressLayout(book.print) ? book.print.bleed : 0
-  const paper = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
-  return (paper.height - book.page.margin.blockStart - bleed) / MM_PER_PT
-}
-
-function contentSetPoints(document: BookDocument, part: PrintedPart, blockStart: number): MarginContentSetPoint[] {
-  return document.setPoints.map((point) => {
-    const destination = part.destinations.get(point.id)
-    if (!destination) {
-      throw new RenderRefusedError(`Chromium wrote no named destination for hidden target ${point.id}.`)
-    }
-    return { ...point, page: destination.page, y: destination.y, atStart: Math.abs(destination.y - blockStart) <= 1 }
-  })
 }
 
 const sectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') => sections.filter((section) => bookPrintPart(section.division) === part)
@@ -311,9 +293,8 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
   const frontSections = sectionsFor(printedBody.document.sections, 'front')
   const bodySections = sectionsFor(printedBody.document.sections, 'body')
-  const blockStart = continuousTextBlockStart(book)
-  const frontSetPoints = contentSetPoints(printedFront.document, front, blockStart)
-  const bodySetPoints = contentSetPoints(printedBody.document, printedBody.part, blockStart)
+  const frontSetPoints = await continuousContentSetPoints(printedFront.document, front, book.variables, adapter.textBaselines)
+  const bodySetPoints = await continuousContentSetPoints(printedBody.document, printedBody.part, book.variables, adapter.textBaselines)
   const frontVariablePages = marginVariablePagesFor(frontSections, front.destinations, front.pages, frontBlankPages)
   const bodyVariablePages = marginVariablePagesFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages)
   if (printedFront.trailingBlank && bodyVariablePages[0]) frontVariablePages[frontVariablePages.length - 1] = { ...bodyVariablePages[0], blank: true }

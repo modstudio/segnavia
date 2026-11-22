@@ -6,8 +6,11 @@ import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import type { ParsedBookPdfOptions } from './renderer.ts'
 import type { WatermarkPageFacts } from './watermark-stamp.ts'
 
+export type TextBaselineReader = (pdf: Uint8Array, pages: readonly number[]) => Promise<Map<number, number | null>>
+
 export interface BookPdfAdapter {
   print(html: string, book: Book, slots: PreparedSlots, options: ParsedBookPdfOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
+  textBaselines?: TextBaselineReader
   watermark?(pdf: Uint8Array, pages: readonly WatermarkPageFacts[]): Promise<Uint8Array>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
