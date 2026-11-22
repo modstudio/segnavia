@@ -11,42 +11,49 @@ import { dispatchSoundPlay } from './sound-play.ts'
 interface PageMessageHost extends HTMLElement {
   loadGeneration: number
   composedFrame?: PageFrameIdentity
-  documentIsFinal: boolean
-  loadedDocument?: number
   documentWrites: number
   frameHeight: PageFrameHeightState
   frameReady: boolean
-  layoutFrame?: PageFrameIdentity
   pageValue: Page | null
   profileInput: PreflightProfileInput
-  resolvedSlots?: PreparedSlots
-  slotFrame?: PageFrameIdentity
   pageRequests: PageRequestState
-  sounds: Map<string, ResolvedSoundPlacement>
   fit(): void
 }
 
-export function handlePageElementMessage(target: unknown, event: MessageEvent): void {
+type PageMessageFields = readonly [
+  PreparedSlots | undefined,
+  PageFrameIdentity | undefined,
+  PageFrameIdentity | undefined,
+  number | undefined,
+  Map<string, ResolvedSoundPlacement>,
+  boolean,
+]
+
+export function handlePageElementMessage(
+  target: unknown,
+  event: MessageEvent,
+  [resolvedSlots, slotFrame, layoutFrame, loadedDocument, sounds, documentIsFinal]: PageMessageFields,
+): void {
   const host = target as PageMessageHost
   const frame = host.querySelector('iframe')
   const currentFrame = { frame, generation: host.loadGeneration }
   handlePageFrameMessage(host, event, {
     composedFrame: host.composedFrame,
     currentFrame,
-    documentIsFinal: host.documentIsFinal,
-    documentIsLoaded: host.loadedDocument === host.documentWrites,
+    documentIsFinal,
+    documentIsLoaded: loadedDocument === host.documentWrites,
     frameHeight: host.frameHeight,
     frameReady: host.frameReady,
-    layoutFrame: host.layoutFrame,
+    layoutFrame,
     page: host.pageValue,
     profile: resolvePreflightProfile(host.profileInput),
-    resolvedSlots: host.resolvedSlots,
-    slotFrame: host.slotFrame,
+    resolvedSlots,
+    slotFrame,
     fit: () => host.fit(),
     ready: () => {
       host.frameReady = true
       releaseReadyPageRequests(host.pageRequests)
     },
   })
-  dispatchSoundPlay(host, messageFrom(event, frame, resolvePreflightProfile(host.profileInput)), host.sounds)
+  dispatchSoundPlay(host, messageFrom(event, frame, resolvePreflightProfile(host.profileInput)), sounds)
 }

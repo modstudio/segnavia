@@ -385,6 +385,6 @@ export class SegnaviaPage extends PageParseOptionsElement {
     fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
   private onMessage = (event: MessageEvent) => {
-    handlePageElementMessage(this, event)
+    handlePageElementMessage(this, event, [this.resolvedSlots, this.slotFrame, this.layoutFrame, this.loadedDocument, this.sounds, this.documentIsFinal])
   }
 }
