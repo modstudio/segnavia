@@ -63,6 +63,14 @@ export interface BookDocument {
   html: string
   sections: BookSectionInfo[]
   headings: BookHeading[]
+  setPoints: BookVariableSetPoint[]
   pageReferenceTargets: string[]
   issues: string[]
+}
+
+export interface BookVariableSetPoint {
+  id: string
+  name: string
+  value: string
+  section: string
 }

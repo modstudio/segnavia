@@ -30,7 +30,7 @@ import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { writePlanFolios } from './book-structure.ts'
-import { fontLoadSetup } from './browser-tab.ts'
+import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
@@ -39,6 +39,7 @@ import { pageFontFacts } from './page-render.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { printTagged } from './pdf-tagging.ts'
+import { pdfPageHighestTextBaselinesInBrowser } from './pdfjs-browser.ts'
 import { awaitPreflightReport } from './preflight.ts'
 import { renderProgressDocumentOptions } from './progress.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
@@ -75,6 +76,7 @@ interface TabSetup {
 
 export interface BrowserBookDependencies {
   render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: BookOverflowPart): Promise<PrintResult<true>>
+  withTab?: TabRunner
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
   watermark?: import('./book-pdf-types.ts').BookPdfAdapter['watermark']
@@ -327,6 +329,7 @@ export async function renderBrowserBookPdf(
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
   let resolvedLayouts: Promise<LoadedLayoutScript[]> | undefined
+  const withTab = dependencies.withTab
   return renderBookPdf(
     book,
     options,
@@ -335,6 +338,15 @@ export async function renderBrowserBookPdf(
         resolvedLayouts ??= resolveRenderLayoutScripts(bookDocument(book).html)
         return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await resolvedLayouts, dependencies.fontFailures ?? [], dependencies)
       },
+      ...(withTab
+        ? {
+            textBaselines: (pdf: Uint8Array, pages: readonly number[]) =>
+              withTab(
+                { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false) },
+                (tab) => pdfPageHighestTextBaselinesInBrowser(tab, pdf, pages),
+              ),
+          }
+        : {}),
       watermark: dependencies.watermark,
       finish: dependencies.finish,
     },

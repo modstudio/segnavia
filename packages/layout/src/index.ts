@@ -37,6 +37,11 @@ export type {
   PaginateSequence,
   PaginateWindow,
 } from './paginate-types.ts'
+export {
+  type ContinuousVariablePage,
+  type ContinuousVariableSetPoint,
+  continuousPageVariables,
+} from './paginate-variables.ts'
 export * from './parent-selection.ts'
 export { type BookPlan, type Measurements, planBook } from './plan-book.ts'
 export { type ReplayPlanResult, replayPlan, savePlan } from './plan-save.ts'

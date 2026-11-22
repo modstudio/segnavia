@@ -377,7 +377,16 @@ export { plainText, RunText, TextRun } from './text-run.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
 export { type FontFetch, type UrlFontSourceOptions, urlFontSource } from './url-font-source.ts'
-export { LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
+export {
+  type ContentTextVariable,
+  isContentTextVariable,
+  LIBRARY_VARIABLES,
+  MetaVariable,
+  NumberVariable,
+  RecordVariable,
+  TextVariable,
+  Variable,
+} from './variable.ts'
 export {
   bookVariableDocumentFacts,
   STANDARD_META_FIELD_READERS,

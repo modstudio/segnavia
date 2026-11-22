@@ -19,6 +19,60 @@ export interface PdfjsRasterRequest {
   height: number
 }
 
+interface PdfTextItem {
+  text: string
+  y: number
+}
+
+export function highestTextBaseline(items: readonly PdfTextItem[]): number | null {
+  const body = items.filter((item) => item.text.replace(/\u200b/g, '').trim().length > 0)
+  return body.length > 0 ? Math.max(...body.map((item) => item.y)) : null
+}
+
+export function setPointAtPageStart(highestBaseline: number | null, setPointY: number): boolean {
+  return highestBaseline === null || highestBaseline <= setPointY
+}
+
+export async function pdfPageHighestTextBaselinesInBrowser(tab: Tab, bytes: Uint8Array, pages: readonly number[]): Promise<Map<number, number | null>> {
+  const encoded = Buffer.from(bytes).toString('base64')
+  const found = await tab.evaluate(
+    async ({ encoded, pages, pdfjsSource, workerSource }) => {
+      const moduleUrl = URL.createObjectURL(new Blob([pdfjsSource], { type: 'text/javascript' }))
+      const workerUrl = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }))
+      try {
+        const pdfjs = await import(moduleUrl)
+        pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
+        const binary = atob(encoded)
+        const data = Uint8Array.from(binary, (value) => value.charCodeAt(0))
+        const loading = pdfjs.getDocument({ data, enableXfa: false, isEvalSupported: false })
+        const pdf = await loading.promise
+        try {
+          return await Promise.all(
+            pages.map(async (pageNumber) => {
+              const page = await pdf.getPage(pageNumber)
+              const content = await page.getTextContent()
+              return [
+                pageNumber,
+                content.items.flatMap((item: { str?: unknown; transform?: unknown }) => {
+                  if (typeof item.str !== 'string' || !Array.isArray(item.transform) || typeof item.transform[5] !== 'number') return []
+                  return [{ text: item.str, y: item.transform[5] }]
+                }),
+              ] as const
+            }),
+          )
+        } finally {
+          await loading.destroy()
+        }
+      } finally {
+        URL.revokeObjectURL(moduleUrl)
+        URL.revokeObjectURL(workerUrl)
+      }
+    },
+    { encoded, pages: [...pages], ...sources() },
+  )
+  return new Map(found.map(([page, items]) => [page, highestTextBaseline(items)]))
+}
+
 export async function rasterPdfPageInBrowser(tab: Tab, bytes: Uint8Array, request: PdfjsRasterRequest): Promise<Uint8Array> {
   const encoded = Buffer.from(bytes).toString('base64')
   const rendered = await tab.evaluate(

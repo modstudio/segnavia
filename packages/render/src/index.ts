@@ -162,6 +162,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           resolvedFontCss,
           {
             render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printBookPartWithPlacedPdf(tab, pdf, pageWidth, part, options)),
+            withTab: (setup, body) => withTab({ ...setup, deadline }, body),
             fontFaces: (options) => fontFaces(options.fonts),
             finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
             watermark: parsedOptions.watermark
