@@ -83,6 +83,13 @@ describe('Plan', () => {
     expect(() => Plan.parse(value, { limits: resolveLimits(undefined, undefined) })).toThrow('declare a higher limits.pages on the document')
   })
 
+  test('safeParse applies the same page bound as parse', () => {
+    const value = planWithPages(501)
+    expect(Plan.safeParse(value)).toMatchObject({ success: false, error: { exceeded: [{ measure: 'pages', actual: 501, limit: 500 }] } })
+    expect(Plan.safeParse(value, { limits: { pages: 1000 } })).toEqual({ success: true, data: value })
+    expect(Plan.safeParse({ ...value, folios: [] })).toMatchObject({ success: false })
+  })
+
   test('checks structure without applying the default page bound', () => {
     const value = planWithPages(510)
     expect(Plan.parseStructure(value)).toEqual(value)

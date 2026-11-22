@@ -104,13 +104,25 @@ function structurallyConsistentPlan(plan: z.infer<typeof PlanShape>, ctx: z.Refi
   }
 }
 
-const PlanStructure = PlanShape.superRefine(structurallyConsistentPlan)
+function planStructure() {
+  return PlanShape.superRefine(structurallyConsistentPlan)
+}
+
+// Plan replaces parse and safeParse on its own schema instance, so the checks below use a separate one.
+const PlanStructure = planStructure()
 
 export type Plan = z.infer<typeof PlanShape>
 
-type PlanSchema = Omit<typeof PlanStructure, 'parse'> & {
+type PlanSchema = Omit<ReturnType<typeof planStructure>, 'parse' | 'safeParse'> & {
   parse(input: unknown, options?: PlanParseOptions): Plan
   parseStructure(input: unknown): Plan
+  safeParse(input: unknown, options?: PlanParseOptions): { success: true; data: Plan } | { success: false; error: unknown }
+}
+
+function pageExcess(plan: Plan, options?: PlanParseOptions): LimitExceededError | undefined {
+  const limit = options?.limits?.pages ?? DEFAULT_LIMITS.pages
+  if (plan.pages.length <= limit) return undefined
+  return new LimitExceededError('pages', plan.pages.length, limit, { pagesSource: options?.limits?.pagesSource })
 }
 
 function parsedPlanStructure(input: unknown): Plan {
@@ -121,16 +133,20 @@ function parsedPlanStructure(input: unknown): Plan {
   throw new Error(`${path}: ${issue?.message ?? 'the saved plan is invalid; compute a new plan to clear this refusal'}`)
 }
 
-export const Plan = Object.assign(PlanStructure, {
+export const Plan = Object.assign(planStructure(), {
   parse(input: unknown, options?: PlanParseOptions): Plan {
     const plan = parsedPlanStructure(input)
-    const limit = options?.limits?.pages ?? DEFAULT_LIMITS.pages
-    if (plan.pages.length > limit) {
-      throw new LimitExceededError('pages', plan.pages.length, limit, { pagesSource: options?.limits?.pagesSource })
-    }
+    const excess = pageExcess(plan, options)
+    if (excess) throw excess
     return plan
   },
   parseStructure(input: unknown): Plan {
     return parsedPlanStructure(input)
+  },
+  safeParse(input: unknown, options?: PlanParseOptions) {
+    const result = PlanStructure.safeParse(input)
+    if (!result.success) return result
+    const excess = pageExcess(result.data, options)
+    return excess ? { success: false as const, error: excess } : result
   },
 }) as PlanSchema
