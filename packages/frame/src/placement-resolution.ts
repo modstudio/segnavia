@@ -106,9 +106,7 @@ export async function resolvePrintedPagePlacements(
       withPrintedSectionBodies(
         section,
         await Promise.all(
-          printedSectionBodies(section).map(
-            async (html) => resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight),
-          ),
+          printedSectionBodies(section).map(async (html) => resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight)),
         ),
       ),
     ),

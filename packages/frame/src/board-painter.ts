@@ -13,6 +13,8 @@ export class BoardPainter {
   private readonly frameInputs = new Map<string, BoardFrameInputs>()
   private readonly disposals = new Map<string, () => void>()
 
+  constructor(private readonly mountCover = mountDesignedCover) {}
+
   paint(
     node: HTMLElement,
     item: BoardItem,
@@ -73,12 +75,12 @@ export class BoardPainter {
     if (tier === 'cover') {
       const presentation = coverPresentation(resolved.designedCover)
       if (presentation.kind !== 'fallback') {
-        const mounted = mountDesignedCover(presentation, failed, inputs)
+        const mounted = this.mountCover(presentation, failed, inputs)
         this.disposals.set(id, mounted.dispose)
         return mounted.element
       }
       if (resolved.kind === 'sound') {
-        const mounted = mountDesignedCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
+        const mounted = this.mountCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
         this.disposals.set(id, mounted.dispose)
         return mounted.element
       }
@@ -90,7 +92,7 @@ export class BoardPainter {
       if (soundPlacement === undefined) throw new Error('A live board sound needs its board handle.')
       const button = document.createElement('button')
       button.type = 'button'
-      const mounted = mountDesignedCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
+      const mounted = this.mountCover({ kind: 'live', cover: soundCover(resolved.sound) }, failed, inputs)
       mounted.element.style.pointerEvents = 'none'
       button.append(mounted.element)
       button.addEventListener('click', () => {

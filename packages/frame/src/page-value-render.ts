@@ -31,13 +31,7 @@ export interface PageValueRenderOptions {
 }
 
 export interface PageValueRenderHandlers {
-  show(
-    page: HtmlPage,
-    resolved?: PreparedSlots,
-    fontCss?: string,
-    fontFailures?: import('@segnavia/format').FontFailure[],
-    sounds?: SoundPlacements,
-  ): void
+  show(page: HtmlPage, resolved?: PreparedSlots, fontCss?: string, fontFailures?: import('@segnavia/format').FontFailure[], sounds?: SoundPlacements): void
   report(error: unknown): void
   write(document: string, provisional: boolean, hasLayoutScripts: boolean): void
   composed(identity: PageFrameIdentity): void

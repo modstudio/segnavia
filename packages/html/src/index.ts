@@ -166,10 +166,10 @@ export {
   type ResolvedPlacement,
   type ResolvedPlacements,
   type ResolvedSoundPlacement,
-  type SoundPlacements,
   type ResolvePlacement,
   resolvePlacements,
   resolvePlacementsWithSounds,
+  type SoundPlacements,
 } from './placements.ts'
 export { printedSectionBodies, printedSectionFlows, printedSectionOutlineHtml, withPrintedSectionBodies } from './printed-section-flows.ts'
 export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'

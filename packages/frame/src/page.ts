@@ -227,13 +227,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
     this.slotPreparation = controller
     const iframe = this.mount(page)
     const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.loadGeneration && iframe === this.querySelector('iframe')
-    const show = (
-      shownPage: HtmlPage,
-      resolved?: PreparedSlots,
-      fontCss = '',
-      fontFailures: FontFailure[] = [],
-      sounds: SoundPlacements = new Map(),
-    ) => {
+    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '', fontFailures: FontFailure[] = [], sounds: SoundPlacements = new Map()) => {
       if (!isCurrent()) return
       loadShownPageDocument(
         shownPage,
