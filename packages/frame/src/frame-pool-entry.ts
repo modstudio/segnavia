@@ -52,6 +52,7 @@ export function addFrame({ entries, events, host, index, content, state, control
     slots: pool.slots,
     folio,
     preflight: pool.preflight,
+    serveFrame: pool.serveFrame,
   })
   entry.canvas = canvas
   entries.set(slide.id, entry)

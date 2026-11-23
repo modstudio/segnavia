@@ -24,11 +24,13 @@ import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
+import type { ServeFrame } from './frame-write.ts'
 import { framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { preparePaperDays } from './paper-day.ts'
 import { resolvePaperDocuments, resolvePaperPageValues } from './paper-document-load.ts'
+import { definePaperFrameServing, writePrintablePaper } from './paper-frame-serving.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
@@ -41,6 +43,7 @@ export class SegnaviaPaper extends HTMLElement {
     defineStylesheetPropertyAccessors(SegnaviaPaper.prototype)
     defineAsOfPropertyAccessors(SegnaviaPaper.prototype)
     defineEditionPropertyAccessor(SegnaviaPaper.prototype)
+    definePaperFrameServing(SegnaviaPaper.prototype)
   }
   declare edition: string | undefined
   declare css: string
@@ -49,6 +52,7 @@ export class SegnaviaPaper extends HTMLElement {
   declare anchors: AsOfElementProperties['anchors']
   declare asOf: AsOfElementProperties['asOf']
   declare moment: AsOfElementProperties['moment']
+  declare serveFrame: ServeFrame | undefined
   private pages: HtmlPage[] = []
   private brandDocuments: Document[] = []
   private editionDocuments: Document[] = []
@@ -361,22 +365,18 @@ export class SegnaviaPaper extends HTMLElement {
     const paper = paperBoxSize(imposed.paper)
     box.style.width = `${paper.width}px`
     box.style.height = `${paper.height}px`
-    // Author HTML occurs only in escaped srcdoc attributes produced by the
-    // builder, so assigning its trusted placement markup here cannot parse it
-    // as part of the host document.
-    box.innerHTML = printablePaper(
-      pages.map((page) => ({ ...page, html: slotHtml(page.html, this.resolvedSlots) })),
-      imposition,
-      imposed,
-      this.paperIndex,
-      {
-        css: `${this.resolvedFontCss}${this.css}`,
-        cspExtra: this.cspExtra,
-        origins: this.origins,
-        pageWidths: this.widthOptions,
-      },
-      this.shownSide,
-    )
+    const resolvedPages = pages.map((page) => ({ ...page, html: slotHtml(page.html, this.resolvedSlots) }))
+    const options = {
+      css: `${this.resolvedFontCss}${this.css}`,
+      cspExtra: this.cspExtra,
+      origins: this.origins,
+      pageWidths: this.widthOptions,
+    }
+    if (this.serveFrame)
+      writePrintablePaper(box, resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide, this.serveFrame, (reason) =>
+        dispatchElementError(this, reason),
+      )
+    else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
     this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
     this.replaceChildren(box)
     this.fit()

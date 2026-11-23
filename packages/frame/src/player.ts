@@ -134,6 +134,10 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   set resolveSlide(resolve: DeckController['resolveSlide']) {
     this.controller.resolveSlide = resolve
   }
+  set serveFrame(value: DeckController['serveFrame']) {
+    this.controller.serveFrame = value
+    this.stage.serveFrame = value
+  }
 
   get rail(): boolean {
     return this.hasAttribute('rail')

@@ -4,6 +4,7 @@ import type { DeckState } from './controller.ts'
 import { CORNER_SCALE_CSS } from './controls-style.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { dispatchElementError } from './element-error.ts'
+import type { ServeFrame } from './frame-write.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection, railSelectionAfterRender } from './rail-navigation.ts'
 import { railOrderMoves } from './rail-order.ts'
@@ -11,6 +12,14 @@ import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-re
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 export type { RailReorderIntent } from './rail-reorder.ts'
+
+export function refreshRailPreviews(root: ParentNode, previous: ServeFrame | undefined, next: ServeFrame | undefined): void {
+  if (previous === next) return
+  for (const preview of root.querySelectorAll<HTMLElement>('.preview')) {
+    preview.dataset.generation = String(Number(preview.dataset.generation ?? '0') + 1)
+    preview.replaceChildren()
+  }
+}
 
 const RAIL_CSS = `${CORNER_SCALE_CSS}
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
@@ -66,6 +75,7 @@ export class SegnaviaRail extends SegnaviaDeckControl {
   private selected = 0
   private active = -1
   private activeDeck: DeckState['deck'] = null
+  private previewServeFrame: ServeFrame | undefined
   private reorder = new RailReorder({
     root: this.root,
     count: () => this.deckController?.state.deck?.slides.length ?? 0,
@@ -112,6 +122,11 @@ export class SegnaviaRail extends SegnaviaDeckControl {
   protected renderDeck(state: DeckState) {
     const deck = state.deck
     if (!deck) return
+    const serveFrame = this.deckController?.serveFrame
+    if (this.previewServeFrame !== serveFrame) {
+      refreshRailPreviews(this.root, this.previewServeFrame, serveFrame)
+      this.previewServeFrame = serveFrame
+    }
     const root = this.getRootNode()
     if (root instanceof ShadowRoot && root.host.tagName === 'SEGNAVIA-PLAYER' && !root.host.hasAttribute('rail')) {
       this.observer?.disconnect()

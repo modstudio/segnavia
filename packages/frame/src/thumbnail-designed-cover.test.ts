@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { soundCover } from '@segnavia/format'
 import { coverPresentation, parseDesignedCover } from './designed-cover-policy.ts'
 import { pageDocument } from './page-document.test-helper.ts'
-import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
+import { mountThumbnailDesignedCover, thumbnailCoverFrameInputs, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 
 function viewport() {
   const children: HTMLElement[] = []
@@ -59,4 +59,9 @@ test('a designed cover still wins over a sound standard face', () => {
 test('a thumbnail live cover receives its slot options with its other sources', () => {
   const slots = { fill: { id: 'cover', values: {} } }
   expect(thumbnailCoverSources(undefined, undefined, undefined, slots).slots).toBe(slots)
+})
+
+test('a thumbnail live cover receives the serving seam with its frame inputs', () => {
+  const serveFrame = () => '/frames/cover'
+  expect(thumbnailCoverFrameInputs(thumbnailCoverSources(undefined, undefined, undefined, undefined), undefined, [], serveFrame).serveFrame).toBe(serveFrame)
 })

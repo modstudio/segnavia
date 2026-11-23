@@ -32,7 +32,7 @@ export interface PrintedPageFrameOptions {
   profile?: PreflightProfileInput
   signal: AbortSignal
   day?: AsOfDay
-  loaded(document: string, hasLayoutScripts: boolean): void
+  loaded(document: string, hasLayoutScripts: boolean, policy: string): void
   failed(error: unknown): void
 }
 

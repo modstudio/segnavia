@@ -1,6 +1,6 @@
 import { type FontFailure, type OriginApproval, type PreflightProfile, pageDirection, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
-import { frameDocument, frameStyleSheets } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, frameStyleSheets } from './bridge.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import { slotHtml } from './slot-render.ts'
@@ -16,8 +16,16 @@ export interface ShownPageDocumentOptions {
 }
 
 export function shownPageDocument(page: HtmlPage, resolved: PreparedSlots | undefined, options: ShownPageDocumentOptions & { nonce: string }): string {
+  return buildShownPageDocument(page, resolved, options).html
+}
+
+export function buildShownPageDocument(
+  page: HtmlPage,
+  resolved: PreparedSlots | undefined,
+  options: ShownPageDocumentOptions & { nonce: string },
+): BuiltFrameDocument {
   const html = slotHtml(page.html, resolved)
-  return frameDocument(html, {
+  return buildFrameDocument(html, {
     scripts: page.scripts,
     nonce: options.nonce,
     dir: pageDirection({ ...page, html }),

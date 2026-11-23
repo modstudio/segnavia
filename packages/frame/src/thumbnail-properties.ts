@@ -2,6 +2,7 @@ import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
 import { AsOfElement } from './as-of-element.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { THUMBNAIL_RATIOS, type ThumbnailRatio } from './fit.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
@@ -15,6 +16,7 @@ export class ThumbnailProperties extends AsOfElement {
   protected placementOptions: AssetPlacementsOptions | undefined
   protected widthOptions: PageWidths | undefined
   protected fontOptions: FontsOptions | undefined
+  protected serveFrameValue: ServeFrame | undefined
   private ratioValue: ThumbnailRatio = 'natural'
 
   get ratio(): ThumbnailRatio {
@@ -103,6 +105,13 @@ export class ThumbnailProperties extends AsOfElement {
 
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
+    this.thumbnailPropertiesChanged()
+  }
+  get serveFrame(): ServeFrame | undefined {
+    return this.serveFrameValue
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.serveFrameValue = value
     this.thumbnailPropertiesChanged()
   }
 

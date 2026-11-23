@@ -37,7 +37,7 @@ import {
   resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
-import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { buildFrameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -253,13 +253,13 @@ export function printableDeckValueDocument(deck: Deck, options: PrintOptions & {
   return { html: imposedPaperDocument(imposed.paper, rootAttributes, imposedPaperBodies(imposed, placementBody), documentTitle(deck, options)), imposed }
 }
 
-function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
+function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions) {
   const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
   const properties = page.print ? printProperties(page.print) : ''
   const padding = layout.inset ? printPadding(placement.bleed) : ''
   const nonce = options.nonce ?? newNonce()
-  const srcdoc = frameDocument(page.html, {
+  const document = buildFrameDocument(page.html, {
     scripts: page.scripts,
     nonce,
     dir: pageDirection(page),
@@ -274,13 +274,27 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     printBackground: true,
     origins: options.origins,
   })
-  return placementBox(
+  const markup = placementBox(
     (dimensions) =>
-      `<iframe sandbox="${frameSandbox(page.scripts)}" srcdoc="${escapeHtml(srcdoc)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
+      `<iframe sandbox="${frameSandbox(page.scripts)}" srcdoc="${escapeHtml(document.html)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
     placement,
     layout,
     fit.scale,
   )
+  return { document, markup }
+}
+
+export function printablePaperFrames(
+  pages: HtmlPage[],
+  imposition: Imposition,
+  imposed: Imposed,
+  paper: number,
+  options: PrintablePagesOptions = {},
+  side: 'front' | 'back' = 'front',
+) {
+  return imposed.placements
+    .filter((placement) => placement.paper === paper && placement.side === side)
+    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options))
 }
 
 // Builds only the positioned placement boxes for one physical paper, so the
@@ -293,9 +307,8 @@ export function printablePaper(
   options: PrintablePagesOptions = {},
   side: 'front' | 'back' = 'front',
 ): string {
-  return imposed.placements
-    .filter((placement) => placement.paper === paper && placement.side === side)
-    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options))
+  return printablePaperFrames(pages, imposition, imposed, paper, options, side)
+    .map((frame) => frame.markup)
     .join('')
 }
 

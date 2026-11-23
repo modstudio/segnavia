@@ -1,4 +1,5 @@
 import { type PageWidths, type PreflightProfileInput, resolvePreflightProfile, type SlotsOptions } from '@segnavia/format'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { PageParseOptionsElement } from './page-parse-options-element.ts'
@@ -26,6 +27,7 @@ export abstract class PrintedPagesOptionsElement extends PageParseOptionsElement
   protected widthsValue: PageWidths | undefined
   protected fontsValue: FontsOptions | undefined
   protected profileValue: PreflightProfileInput = 'default'
+  protected serveFrameValue: ServeFrame | undefined
 
   get layout(): PrintedPagesLayout {
     return this.layoutValue
@@ -109,6 +111,13 @@ export abstract class PrintedPagesOptionsElement extends PageParseOptionsElement
   set profile(value: PreflightProfileInput) {
     resolvePreflightProfile(value)
     this.profileValue = value
+    this.printedPagesReload()
+  }
+  get serveFrame(): ServeFrame | undefined {
+    return this.serveFrameValue
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.serveFrameValue = value
     this.printedPagesReload()
   }
 

@@ -1,5 +1,6 @@
 import type { AsOfDay, FontFailure, Page, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
 import { type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import type { ServeFrame } from './frame-write.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 import { loadLayoutScripts } from './layout.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
@@ -29,6 +30,7 @@ export interface PreparePrintedPagesOptions {
   profile: PreflightProfile
   report(report: import('@segnavia/format').PreflightReport): void
   day: AsOfDay
+  serveFrame?: ServeFrame
 }
 
 export async function preparePrintedPages(source: Page, options: PreparePrintedPagesOptions): Promise<PreparedPrintedPages> {
@@ -48,6 +50,7 @@ export async function preparePrintedPages(source: Page, options: PreparePrintedP
       preflightSeed: expanded.preflight,
       report: options.report,
       signal: options.signal,
+      serveFrame: options.serveFrame,
     },
     Date.now() + SLIDES_READY_DEADLINE_MS,
   )

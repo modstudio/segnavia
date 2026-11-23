@@ -3,6 +3,7 @@ import type { SoundPlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import type { Clock } from './clock.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { SeekPolicy } from './navigation-limit.ts'
 import type { WatchedState } from './watched.ts'
 
@@ -57,6 +58,7 @@ export interface ControllerOptions {
   schedule?: (tick: () => void) => () => void
   seek?: SeekPolicy
   completeAt?: number
+  serveFrame?: ServeFrame
 }
 
 export function initialDeckState(): DeckState {

@@ -3,6 +3,7 @@ import { type OriginApproval, Page, Print } from '@segnavia/format'
 import type { EstablishedPageDay } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
+import type { ServeFrame } from './frame-write.ts'
 
 test('a thumbnail page frame carries approved image origins in its CSP', async () => {
   const originalElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
@@ -12,6 +13,7 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
   let srcdoc = ''
   let plainLoads = 0
   let received: EstablishedPageDay | undefined
+  const serveFrame = () => '/frames/page'
   const attributes = new Set<string>()
   const load = (page: Page) => {
     const html = 'html' in page.body ? page.body.html : ''
@@ -21,6 +23,7 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
     part: { add() {} },
     style: {} as CSSStyleDeclaration,
     origins: [] as Iterable<OriginApproval>,
+    serveFrame: undefined as ServeFrame | undefined,
     toggleAttribute(name: string, force?: boolean) {
       if (force ?? !attributes.has(name)) attributes.add(name)
       else attributes.delete(name)
@@ -53,6 +56,7 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
       {
         css: '',
         origins: [{ origin: 'https://images.example', kinds: ['image'] }],
+        serveFrame,
       },
       established,
     )
@@ -60,6 +64,7 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
     expect(attributes.has('bounded')).toBe(true)
     expect(received).toBe(established)
     expect(plainLoads).toBe(0)
+    expect(pageElement.serveFrame).toBe(serveFrame)
   } finally {
     if (originalElement) Object.defineProperty(globalThis, 'HTMLElement', originalElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

@@ -33,7 +33,7 @@ export interface PageValueRenderOptions {
 export interface PageValueRenderHandlers {
   show(page: HtmlPage, resolved?: PreparedSlots, fontCss?: string, fontFailures?: import('@segnavia/format').FontFailure[], sounds?: SoundPlacements): void
   report(error: unknown): void
-  write(document: string, provisional: boolean, hasLayoutScripts: boolean): void
+  write(document: string, provisional: boolean, hasLayoutScripts: boolean, policy: string): void
   composed(identity: PageFrameIdentity): void
   fit(): void
 }
@@ -90,7 +90,7 @@ function renderUnexpandedPage(
       relayKeys: false,
       preflight: resolvePreflightProfile(options.profile),
     },
-    (document, hasLayoutScripts) => handlers.write(document, provisional, hasLayoutScripts),
+    (document, hasLayoutScripts, policy) => handlers.write(document, provisional, hasLayoutScripts, policy),
     handlers.report,
   )
   const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
@@ -126,7 +126,7 @@ export function renderPageValue(
       slots: effectiveSlots,
       day,
       signal,
-      loaded: (document, hasLayoutScripts) => handlers.write(document, false, hasLayoutScripts),
+      loaded: (document, hasLayoutScripts, policy) => handlers.write(document, false, hasLayoutScripts, policy),
       failed: handlers.report,
     })
     handlers.fit()

@@ -36,6 +36,8 @@ export function thumbnailCanvas(
     slots,
     bridge,
     folio,
+    serveFrame: bridge ? controller.serveFrame : undefined,
+    kind: 'thumbnail',
   })
   return canvas
 }

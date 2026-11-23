@@ -203,6 +203,7 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
           if (generation === this.generation && !controller.signal.aborted)
             this.dispatchEvent(new CustomEvent('preflight', { detail: report, bubbles: true, composed: true }))
         },
+        serveFrame: this.serveFrameValue,
       })
       if (generation !== this.generation || controller.signal.aborted) return
       this.applyPrepared(prepared, generation, keepPage)
@@ -229,6 +230,8 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
           csp: this.cspExtra || undefined,
           origins: this.origins,
           profile: resolvePreflightProfile(this.profileValue),
+          serveFrame: this.serveFrameValue,
+          failed: (reason) => renderPrintedPagesFailure(this, reason),
         })
     }
     this.refit()
@@ -254,7 +257,8 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
     frame.style.visibility = ''
     state.shown = frame
     state.pending = undefined
-    state.srcdoc = frame.srcdoc
+    state.document = state.pendingDocument
+    state.pendingDocument = undefined
   }
   private readonly onScroll = () => {
     this.updateWindow()
@@ -277,7 +281,8 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
         state.pending?.remove()
         state.shown = undefined
         state.pending = undefined
-        state.srcdoc = undefined
+        state.pendingDocument = undefined
+        state.document = undefined
         state.nonce = undefined
       }
   }

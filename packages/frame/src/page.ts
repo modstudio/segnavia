@@ -19,6 +19,7 @@ import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { loadShownPageDocument } from './page-document-loading.ts'
@@ -27,6 +28,7 @@ import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
+import { definePageFrameServing } from './page-frame-serving-property.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { handlePageElementMessage } from './page-message-handler.ts'
 import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
@@ -42,6 +44,7 @@ export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
   static {
     defineEditionPropertyAccessor(SegnaviaPage.prototype)
+    definePageFrameServing(SegnaviaPage.prototype)
   }
   static observedAttributes = ['src', 'edition', 'bounded', 'label']
   declare edition: string | undefined
@@ -70,6 +73,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
+  declare serveFrame: ServeFrame | undefined
   constructor() {
     super()
     upgradeProperties(this)
@@ -240,20 +244,20 @@ export class SegnaviaPage extends PageParseOptionsElement {
           fontFailures,
           preflight: resolvePreflightProfile(this.profileInput),
         },
-        (document, hasLayoutScripts) => {
+        (document, hasLayoutScripts, policy) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
           this.sounds = sounds
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
-          this.writeDocument(iframe, document, false, hasLayoutScripts)
+          this.writeDocument(iframe, document, false, hasLayoutScripts, policy)
         },
         report,
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string, provisional: boolean, hasLayoutScripts: boolean) => {
-      if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts)
+    const write = (document: string, provisional: boolean, hasLayoutScripts: boolean, policy: string) => {
+      if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts, policy)
     }
     const asOfLoad = captureAsOfLoad(this)
     const render = (day: AsOfDay, slots: SlotsOptions) => {
@@ -358,19 +362,22 @@ export class SegnaviaPage extends PageParseOptionsElement {
     this.loadedDocument = undefined
     this.documentIsFinal = false
   }
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional: boolean, hasLayoutScripts: boolean) {
+  private writeDocument(iframe: HTMLIFrameElement, html: string, provisional: boolean, hasLayoutScripts: boolean, policy = '') {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
     this.documentIsFinal = !provisional
     this.layoutFrame = hasLayoutScripts ? { frame: iframe, generation: this.loadGeneration } : undefined
-    iframe.addEventListener(
-      'load',
-      () => {
-        if (written === this.documentWrites) this.loadedDocument = written
-      },
-      { once: true },
-    )
-    iframe.srcdoc = srcdoc
+    void writeFrameDocument(iframe, { html, policy }, 'page', this.serveFrame, () =>
+      iframe.addEventListener(
+        'load',
+        () => {
+          if (written === this.documentWrites) this.loadedDocument = written
+        },
+        { once: true },
+      ),
+    ).catch((error) => {
+      if (written === this.documentWrites) dispatchPageFailure(this, error, true)
+    })
   }
   private fit() {
     const page = this.pageValue
