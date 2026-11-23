@@ -236,13 +236,15 @@ export class SegnaviaBook extends BookSourcesElement {
     if (this.currentView) this.mount()
   }
 
-  private mountFrame(rendered: { title: string; srcdoc: string; scripts: Scripts }, layout: BookLayout | null = null): HTMLIFrameElement {
+  private mountFrame(rendered: { title: string; srcdoc: string; policy: string; scripts: Scripts }, layout: BookLayout | null = null): HTMLIFrameElement {
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', frameSandbox(rendered.scripts))
     if (layout) iframe.dataset.segnaviaBookLayout = layout
     iframe.dataset.segnaviaBookGeneration = String(this.loadGeneration)
     iframe.title = rendered.title
-    void writeFrameDocument(iframe, rendered.srcdoc, 'book', this.serveFrameValue).catch((error) => bookElement.reportBookError(this, error))
+    void writeFrameDocument(iframe, { html: rendered.srcdoc, policy: rendered.policy }, 'book', this.serveFrameValue).catch((error) =>
+      bookElement.reportBookError(this, error),
+    )
     return iframe
   }
 

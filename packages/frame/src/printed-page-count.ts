@@ -14,7 +14,7 @@ import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { layoutsForHtml } from './layout.ts'
 import type { PrintablePagesOptions } from './print-document.ts'
-import { printedPageValueDocument } from './printed-page-document.ts'
+import { buildPrintedPageValueDocument } from './printed-page-document.ts'
 
 export const PRINTED_PAGE_COUNT_REFUSAL =
   'The browser could not establish the composed page count because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.'
@@ -47,7 +47,7 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${viewport.width}px;height:${viewport.height}px;border:0;opacity:0;pointer-events:none`
   const resolved = isPrintedHtmlPage(page) ? page : resolvePrintedPageHtml(page)
-  const srcdoc = printedPageValueDocument(resolved, {
+  const built = buildPrintedPageValueDocument(resolved, {
     nonce: options.nonce ?? newNonce(),
     baseCss: options.baseCss,
     css: options.css,
@@ -94,6 +94,6 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
     if (options.signal?.aborted) return onAbort()
     timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL), true), Math.max(0, deadlineAt - Date.now()))
     document.body.append(frame)
-    void writeFrameDocument(frame, srcdoc, 'printed-page', options.serveFrame).catch((error) => finish(error, true))
+    void writeFrameDocument(frame, built, 'printed-page', options.serveFrame).catch((error) => finish(error, true))
   })
 }

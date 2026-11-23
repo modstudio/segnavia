@@ -18,6 +18,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
+import { defineElementPropertyAccessors } from './element-property-accessors.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
@@ -37,14 +38,17 @@ import { readPageSelection } from './page-selection.ts'
 import { loadPageUrl } from './page-url-load.ts'
 import { renderPageValue } from './page-value-render.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import { defineServeFrameProperty } from './serve-frame-property.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
   static {
     defineEditionPropertyAccessor(SegnaviaPage.prototype)
-    defineServeFrameProperty(SegnaviaPage.prototype, (page) => page.pageValue && page.loadValue(page.pageValue))
+    defineElementPropertyAccessors(
+      SegnaviaPage.prototype,
+      () => ({ serveFrame: undefined as ServeFrame | undefined }),
+      (page) => page.pageValue && page.loadValue(page.pageValue),
+    )
   }
   static observedAttributes = ['src', 'edition', 'bounded', 'label']
   declare edition: string | undefined
@@ -244,20 +248,20 @@ export class SegnaviaPage extends PageParseOptionsElement {
           fontFailures,
           preflight: resolvePreflightProfile(this.profileInput),
         },
-        (document, hasLayoutScripts) => {
+        (document, hasLayoutScripts, policy) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
           this.sounds = sounds
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
-          this.writeDocument(iframe, document, false, hasLayoutScripts)
+          this.writeDocument(iframe, document, false, hasLayoutScripts, policy)
         },
         report,
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string, provisional: boolean, hasLayoutScripts: boolean) => {
-      if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts)
+    const write = (document: string, policy: string, provisional: boolean, hasLayoutScripts: boolean) => {
+      if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts, policy)
     }
     const asOfLoad = captureAsOfLoad(this)
     const render = (day: AsOfDay, slots: SlotsOptions) => {
@@ -362,19 +366,20 @@ export class SegnaviaPage extends PageParseOptionsElement {
     this.loadedDocument = undefined
     this.documentIsFinal = false
   }
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional: boolean, hasLayoutScripts: boolean) {
+  private writeDocument(iframe: HTMLIFrameElement, html: string, provisional: boolean, hasLayoutScripts: boolean, policy = '') {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
     this.documentIsFinal = !provisional
     this.layoutFrame = hasLayoutScripts ? { frame: iframe, generation: this.loadGeneration } : undefined
-    iframe.addEventListener(
-      'load',
-      () => {
-        if (written === this.documentWrites) this.loadedDocument = written
-      },
-      { once: true },
-    )
-    void writeFrameDocument(iframe, srcdoc, 'page', this.serveFrame).catch((error) => {
+    void writeFrameDocument(iframe, { html, policy }, 'page', this.serveFrame, () =>
+      iframe.addEventListener(
+        'load',
+        () => {
+          if (written === this.documentWrites) this.loadedDocument = written
+        },
+        { once: true },
+      ),
+    ).catch((error) => {
       if (written === this.documentWrites) dispatchPageFailure(this, error, true)
     })
   }

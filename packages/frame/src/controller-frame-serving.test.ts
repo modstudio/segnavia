@@ -1,5 +1,12 @@
 import { expect, test } from 'bun:test'
 import { DeckController } from './controller.ts'
+import type { ServedFrameDocument } from './frame-write.ts'
+
+test('constructor injection installs the frame-serving seam', () => {
+  const serveFrame = (_document: ServedFrameDocument) => '/frames/constructor'
+  const controller = new DeckController({ hash: null, persist: false, serveFrame })
+  expect(controller.serveFrame).toBe(serveFrame)
+})
 
 test('setting frame serving emits only after a deck is loaded', async () => {
   const controller = new DeckController({ hash: null, persist: false })

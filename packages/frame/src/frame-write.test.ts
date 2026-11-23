@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { writeFrameDocument } from './frame-write.ts'
+import { buildFrameDocument } from './bridge.ts'
 
 const html = '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="script-src \'none\'; img-src data:"></head></html>'
+const built = { html, policy: "script-src 'none'; img-src data:" }
 class TestFrame {
   ownerDocument = { baseURI: 'https://frames.example/base/' } as Document
   src = ''
@@ -23,14 +25,14 @@ const frame = () => new TestFrame() as unknown as HTMLIFrameElement
 describe('writeFrameDocument', () => {
   test('writes srcdoc by default', async () => {
     const iframe = frame()
-    await writeFrameDocument(iframe, html, 'page')
+    await writeFrameDocument(iframe, built, 'page')
     expect(iframe.srcdoc).toBe(html)
   })
 
   test('passes the document and writes a served URL', async () => {
     const iframe = frame()
     let received: unknown
-    await writeFrameDocument(iframe, html, 'slide', (document) => {
+    await writeFrameDocument(iframe, built, 'slide', (document) => {
       received = document
       return '/frames/one'
     })
@@ -39,11 +41,22 @@ describe('writeFrameDocument', () => {
     expect(iframe.hasAttribute('srcdoc')).toBe(false)
   })
 
+  test('passes every policy applied by the built document', async () => {
+    const document = buildFrameDocument('<p>frame</p>', { scripts: 'refuse', nonce: 'n', csp: 'img-src data:' })
+    let policy = ''
+    await writeFrameDocument(frame(), document, 'page', (served) => {
+      policy = served.policy
+      return '/frames/policies'
+    })
+    expect(policy).toContain("script-src 'nonce-n'")
+    expect(policy).toEndWith(', img-src data:')
+  })
+
   test('discards a served URL superseded by a newer write', async () => {
     const iframe = frame()
     let resolve!: (url: string) => void
-    const first = writeFrameDocument(iframe, html, 'page', () => new Promise((done) => (resolve = done)))
-    await writeFrameDocument(iframe, html.replace('data:', 'blob:'), 'page')
+    const first = writeFrameDocument(iframe, built, 'page', () => new Promise((done) => (resolve = done)))
+    await writeFrameDocument(iframe, { html: html.replace('data:', 'blob:'), policy: "script-src 'none'; img-src blob:" }, 'page')
     resolve('/frames/stale')
     expect(await first).toBe(false)
     expect(iframe.srcdoc).toContain('blob:')
@@ -53,9 +66,10 @@ describe('writeFrameDocument', () => {
     ['a rejection', () => Promise.reject(new Error('store unavailable'))],
     ['a javascript URL', () => 'javascript:alert(1)'],
     ['a data URL', () => 'data:text/html,no'],
+    ['an empty URL', () => '  '],
   ])('refuses %s with the clearing action', async (_, serve) => {
-    await expect(writeFrameDocument(frame(), html, 'book', serve)).rejects.toThrow(
-      /serveFrame.*make serveFrame resolve to an HTTP\(S\) URL to clear this refusal/,
+    await expect(writeFrameDocument(frame(), built, 'book', serve)).rejects.toThrow(
+      /serveFrame.*make serveFrame resolve to a nonempty HTTP\(S\) URL to clear this refusal|serveFrame rejected.*make serveFrame resolve to an HTTP\(S\) URL/,
     )
   })
 })

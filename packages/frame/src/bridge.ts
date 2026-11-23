@@ -301,7 +301,12 @@ function rootAttributes(tag: string | undefined, options: Pick<FrameOptions, 'di
 // The policy and the bridge go first, before anything the author wrote, so
 // nothing in the author's document is parsed ahead of them. A policy the
 // author adds can only narrow this one: browsers enforce every policy present.
-export function frameDocument(html: string, options: FrameOptions): string {
+export interface BuiltFrameDocument {
+  html: string
+  policy: string
+}
+
+export function buildFrameDocument(html: string, options: FrameOptions): BuiltFrameDocument {
   const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
   const origins = options.origins === undefined ? undefined : [...options.origins]
   const bridge = options.bridge !== false
@@ -347,7 +352,11 @@ export function frameDocument(html: string, options: FrameOptions): string {
         return attributes ? tag.replace(/>$/, `${attributes}>`) : tag
       })
     : `<html${rootAttributes(undefined, options)}><body>${body}</body></html>`
-  return `<!doctype html>${head}${withRoot}`
+  return { html: `<!doctype html>${head}${withRoot}`, policy: [directives.join('; '), options.csp].filter(Boolean).join(', ') }
+}
+
+export function frameDocument(html: string, options: FrameOptions): string {
+  return buildFrameDocument(html, options).html
 }
 
 // A fresh nonce per document, so an author cannot copy one into their page.

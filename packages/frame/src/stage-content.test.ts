@@ -45,6 +45,25 @@ describe('stageCanvas', () => {
     expect(iframe?.src).toBe('https://frames.example/frames/slide')
   })
 
+  test('ignores the mounted about:blank load until the served document is written', async () => {
+    let resolve!: (url: string) => void
+    let loads = 0
+    const slide = deck.slides[0]
+    if (!slide) throw new Error('Expected the HTML slide.')
+    const canvas = stageCanvas(controller, deck, slide, slide.content as ResolvedContent, {
+      ...options,
+      loaded: () => loads++,
+      serveFrame: () => new Promise((done) => (resolve = done)),
+    })
+    const iframe = canvas.querySelector('iframe') as (HTMLIFrameElement & { dispatch(name: string): void })
+    iframe.dispatch('load')
+    expect(loads).toBe(0)
+    resolve('/frames/real')
+    await Promise.resolve()
+    iframe.dispatch('load')
+    expect(loads).toBe(1)
+  })
+
   test('permits forms only in frame-policy HTML documents', () => {
     const htmlSlide = deck.slides[0]
     const urlSlide = deck.slides[1]

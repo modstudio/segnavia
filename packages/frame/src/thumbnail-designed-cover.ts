@@ -4,6 +4,9 @@ import type { CoverPresentation } from './designed-cover-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import type { BoardFrameInputs } from './board-frame-inputs.ts'
+import type { ServeFrame } from './frame-write.ts'
+import type { PageWidths, OriginApproval } from '@segnavia/format'
 
 interface CoverViewport {
   firstElementChild: Element | null
@@ -17,6 +20,15 @@ export function thumbnailCoverSources(
   slots: SlotsOptions | undefined,
 ) {
   return { motifs, fonts, placements, slots }
+}
+
+export function thumbnailCoverFrameInputs(
+  sources: ReturnType<typeof thumbnailCoverSources>,
+  pageWidths: PageWidths | undefined,
+  origins: Iterable<OriginApproval>,
+  serveFrame: ServeFrame | undefined,
+): BoardFrameInputs {
+  return { motifs: sources.motifs, fonts: sources.fonts, placements: sources.placements, pageWidths, origins: [...origins], serveFrame }
 }
 
 export function mountThumbnailDesignedCover(

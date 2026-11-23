@@ -344,8 +344,13 @@ page.serveFrame = player.serveFrame = async ({ html, policy, kind }) => {
 
 The endpoint returns an HTTP(S) URL. Serve the exact bytes once as `text/html`,
 with no CSP header or exactly `policy`; do not reuse or cache a response across
-loads. The parent policy must allow the URL through `frame-src`. The frame still
+loads, and expire a stored document if a superseded write never fetches it.
+Multiple policies in `policy` are joined with `, ` for independent enforcement.
+The parent policy must allow the URL through `frame-src`. The frame still
 has an opaque origin because its sandbox never gains `allow-same-origin`.
+For a served `scripts: 'sandboxed'` document, `script-src 'self'` names the
+serving origin; use a dedicated origin that serves no unintended executable
+content.
 
 ### Host-served URL slide fonts
 

@@ -2,7 +2,7 @@ import type { OriginApproval, PreflightProfile } from '@segnavia/format'
 import { frameSandbox, newNonce } from './bridge.ts'
 import { dispatchElementError } from './element-error.ts'
 import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
-import { printedPageValueDocument } from './printed-page-document.ts'
+import { buildPrintedPageValueDocument } from './printed-page-document.ts'
 import type { PreparedPrintedPages } from './printed-pages-load.ts'
 import {
   type PaperExtent,
@@ -19,6 +19,7 @@ export interface PrintedPaperState {
   slot: HTMLElement
   shown?: HTMLIFrameElement
   pending?: HTMLIFrameElement
+  pendingDocument?: string
   document?: string
   nonce?: string
 }
@@ -119,7 +120,7 @@ export function composePrintedPaper(
   const belongsToGeneration = (frame: HTMLIFrameElement | undefined) => frame?.dataset.generation === String(generation)
   if (belongsToGeneration(state.shown) || belongsToGeneration(state.pending)) return
   const build = (nonce: string) =>
-    printedPageValueDocument(prepared.page, {
+    buildPrintedPageValueDocument(prepared.page, {
       nonce,
       baseCss: prepared.fontCss,
       css: options.css,
@@ -135,20 +136,29 @@ export function composePrintedPaper(
     })
   const candidateNonce = state.nonce ?? newNonce()
   const candidate = build(candidateNonce)
-  if (shouldReusePrintedPageSrcdoc(state.document, candidate)) {
+  if (shouldReusePrintedPageSrcdoc(state.document, candidate.html)) {
     if (state.shown) state.shown.dataset.generation = String(generation)
     return
   }
   state.pending?.remove()
+  state.pending = undefined
+  state.pendingDocument = undefined
   state.nonce = state.document === undefined ? candidateNonce : newNonce()
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.title = `Page ${index}`
   frame.dataset.generation = String(generation)
   frame.style.visibility = 'hidden'
-  const html = state.nonce === candidateNonce ? candidate : build(state.nonce)
-  void writeFrameDocument(frame, html, 'printed-page', options.serveFrame).catch(options.failed)
-  state.document = html
+  const built = state.nonce === candidateNonce ? candidate : build(state.nonce)
+  state.pendingDocument = built.html
+  void writeFrameDocument(frame, built, 'printed-page', options.serveFrame).catch((reason) => {
+    if (state.pending === frame) {
+      frame.remove()
+      state.pending = undefined
+      state.pendingDocument = undefined
+    }
+    options.failed?.(reason)
+  })
   state.pending = frame
   state.slot.append(frame)
 }

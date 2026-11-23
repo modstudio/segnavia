@@ -4,7 +4,6 @@ import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 import type { ServeFrame } from './frame-write.ts'
-import { defineServeFrameProperty } from './serve-frame-property.ts'
 
 export interface StagePropertyValues {
   // Styles applied inside every slide, such as a host's house style.
@@ -25,5 +24,5 @@ export function defineStagePropertyAccessors<T extends object>(prototype: T, cha
     frameTitle: defaultFrameTitle,
     brands: undefined,
   }))
-  defineServeFrameProperty(prototype, changed)
+  defineElementPropertyAccessors(prototype, () => ({ serveFrame: undefined as ServeFrame | undefined }), changed)
 }

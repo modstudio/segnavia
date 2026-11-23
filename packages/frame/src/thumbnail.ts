@@ -15,7 +15,7 @@ import { fitDesignedCover } from './fit.ts'
 import { hasSlotWork, slotFillRefusal } from './slot-render.ts'
 import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas } from './thumbnail-canvas.ts'
-import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
+import { mountThumbnailDesignedCover, thumbnailCoverFrameInputs, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
@@ -227,13 +227,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
         mountDesignedCover(
           selected,
           (error) => this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true })),
-          {
-            motifs: sources.motifs,
-            fonts: sources.fonts,
-            placements: sources.placements,
-            pageWidths: this.widthOptions,
-            origins: [...this.origins],
-          } satisfies BoardFrameInputs,
+          thumbnailCoverFrameInputs(sources, this.widthOptions, this.origins, this.serveFrameValue) satisfies BoardFrameInputs,
           sources.slots,
           this.ratio,
         ),
@@ -392,6 +386,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
         slots: this.slotOptions,
         origins: this.origins,
         css: this.css,
+        serveFrame: this.serveFrameValue,
       },
       established,
     )

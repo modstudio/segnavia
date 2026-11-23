@@ -107,7 +107,8 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
 - A host may show a library-built frame document from a URL it serves through
   `serveFrame`. The frame keeps the same sandbox, policy and bridge, and the
   host serves the exact bytes once, with no CSP header or exactly the frame's
-  own.
+  own; expire unfetched writes, and use a dedicated frame origin because a served
+  `scripts: 'sandboxed'` frame binds `script-src 'self'` to that origin.
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
   a ready signal, an animation report, a bounded slot-fit report, a bounded

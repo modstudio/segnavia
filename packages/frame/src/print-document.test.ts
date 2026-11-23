@@ -9,7 +9,9 @@ import {
   printablePageValues,
   printablePageValuesDocument,
   printablePaper,
+  writePrintablePaper,
 } from './print-document.ts'
+import type { ServedFrameDocument } from './frame-write.ts'
 import { escapeHtml } from './svg.ts'
 
 const grid = Imposition.parse({
@@ -269,6 +271,30 @@ describe('printableDeckValue', () => {
 })
 
 describe('printablePageValues', () => {
+  test('a paper DOM writer serves its bridge-carrying page frame', async () => {
+    const frame = {
+      ownerDocument: { baseURI: 'https://frames.example/deck/' },
+      src: '',
+      srcdoc: '',
+      removeAttribute(name: string) {
+        if (name === 'srcdoc') this.srcdoc = ''
+      },
+    } as unknown as HTMLIFrameElement
+    const box = {
+      innerHTML: '',
+      querySelectorAll: () => [frame],
+    } as unknown as HTMLElement
+    let served: ServedFrameDocument | undefined
+    const pages = [resolvePageHtml(fluid)]
+    writePrintablePaper(box, pages, grid, impose(grid, 1, fluid.print), 0, { nonce: 'test' }, 'front', (document) => {
+      served = document
+      return '/frames/paper'
+    }, () => {})
+    await Promise.resolve()
+    expect(served?.kind).toBe('printed-page')
+    expect(frame.src).toBe('https://frames.example/frames/paper')
+  })
+
   test('resolves the direction of each page frame', () => {
     const hebrew = Page.parse({ html: '<p>Hello</p>', lang: 'he' })
     expect(printablePageValues([hebrew], grid, { nonce: 'test' })).toContain('&lt;html dir=&quot;rtl&quot; lang=&quot;he&quot;&gt;')

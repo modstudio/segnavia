@@ -1,8 +1,8 @@
 import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
-import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
+import { buildFrameDocument, type BuiltFrameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
-import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { type ServedFrameKind, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 import { LAYOUT_FRAME_ATTRIBUTE, type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
@@ -23,12 +23,12 @@ interface StageCanvasOptions {
   preflight?: PreflightProfile
   layoutScripts?: readonly LoadedLayoutScript[]
   serveFrame?: ServeFrame
-  kind?: 'slide' | 'thumbnail'
+  kind?: Extract<ServedFrameKind, 'slide' | 'thumbnail'>
 }
 
-function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
+function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): BuiltFrameDocument | undefined {
   try {
-    return frameDocument(slotHtml(html, options.slots), {
+    return buildFrameDocument(slotHtml(html, options.slots), {
       scripts: deck.scripts,
       nonce: newNonce(),
       dir: deck.dir,
@@ -49,9 +49,10 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
   }
 }
 
-function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, options: StageCanvasOptions): void {
-  iframe.addEventListener('load', options.loaded, { once: true })
-  void writeFrameDocument(iframe, srcdoc, options.kind ?? 'slide', options.serveFrame).catch((reason) =>
+function writeFrame(iframe: HTMLIFrameElement, document: BuiltFrameDocument, options: StageCanvasOptions): void {
+  void writeFrameDocument(iframe, document, options.kind ?? 'slide', options.serveFrame, () =>
+    iframe.addEventListener('load', options.loaded, { once: true }),
+  ).catch((reason) =>
     options.failed?.(reason instanceof Error ? reason : new Error(String(reason))),
   )
 }

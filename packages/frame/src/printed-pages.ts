@@ -257,6 +257,8 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
     frame.style.visibility = ''
     state.shown = frame
     state.pending = undefined
+    state.document = state.pendingDocument
+    state.pendingDocument = undefined
   }
   private readonly onScroll = () => {
     this.updateWindow()
@@ -279,6 +281,7 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
         state.pending?.remove()
         state.shown = undefined
         state.pending = undefined
+        state.pendingDocument = undefined
         state.document = undefined
         state.nonce = undefined
       }

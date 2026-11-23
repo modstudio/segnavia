@@ -1,3 +1,5 @@
+import type { BuiltFrameDocument } from './bridge.ts'
+
 export type ServedFrameKind = 'page' | 'book' | 'printed-page' | 'slide' | 'thumbnail'
 
 export interface ServedFrameDocument {
@@ -10,50 +12,55 @@ export type ServeFrame = (document: ServedFrameDocument) => string | Promise<str
 
 const writes = new WeakMap<HTMLIFrameElement, number>()
 
-export function frameDocumentPolicy(html: string): string {
-  const match = html.match(/<meta\s+http-equiv=["']Content-Security-Policy["']\s+content=(?:"([^"]*)"|'([^']*)')\s*>/i)
-  if (!match) throw new Error('The frame document has no Content-Security-Policy meta element; build it with frameDocument to clear this refusal.')
-  return (match[1] ?? match[2] ?? '')
-    .replaceAll('&amp;', '&')
-    .replaceAll('&quot;', '"')
-    .replaceAll('&#39;', "'")
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>')
-}
-
-function serveFrameRefusal(document: ServedFrameDocument, reason: unknown): Error {
+function rejectedServeFrame(document: ServedFrameDocument, reason: unknown): Error {
   const detail = reason instanceof Error ? reason.message : String(reason)
   return new Error(
     `The host could not serve the ${document.kind} frame document because serveFrame rejected: ${detail}; make serveFrame resolve to an HTTP(S) URL to clear this refusal.`,
   )
 }
 
-export async function writeFrameDocument(iframe: HTMLIFrameElement, html: string, kind: ServedFrameKind, serve?: ServeFrame): Promise<boolean> {
+function unusableServeFrame(document: ServedFrameDocument, reason: string): Error {
+  return new Error(
+    `The host could not serve the ${document.kind} frame document because serveFrame returned an unusable URL: ${reason}; make serveFrame resolve to a nonempty HTTP(S) URL to clear this refusal.`,
+  )
+}
+
+export async function writeFrameDocument(
+  iframe: HTMLIFrameElement,
+  built: BuiltFrameDocument,
+  kind: ServedFrameKind,
+  serve?: ServeFrame,
+  onWritten?: () => void,
+): Promise<boolean> {
   const write = (writes.get(iframe) ?? 0) + 1
   writes.set(iframe, write)
   if (!serve) {
     iframe.removeAttribute?.('src')
-    iframe.srcdoc = html
+    iframe.srcdoc = built.html
+    onWritten?.()
     return true
   }
-  const document = { html, policy: frameDocumentPolicy(html), kind }
+  const document = { ...built, kind }
   let value: string
   try {
     value = await serve(document)
   } catch (error) {
     if (writes.get(iframe) !== write) return false
-    throw serveFrameRefusal(document, error)
+    throw rejectedServeFrame(document, error)
   }
   if (writes.get(iframe) !== write) return false
+  if (value.trim() === '') throw unusableServeFrame(document, 'the returned value is empty')
   let url: URL
   try {
     url = new URL(value, iframe.ownerDocument.baseURI)
   } catch {
-    throw serveFrameRefusal(document, `the returned value ${JSON.stringify(value)} is not a URL`)
+    throw unusableServeFrame(document, `the returned value ${JSON.stringify(value)} is not a URL`)
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:')
-    throw serveFrameRefusal(document, `the returned URL uses the ${JSON.stringify(url.protocol)} protocol`)
+    throw unusableServeFrame(document, `the returned URL uses the ${JSON.stringify(url.protocol)} protocol`)
   iframe.removeAttribute?.('srcdoc')
   iframe.src = url.href
+  onWritten?.()
   return true
 }
+

@@ -17,7 +17,7 @@ import {
 } from '@segnavia/format'
 import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
-import { frameDocument, frameStyleSheets } from './bridge.ts'
+import { buildFrameDocument, type BuiltFrameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
@@ -42,6 +42,10 @@ export interface PaginatedDocumentOptions {
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
+  return buildPaginatedViewDocument(view, pagination, options).html
+}
+
+export function buildPaginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): BuiltFrameDocument {
   const progress = options.progress !== false
   const fonts = view.style?.fonts
   const limits = resolveLimits(view.limits, options.limits)
@@ -108,7 +112,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const body = `${view.html}<script nonce="${options.nonce}">${composerScript(json)}</script>`
-  return frameDocument(body, {
+  return buildFrameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
     dir: pagination.direction,
@@ -128,9 +132,16 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
 }
 
 export function flowViewDocument(view: BookView, options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'layoutScripts'>): string {
+  return buildFlowViewDocument(view, options).html
+}
+
+export function buildFlowViewDocument(
+  view: BookView,
+  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'layoutScripts'>,
+): BuiltFrameDocument {
   if (!view.flow || !view.pagination) throw new Error('A flow frame requires a paginated view built with its flow.')
   const script = `var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};${embeddedBookPresentationFunctions()}${bookPresentationScript('document', '', JSON.stringify(BOOK_PAGE_ATTRIBUTE))}`
-  return frameDocument(`${view.flow}<script nonce="${options.nonce}">${script}</script>`, {
+  return buildFrameDocument(`${view.flow}<script nonce="${options.nonce}">${script}</script>`, {
     scripts: 'refuse',
     nonce: options.nonce,
     dir: view.pagination.direction,

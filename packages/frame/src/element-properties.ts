@@ -41,6 +41,7 @@ export const ELEMENT_PROPERTIES = {
       'moment',
       'profile',
       'serveFrame',
+      'serveFrame',
     ],
     ['asof', 'segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release', 'preflight', 'fontfailure', 'error', 'refusalchange'],
   ),
@@ -169,7 +170,7 @@ export const ELEMENT_PROPERTIES = {
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'edition', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
+    ['paper', 'side', 'edition', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment', 'serveFrame'],
     ['asof', 'fontfailure', 'error', 'change'],
   ),
   document: descriptor(

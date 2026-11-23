@@ -39,8 +39,33 @@ test('a printed paper serves its frame and reuses the unchanged document', async
 
   state.shown = state.pending
   state.pending = undefined
+  state.document = state.pendingDocument
+  state.pendingDocument = undefined
   composePrintedPaper(state, prepared, 1, 2, options)
   await Promise.resolve()
   expect(served).toHaveLength(1)
   expect(state.shown?.dataset.generation).toBe('2')
+})
+
+test('a rejected printed paper write retries the same content', async () => {
+  let calls = 0
+  const state: PrintedPaperState = { page: 1, slot: new FramePoolTestElement('div') as unknown as HTMLElement }
+  const options = {
+    css: '',
+    origins: [],
+    profile: {} as PreflightProfile,
+    serveFrame: () => {
+      calls++
+      return Promise.reject(new Error('offline'))
+    },
+    failed: () => {},
+  }
+  composePrintedPaper(state, prepared, 1, 1, options)
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(state.document).toBeUndefined()
+  expect(state.pending).toBeUndefined()
+  composePrintedPaper(state, prepared, 1, 2, options)
+  await Promise.resolve()
+  expect(calls).toBe(2)
 })

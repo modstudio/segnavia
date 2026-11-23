@@ -5,6 +5,7 @@ import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page-element.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import type { ServeFrame } from './frame-write.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 
 interface ThumbnailPageOptions {
@@ -15,6 +16,7 @@ interface ThumbnailPageOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   css: string
+  serveFrame?: ServeFrame
 }
 
 export function updateThumbnailPageAspect(style: CSSStyleDeclaration, page: Page | null, print: Print | null, hasDeck: boolean): void {
@@ -44,6 +46,7 @@ export function mountThumbnailPage(
   page.origins = options.origins ?? []
   page.css = options.css
   page.cspExtra = ''
+  page.serveFrame = options.serveFrame
   page.toggleAttribute('bounded', true)
   page.part.add('canvas')
   page.style.inlineSize = '100%'

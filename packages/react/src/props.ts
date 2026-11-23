@@ -285,6 +285,7 @@ export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' 
   anchors?: SegnaviaPaper['anchors']
   asOf?: SegnaviaPaper['asOf']
   moment?: SegnaviaPaper['moment']
+  serveFrame?: SegnaviaPaper['serveFrame']
   unstyled?: boolean
   onFontfailure?: CustomEventProp<FontFailureDetail>
   onAsof?: CustomEventProp<AsOfDay>

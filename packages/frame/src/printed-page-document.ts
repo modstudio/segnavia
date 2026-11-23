@@ -41,7 +41,7 @@ import {
   withPrintedSectionBodies,
 } from '@segnavia/html'
 import { type ComposerPageGeometry, composerPageRules, composerParentGeometry } from './book-page-geometries.ts'
-import { frameDocument, frameStyleSheets } from './bridge.ts'
+import { buildFrameDocument, type BuiltFrameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
@@ -176,6 +176,13 @@ export function printedPageValueDocument(
     progressCallback?: string
   },
 ): string {
+  return buildPrintedPageValueDocument(source, options).html
+}
+
+export function buildPrintedPageValueDocument(
+  source: PrintedHtmlPage | Page | HtmlPage,
+  options: Parameters<typeof printedPageValueDocument>[1],
+): BuiltFrameDocument {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
   const progress = options.progress !== false
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
@@ -240,7 +247,7 @@ export function printedPageValueDocument(
     .flat()
     .map((part) => part.head)
     .join('')}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
-  return frameDocument(body, {
+  return buildFrameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
     dir: direction,
