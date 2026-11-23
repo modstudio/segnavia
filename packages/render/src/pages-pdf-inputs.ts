@@ -1,6 +1,6 @@
-import { type PageOrPrintedInput } from '@segnavia/format'
+import { APP_FONT_NAME, fontManifestReferences, fontManifestWithReferences, type PageOrPrintedInput } from '@segnavia/format'
 import { fillPageAsOfBindings, type SlotPrintOptions } from '@segnavia/html'
-import type { InputRefusal } from './errors.ts'
+import { type InputRefusal, RenderRefusedError } from './errors.ts'
 import { inputRefusalLedger } from './input-refusal-ledger.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
 import { expandRenderedPageValue, preparePageInput, prepareRenderedPages } from './page-document.ts'
@@ -8,6 +8,23 @@ import { renderPagesPdfInputs } from './pages-pdf.ts'
 import { settleRenderInputs } from './render-inputs.ts'
 import type { ParsedPagesPdfOptions } from './renderer.ts'
 import { pageSlotFillRefusal } from './slot-fill.ts'
+
+function validateInputFonts(
+  input: { page: { style?: { fonts?: Parameters<typeof fontManifestWithReferences>[0] } }; fonts: Parameters<typeof fontManifestWithReferences>[1] },
+  options: ParsedPagesPdfOptions,
+): void {
+  const { manifest, undeclared } = fontManifestWithReferences(input.page.style?.fonts, input.fonts)
+  const names = fontManifestReferences(manifest, undeclared).map((reference) => ('app' in reference ? reference.app : reference.fallback))
+  const invalid = names.find((name) => !APP_FONT_NAME.test(name))
+  if (invalid !== undefined) {
+    throw new RenderRefusedError(
+      `The input could not establish an app font name matching ${APP_FONT_NAME} (${JSON.stringify(invalid)}); use a lowercase name of letters, digits and hyphens to clear this refusal.`,
+    )
+  }
+  if (!options.fontSource && names[0] !== undefined) {
+    throw new RenderRefusedError(`The input could not establish app font ${JSON.stringify(names[0])}; supply a FontSource to clear this refusal.`)
+  }
+}
 
 export async function preparePagesPdfInputs(inputs: readonly PageOrPrintedInput[], options: ParsedPagesPdfOptions, signal: AbortSignal) {
   const parsed = await settleRenderInputs(inputs, (input) => preparePageInput(input, options, signal))
@@ -26,12 +43,20 @@ export async function preparePagesPdfInputs(inputs: readonly PageOrPrintedInput[
     },
     (input) => input.index,
   )
+  const fontEligible = await settleRenderInputs(
+    expanded.accepted,
+    async (input) => {
+      validateInputFonts(input.value.expanded, options)
+      return input.value
+    },
+    (input) => input.index,
+  )
   const fonts = await prepareRenderedPages(
-    expanded.accepted.map(({ value }) => value.expanded),
+    fontEligible.accepted.map(({ value }) => value.expanded),
     options,
     signal,
   )
-  const accepted = expanded.accepted.map(({ index, id, value }, position) => ({
+  const accepted = fontEligible.accepted.map(({ index, id, value }, position) => ({
     index,
     ...(id === undefined ? {} : { id }),
     page: value.expanded.page,
@@ -44,15 +69,12 @@ export async function preparePagesPdfInputs(inputs: readonly PageOrPrintedInput[
   }))
   return {
     accepted,
-    refused: [...parsed.refused, ...expanded.refused].sort((left, right) => left.index - right.index),
+    refused: [...parsed.refused, ...expanded.refused, ...fontEligible.refused].sort((left, right) => left.index - right.index),
     days: contexts.days,
   }
 }
 
-export function preparePagesPdfSlotInputs(
-  inputs: Awaited<ReturnType<typeof preparePagesPdfInputs>>['accepted'],
-  slots: SlotPrintOptions | undefined,
-) {
+export function preparePagesPdfSlotInputs(inputs: Awaited<ReturnType<typeof preparePagesPdfInputs>>['accepted'], slots: SlotPrintOptions | undefined) {
   return settleRenderInputs(
     inputs,
     async (input) => {

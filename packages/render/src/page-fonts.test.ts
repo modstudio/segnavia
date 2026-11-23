@@ -131,7 +131,7 @@ describe('prepareRenderedPages', () => {
   test('shares declarations across inputs while keeping failures attributed per input', async () => {
     const prepared = await prepareRenderedPages(
       [
-        { page: Page.parse({ html: '', style: { fonts: { heading: { faces: [{ weight: 700 }], generic: 'serif' } } } }), fonts: [] },
+        { page: Page.parse({ html: '', style: { fonts: { heading: { faces: [{}], generic: 'serif' } } } }), fonts: [] },
         { page: Page.parse({ html: '' }), fonts: [{ app: 'heading' }] },
       ],
       { fontSource: source },

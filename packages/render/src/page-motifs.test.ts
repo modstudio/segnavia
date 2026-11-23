@@ -3,44 +3,49 @@ import { PDFDocument } from 'pdf-lib'
 import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const documents: string[] = []
-type RouteHandler = (route: { request(): unknown; fulfill(options: { body: string }): Promise<void>; abort(): Promise<void>; continue(): Promise<void> }) => Promise<void>
+type RouteHandler = (route: {
+  request(): unknown
+  fulfill(options: { body: string }): Promise<void>
+  abort(): Promise<void>
+  continue(): Promise<void>
+}) => Promise<void>
 
 function fakeTab(routeHandler: () => RouteHandler | undefined) {
   const tab = {
-  async goto(url: string) {
-    const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
-    await routeHandler()?.({
-      request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
-      fulfill: async ({ body }) => {
-        documents.push(body)
-      },
-      abort: async () => {},
-      continue: async () => {},
-    })
-  },
-  evaluate(callback: (...args: never[]) => unknown) {
-    if (String(callback).includes('document.fonts')) return Promise.resolve(true)
-    return Promise.resolve({ extent: 200, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })
-  },
-  emulateMedia() {
-    return Promise.resolve()
-  },
-  async pdf() {
-    const document = await PDFDocument.create({ updateMetadata: false })
-    document.addPage()
-    document.setTitle(RENDER_PLACEHOLDER_TITLE)
-    return document.save()
-  },
-  screenshot() {
-    return Promise.resolve(new Uint8Array([4, 5, 6]))
-  },
-  locator() {
-    return { evaluateAll: () => Promise.resolve([]), contentFrame: () => tab }
-  },
-  on() {
-    return tab
-  },
-}
+    async goto(url: string) {
+      const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
+      await routeHandler()?.({
+        request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
+        fulfill: async ({ body }) => {
+          documents.push(body)
+        },
+        abort: async () => {},
+        continue: async () => {},
+      })
+    },
+    evaluate(callback: (...args: never[]) => unknown) {
+      if (String(callback).includes('document.fonts')) return Promise.resolve(true)
+      return Promise.resolve({ extent: 200, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })
+    },
+    emulateMedia() {
+      return Promise.resolve()
+    },
+    async pdf() {
+      const document = await PDFDocument.create({ updateMetadata: false })
+      document.addPage()
+      document.setTitle(RENDER_PLACEHOLDER_TITLE)
+      return document.save()
+    },
+    screenshot() {
+      return Promise.resolve(new Uint8Array([4, 5, 6]))
+    },
+    locator() {
+      return { evaluateAll: () => Promise.resolve([]), contentFrame: () => tab }
+    },
+    on() {
+      return tab
+    },
+  }
   return tab
 }
 
@@ -282,13 +287,13 @@ test('pagesPdf treats one page slot-fill refusal as an input refusal', async () 
     children: [{ type: 'page', body: { html: '<p data-slot-value="name">Body</p>' } }],
   }
   const reports: unknown[] = []
-  const pdf = await renderer.pagesPdf([
-    { ...page, id: 'bad', settings: { scripts: 'sandboxed' } } as never,
-    { ...page, id: 'good', settings: { scripts: 'refuse' } } as never,
-  ], {
-    slots: { fill: { id: 'host', values: { name: 'Ada' } } },
-    skipRefused: { report: (entries) => reports.push(entries) },
-  })
+  const pdf = await renderer.pagesPdf(
+    [{ ...page, id: 'bad', settings: { scripts: 'sandboxed' } } as never, { ...page, id: 'good', settings: { scripts: 'refuse' } } as never],
+    {
+      slots: { fill: { id: 'host', values: { name: 'Ada' } } },
+      skipRefused: { report: (entries) => reports.push(entries) },
+    },
+  )
   expect((await PDFDocument.load(pdf)).getPageCount()).toBe(1)
   expect(reports).toMatchObject([[{ index: 0, id: 'bad' }]])
   await renderer.close()

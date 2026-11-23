@@ -8,9 +8,9 @@ export type { EffectsReport } from './effects/types.ts'
 export {
   type ColorProfileUse,
   type InputRefusal,
-  type RenderInputRef,
   RenderColorProfileError,
   RendererUnavailableError,
+  type RenderInputRef,
   RenderInputsRefusedError,
   RenderLimitError,
   RenderOversetError,

@@ -1,6 +1,5 @@
 import {
   Imposition,
-  type ImpositionInput,
   impose,
   impositionBoxes,
   impositionMarks,
@@ -28,12 +27,12 @@ import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { pagesTagged } from './pdf-tagging.ts'
-import { settleRenderInputs } from './render-inputs.ts'
-import type { PagesPdfOptions } from './renderer.ts'
+import { renderInputRef, settleRenderInputs } from './render-inputs.ts'
+import type { ParsedPagesPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import type { WatermarkPart } from './watermark-stamp.ts'
 
-type RenderPagesPdfOptions = ComposedRenderOptions & Pick<PagesPdfOptions, 'imposition' | 'skipRefused'>
+type RenderPagesPdfOptions = ComposedRenderOptions & Pick<ParsedPagesPdfOptions, 'imposition' | 'skipRefused'>
 
 interface PagesPdfServices {
   pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number, tagged: boolean): Promise<PrintResult>
@@ -57,10 +56,10 @@ export function renderPagesPdfInputs(
   pages: Array<HtmlPage | PrintedHtmlPage>,
   frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
   outlineSources: ReadonlyArray<OutlineSource | undefined> = [],
-  refs: ReadonlyArray<RenderInputRef> = pages.map((page, index) => ({ index, ...(page.id === undefined ? {} : { id: page.id }) })),
+  refs: ReadonlyArray<RenderInputRef> = pages.map(renderInputRef),
 ): RenderPagesPdfInput[] {
   return pages.map((page, position) => ({
-    ref: refs[position] ?? { index: position, ...(page.id === undefined ? {} : { id: page.id }) },
+    ref: refs[position] ?? renderInputRef(page, position),
     page,
     frames: frameGroups[position] ?? [],
     ...(outlineSources[position] ? { outlineSource: outlineSources[position] } : {}),
@@ -158,16 +157,16 @@ async function composedPdf(
   )
   return {
     output: await composeImposedPdf(
-        imposed,
-        rendered.map(({ group }, index) => ({
-          key: group.key,
-          name: `The rendered piece for input ${inputs[group.page]?.ref.index ?? group.page}`,
-          bytes: watermarked[index] as Uint8Array,
-          placements: group.placements,
-        })),
-        sides,
-        imposition.markColor,
-      ),
+      imposed,
+      rendered.map(({ group }, index) => ({
+        key: group.key,
+        name: `The rendered piece for input ${inputs[group.page]?.ref.index ?? group.page}`,
+        bytes: watermarked[index] as Uint8Array,
+        placements: group.placements,
+      })),
+      sides,
+      imposition.markColor,
+    ),
     refused: [],
   }
 }
@@ -319,15 +318,21 @@ async function renderPagesPdfPass(
       },
       (input) => input.index,
     )
-    const nestedRefusals = settled.accepted.flatMap(({ value }) => ('refused' in value ? value.refused : []))
+    const nestedRefusals = settled.accepted.flatMap(({ value }) => ('refused' in value && value.refused ? value.refused : []))
     const currentRefusals = [...settled.refused, ...nestedRefusals]
     if (currentRefusals.length > 0) return retryImposition(inputs, slots, opts, services, ledger, currentRefusals, remainingPasses)
-    const parts = settled.accepted.map(({ value }) => value)
+    const parts = settled.accepted.flatMap(({ value }) => ('bytes' in value ? [value] : []))
     const watermarked = await watermarkParts(
       services,
       parts.map((part) => ({ ...part, page: part.page })),
     )
-    const output = await services.finish(await joinWithOutlines(watermarked, inputs.map(({ outlineSource }) => outlineSource)), opts)
+    const output = await services.finish(
+      await joinWithOutlines(
+        watermarked,
+        inputs.map(({ outlineSource }) => outlineSource),
+      ),
+      opts,
+    )
     opts.overflow?.report?.({ entries: parts.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
     return completed(output, ledger, inputs.length, opts)
   }
