@@ -229,11 +229,11 @@ export class SegnaviaTrack extends SegnaviaControl {
     return `${TOKENS_CSS}:host{display:block;min-inline-size:60px}
       ol{display:flex;gap:${TRACK_GAP_WIDTH}px;margin:0;padding:0;list-style:none;position:relative}li{flex:1;display:flex}
       ol::after{content:"";position:absolute;z-index:1;pointer-events:none;inset-block:0;inset-inline-start:calc(var(--_reach,1) * 100%);inset-inline-end:0;background:color-mix(in srgb,var(--_surface) 65%,transparent)}
-      button{all:unset;box-sizing:border-box;inline-size:100%;block-size:20px;border-radius:4px;position:relative;cursor:pointer}
+      button{all:unset;box-sizing:border-box;inline-size:100%;block-size:20px;border-radius:var(--_radius-mark);position:relative;cursor:pointer}
       ol:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
-      button::before{content:"";position:absolute;inset-inline:0;inset-block:8px;border-radius:2px;background:var(--_line)}
+      button::before{content:"";position:absolute;inset-inline:0;inset-block:8px;border-radius:var(--_radius-line);background:var(--_line)}
       button:hover::before{background:var(--_muted)}
-      .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:2px;background:var(--_accent)}
+      .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:var(--_radius-line);background:var(--_accent)}
       [data-state="done"] .fill{inline-size:100%;background:var(--_muted)}
       [data-state="current"] .fill{inline-size:calc(var(--progress,1) * 100%)}
       [data-state="locked"]{opacity:.45}

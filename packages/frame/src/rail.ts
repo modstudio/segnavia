@@ -1,6 +1,7 @@
 import { animationMessage, MESSAGE } from './bridge.ts'
 import { SegnaviaDeckControl } from './control.ts'
 import type { DeckState } from './controller.ts'
+import { CORNER_SCALE_CSS } from './controls-style.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection } from './rail-navigation.ts'
@@ -10,7 +11,7 @@ import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 
 export type { RailReorderIntent } from './rail-reorder.ts'
 
-const RAIL_CSS = `
+const RAIL_CSS = `${CORNER_SCALE_CSS}
 :host{display:block;min-block-size:0;--_size:var(--segnavia-rail-size,160px);color:var(--segnavia-ink,CanvasText)}
 ol{box-sizing:border-box;display:flex;flex-direction:column;gap:10px;block-size:100%;overflow:auto;list-style:none;margin:0;padding:12px}
 /* An edge fades where the list hides more, so a thumbnail cut by the edge reads as more to scroll to. */
@@ -18,24 +19,24 @@ ol{--_fade-dir:to bottom;--_fade-before:0px;--_fade-after:0px;mask-image:linear-
 ol[data-more-before]{--_fade-before:32px}ol[data-more-after]{--_fade-after:32px}
 li{flex:none;position:relative}
 button{font:inherit}
-.item-settings{box-sizing:border-box;inline-size:var(--_size);min-block-size:36px;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:7px;background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);cursor:pointer;unicode-bidi:isolate}
-button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--segnavia-radius,10px);position:relative}
+.item-settings{box-sizing:border-box;inline-size:var(--_size);min-block-size:36px;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:var(--_radius-panel-button);background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);cursor:pointer;unicode-bidi:isolate}
+button[data-index]{all:unset;box-sizing:border-box;display:block;inline-size:var(--_size);cursor:pointer;border-radius:var(--_radius-control);position:relative}
 button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:2px}
 .preview{position:relative;display:block;overflow:hidden;inline-size:100%;aspect-ratio:16/9;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 18%,transparent));border-radius:inherit;background:var(--segnavia-surface,Canvas)}
 [aria-selected="true"] .preview{border:2px solid var(--segnavia-accent,#356ae6)}
 ${RAIL_REORDER_CSS}
-.number{position:absolute;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
-.slide-menu{position:absolute;z-index:4;inset-block-start:5px;inset-inline-end:5px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:6px;background:Canvas;color:CanvasText;inline-size:30px;block-size:28px;cursor:pointer;opacity:0;pointer-events:none}
+.number{position:absolute;inset-inline-start:6px;inset-block-end:5px;min-inline-size:1.5em;padding:1px 4px;border-radius:var(--_radius-mark);background:color-mix(in srgb,Canvas 84%,transparent);color:CanvasText;font:600 11px/1.4 system-ui;text-align:center}
+.slide-menu{position:absolute;z-index:4;inset-block-start:5px;inset-inline-end:5px;border:1px solid color-mix(in srgb,CanvasText 20%,transparent);border-radius:var(--_radius-toggle);background:Canvas;color:CanvasText;inline-size:30px;block-size:28px;cursor:pointer;opacity:0;pointer-events:none}
 li:hover>.slide-menu,li:focus-within>.slide-menu,.slide-menu[aria-expanded="true"]{opacity:1;pointer-events:auto}
-.print-mark{position:absolute;z-index:3;inset-inline-end:6px;inset-block-end:5px;padding:2px 4px;border-radius:4px;background:color-mix(in srgb,Canvas 84%,transparent);font:12px/1 system-ui}
-.slide-settings-list,.slide-settings-panel{position:fixed;z-index:8;inset:auto;margin:0;box-sizing:border-box;min-inline-size:180px;padding:6px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 20%,transparent));border-radius:8px;background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 var(--segnavia-font,system-ui)}
-.slide-settings-list button{all:unset;box-sizing:border-box;display:block;inline-size:100%;padding:7px 9px;border-radius:5px;color:inherit;text-align:start;cursor:pointer}
+.print-mark{position:absolute;z-index:3;inset-inline-end:6px;inset-block-end:5px;padding:2px 4px;border-radius:var(--_radius-mark);background:color-mix(in srgb,Canvas 84%,transparent);font:12px/1 system-ui}
+.slide-settings-list,.slide-settings-panel{position:fixed;z-index:8;inset:auto;margin:0;box-sizing:border-box;min-inline-size:180px;padding:6px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 20%,transparent));border-radius:var(--_radius-field);background:var(--segnavia-surface,Canvas);color:var(--segnavia-ink,CanvasText);box-shadow:0 5px 18px color-mix(in srgb,CanvasText 18%,transparent);font:13px/1.4 var(--segnavia-font,system-ui)}
+.slide-settings-list button{all:unset;box-sizing:border-box;display:block;inline-size:100%;padding:7px 9px;border-radius:var(--_radius-list-item);color:inherit;text-align:start;cursor:pointer}
 .slide-settings-list button:hover,.slide-settings-list button:focus-visible{background:var(--segnavia-line,color-mix(in srgb,CanvasText 8%,transparent))}
 .slide-settings-list button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:1px}
 .slide-settings-panel{display:grid;gap:10px;inline-size:min(300px,calc(100vw - 24px));padding:12px}
 .slide-settings-panel header{display:flex;align-items:start;gap:8px}.slide-settings-panel h2{margin:0;font:600 14px/1.4 inherit}.slide-settings-panel p{margin:2px 0 0;color:var(--segnavia-muted,color-mix(in srgb,CanvasText 65%,transparent));font-size:12px}
 .slide-settings-panel output{font-weight:600}.slide-settings-panel input{inline-size:100%}.print-frame-actions{display:flex;justify-content:space-between;gap:8px}
-.slide-settings-panel button{all:unset;box-sizing:border-box;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 20%,transparent));border-radius:7px;background:var(--segnavia-surface,Canvas);color:inherit;cursor:pointer}
+.slide-settings-panel button{all:unset;box-sizing:border-box;padding:6px 10px;border:1px solid var(--segnavia-line,color-mix(in srgb,CanvasText 20%,transparent));border-radius:var(--_radius-panel-button);background:var(--segnavia-surface,Canvas);color:inherit;cursor:pointer}
 .slide-settings-panel button:hover{background:var(--segnavia-line,color-mix(in srgb,CanvasText 8%,transparent))}.slide-settings-panel button:focus-visible{outline:2px solid var(--segnavia-accent,#356ae6);outline-offset:1px}
 .slide-settings-panel [data-back]{flex:none;padding:4px 7px}.slide-settings-panel [data-done]{border-color:var(--segnavia-accent,#356ae6);background:var(--segnavia-accent,#356ae6);color:var(--segnavia-accent-ink,#fff)}
 .segnavia-stage__canvas{position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));pointer-events:none}

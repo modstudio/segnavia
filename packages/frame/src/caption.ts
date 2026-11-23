@@ -19,7 +19,7 @@ export class SegnaviaCaption extends SegnaviaDeckControl {
         text-align:var(--segnavia-caption-align,center);color:var(--_muted)}
       p{margin:0;unicode-bidi:plaintext}
       .word-spoken{color:var(--_ink)}
-      .word-current{color:var(--_ink);background:color-mix(in srgb,var(--_accent) 28%,transparent);border-radius:4px;box-shadow:0 0 0 2px color-mix(in srgb,var(--_accent) 28%,transparent)}
+      .word-current{color:var(--_ink);background:color-mix(in srgb,var(--_accent) 28%,transparent);border-radius:var(--_radius-mark);box-shadow:0 0 0 2px color-mix(in srgb,var(--_accent) 28%,transparent)}
       @media (prefers-reduced-motion:no-preference){span{transition:color .12s,background-color .12s}}`
   }
   protected markup() {

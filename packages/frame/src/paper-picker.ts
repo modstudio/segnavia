@@ -227,14 +227,14 @@ const PICKER_CSS = `
 *{box-sizing:border-box}
 .picker{display:grid;gap:14px}
 label{display:grid;gap:6px;font-size:13px;color:var(--_muted)}
-select,input,button{font:inherit;color:var(--_ink);background:var(--_surface);border:1px solid var(--_line);border-radius:8px}
+select,input,button{font:inherit;color:var(--_ink);background:var(--_surface);border:1px solid var(--_line);border-radius:var(--_radius-field)}
 select,input{inline-size:100%;min-block-size:38px;padding-block:7px;padding-inline:10px}
 select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
 .custom{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(5rem,.5fr);gap:10px}
 .custom[hidden]{display:none}
 fieldset{min-inline-size:0;margin:0;padding:0;border:0}
 legend{margin-block-end:6px;color:var(--_muted);font-size:13px}
-.orientation{display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border:1px solid var(--_line);border-radius:10px;background:var(--_surface)}
+.orientation{display:inline-grid;grid-template-columns:1fr 1fr;padding:3px;border:1px solid var(--_line);border-radius:var(--_radius-control);background:var(--_surface)}
 button{min-block-size:34px;padding-inline:16px;border-color:transparent;cursor:pointer}
 button[aria-pressed="true"]{color:var(--_accent-ink);background:var(--_accent)}
 @media(max-width:360px){.custom{grid-template-columns:1fr 1fr}.custom label:last-child{grid-column:1/-1}}
