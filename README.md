@@ -402,8 +402,8 @@ the declared faces in the served page, reports any that did not load, and
 then reports ready to the stage. A narrated URL slide declares `annotationCount`
 in the deck document; the stage sends its shown indexes to the bridge, which
 sets `data-segnavia-cues` on the root and toggles `data-shown` on the matching
-`data-annotation` elements. Before any cue message, including in print and
-thumbnails, the root attribute is absent and every mark remains visible.
+`data-annotation` elements. With no cue message, or a null one, every mark
+remains visible. Print sends no cue message, so print shows every mark.
 `bridge` belongs to resolved content returned
 by `resolveSlide`; a `bridge` key in a deck document is dropped by
 `Document.parse`.

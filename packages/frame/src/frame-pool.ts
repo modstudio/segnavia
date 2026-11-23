@@ -19,13 +19,12 @@ export class FramePool {
   private deck: DeckState['deck'] = null
   private pending: PendingTurn | null = null
   private controller: DeckController | null = null
-
   constructor(
     private host: HTMLElement,
     private changed: () => void,
     private frameEvents: FrameEvents,
+    private loaded: (slideId: string) => void = () => {},
   ) {}
-
   clear() {
     this.cancelPending()
     this.turn++
@@ -370,7 +369,8 @@ export class FramePool {
   }
 
   private add(index: number, content: ResolvedContent, state: DeckState, controller: DeckController, options: PoolOptions, mount = true): HTMLElement | null {
-    return addFrame({
+    const previous = state.deck?.slides[index] ? this.entries.get(state.deck.slides[index].id) : undefined
+    const canvas = addFrame({
       entries: this.entries,
       events: this.frameEvents,
       host: this.host,
@@ -381,6 +381,10 @@ export class FramePool {
       pool: options,
       mount,
     })
+    const slide = state.deck?.slides[index]
+    const entry = slide ? this.entries.get(slide.id) : undefined
+    if (entry && entry !== previous) entry.waitForLoad(() => this.loaded(entry.id))
+    return canvas
   }
 
   private remove(id: string, entry: FrameEntry) {

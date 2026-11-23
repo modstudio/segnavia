@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { MESSAGE } from './bridge.ts'
 import { type DeckState, initialDeckState } from './controller-types.ts'
-import { postFrameCue, postStageCue } from './stage-cue.ts'
+import { postFrameCue, postLoadedStageCue, postReadyStageCue, postStageCue } from './stage-cue.ts'
 
 test('cue messages are posted only to bridged url frames', () => {
   const messages: unknown[] = []
@@ -12,7 +12,7 @@ test('cue messages are posted only to bridged url frames', () => {
   expect(messages).toEqual([{ type: MESSAGE.cue, annotations: [0, 2] }])
 })
 
-test('stage cue delivery deduplicates changes and can repeat at readiness', () => {
+test('stage cue delivery deduplicates changes and can repeat at load and readiness', () => {
   const messages: unknown[] = []
   const frame = { contentWindow: { postMessage: (message: unknown) => messages.push(message) } } as unknown as HTMLIFrameElement
   const pool = { frameForSlide: () => frame }
@@ -25,8 +25,10 @@ test('stage cue delivery deduplicates changes and can repeat at readiness', () =
   }
   postStageCue(pool, sent, state)
   postStageCue(pool, sent, state)
-  postStageCue(pool, sent, state, true)
+  postLoadedStageCue(pool, sent, state, 'served')
+  postReadyStageCue(pool, sent, state, 'served')
   expect(messages).toEqual([
+    { type: MESSAGE.cue, annotations: [0] },
     { type: MESSAGE.cue, annotations: [0] },
     { type: MESSAGE.cue, annotations: [0] },
   ])

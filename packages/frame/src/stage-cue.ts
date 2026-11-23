@@ -1,5 +1,6 @@
 import { MESSAGE } from './bridge.ts'
 import type { DeckState, ResolvedContent } from './controller.ts'
+import { cueKey } from './cue-key.ts'
 
 export function postFrameCue(frame: HTMLIFrameElement, content: ResolvedContent, shown: DeckState['shown']): boolean {
   if (content.kind !== 'url' || content.bridge !== true) return false
@@ -17,12 +18,12 @@ export function postStageCue(
   if (!slideId || !state.content || !sent) return
   const frame = pool.frameForSlide?.(slideId)
   if (!frame) return
-  const key = state.shown === null ? 'all' : state.shown.join(',')
+  const key = cueKey(state.shown)
   if (!force && sent.get(frame) === key) return
   if (postFrameCue(frame, state.content, state.shown)) sent.set(frame, key)
 }
 
-export function postReadyStageCue(
+function postReplayedStageCue(
   pool: { frameForSlide?(slideId: string): HTMLIFrameElement | null },
   sent: WeakMap<HTMLIFrameElement, string> | undefined,
   state: DeckState | undefined,
@@ -31,3 +32,6 @@ export function postReadyStageCue(
   if (state?.slide?.id === slideId) postStageCue(pool, sent, state, true)
   return state
 }
+
+export const postLoadedStageCue = postReplayedStageCue
+export const postReadyStageCue = postReplayedStageCue

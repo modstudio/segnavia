@@ -24,7 +24,7 @@ import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
-import { postReadyStageCue, postStageCue } from './stage-cue.ts'
+import { postLoadedStageCue, postReadyStageCue, postStageCue } from './stage-cue.ts'
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { defineStageFitProperty } from './stage-fit-property.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
@@ -63,7 +63,13 @@ export class SegnaviaStage extends AsOfElement {
   private room: StageReserve = {}
   private measured: FittedSize | null = null
   private resize = new ResizeObserver(() => this.measure())
-  private pool = new FramePool(this, () => this.poolChanged(), stageFrameEvents(this))
+  private onFrameLoaded = (slideId: string) => postLoadedStageCue(this.pool, this.cueMessages, this.attached?.state, slideId)
+  private poolChanged = () => {
+    const active = this.pool.activeFrame()
+    cancelStageSelectionRequests(this.selectionRequests, ({ frame }) => frame === active)
+    this.measure()
+  }
+  private pool = new FramePool(this, this.poolChanged, stageFrameEvents(this), this.onFrameLoaded)
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
@@ -351,12 +357,6 @@ export class SegnaviaStage extends AsOfElement {
   }
   private onFrameReady = (slideId: string) => this.refused.update(postReadyStageCue(this.pool, this.cueMessages, this.attached?.state, slideId))
   private onResize = () => this.measure()
-
-  private poolChanged() {
-    const active = this.pool.activeFrame()
-    cancelStageSelectionRequests(this.selectionRequests, ({ frame }) => frame === active)
-    this.measure()
-  }
 
   private cancelSelectionRequests() {
     cancelStageSelectionRequests(this.selectionRequests)

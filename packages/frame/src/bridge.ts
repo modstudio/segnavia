@@ -243,7 +243,7 @@ var freezeLive=function(){if(liveAt===null||!document.getAnimations)return;docum
 ${cueBridgeScript()}
 window.addEventListener('message',function(e){var data=e.data;if(e.source!==parent||!data)return;if(data.type==='${MESSAGE.freeze}'&&typeof data.atMs==='number'&&isFinite(data.atMs)){liveAt=data.atMs;freezeLive();dispatchAt(liveAt);}else if(data.type==='${MESSAGE.release}'){liveAt=null;if(document.getAnimations){var animations=document.getAnimations();for(var r=0;r<animations.length;r++){try{animations[r].play();}catch(error){}}}}else if(data.type==='${MESSAGE.inspect}'){animationReport();}${cueMessageBranch()}});
 document.addEventListener('animationstart',function(){animationReport();freezeLive();},true);document.addEventListener('transitionrun',function(){animationReport();freezeLive();},true);
-if(window.MutationObserver){new MutationObserver(function(){animationReport();freezeLive();}).observe(document.documentElement,{childList:true,subtree:true});}
+if(window.MutationObserver){new MutationObserver(function(){animationReport();freezeLive();if(cueApplied)showCue(lastCue);}).observe(document.documentElement,{childList:true,subtree:true});}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};
 var decodeFragment=function(value){return value.replace(/(?:%[0-9a-f]{2})+/gi,function(run){try{return decodeURIComponent(run);}catch(error){return run;}})};
 ${slotFitBridgeScript(MESSAGE.slotFit)}
