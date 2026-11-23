@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { railOverflow, railSelection } from './rail-navigation.ts'
+import { railOverflow, railSelection, railSelectionAfterRender } from './rail-navigation.ts'
 
 describe('rail selection', () => {
   test('vertical arrows move through slide order', () => {
@@ -18,6 +18,12 @@ describe('rail selection', () => {
   test('modified and wrong-axis arrows leave selection alone', () => {
     expect(railSelection(1, 'ArrowRight', 4, false, 'ltr')).toBe(1)
     expect(railSelection(1, 'ArrowDown', 4, true, 'ltr')).toBe(1)
+  })
+
+  test('replacing a deck resets a stale selection when the active index is unchanged', () => {
+    expect(railSelectionAfterRender(3, 0, 0, true)).toBe(0)
+    expect(railSelectionAfterRender(3, 0, 0, false)).toBe(3)
+    expect(railSelectionAfterRender(0, 0, 1, false)).toBe(1)
   })
 })
 

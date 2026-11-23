@@ -8,7 +8,8 @@ import { DOCUMENT_PROFILES, type DocumentKind } from './document-profile.ts'
 import { LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
 import { withLibraryEntries } from './library-names.ts'
 import { metadataExtraKeyAllowed } from './metadata-extra-key.ts'
-import { headTemplatePlacements } from './motif.ts'
+import { headTemplatePlacements, LIBRARY_MOTIF_ELEMENT, MOTIF_ATTRIBUTE, motifFieldAttribute, RECORD_CONTEXT } from './motif.ts'
+import { AS_OF_SLOT_KEYS } from './slots.ts'
 import { LIBRARY_VARIABLES, type Variable } from './variable.ts'
 import { STANDARD_META_FIELD_READERS } from './variable-document-facts.ts'
 
@@ -32,42 +33,54 @@ function skipSpace(html: string, from: number): number {
   return index
 }
 
-function skipAttributeValue(html: string, from: number): number {
+function readAttributeValue(html: string, from: number): { next: number; value: string } {
   let index = skipSpace(html, from)
   const quote = html[index] === '"' || html[index] === "'" ? html[index] : undefined
   if (!quote) {
+    const start = index
     while (index < html.length && !/[\s<>]/.test(html[index] ?? '')) index += 1
-    return index
+    return { next: index, value: html.slice(start, index) }
   }
   index += 1
+  const start = index
   while (index < html.length && html[index] !== quote) index += 1
-  return html[index] === quote ? index + 1 : index
+  return { next: html[index] === quote ? index + 1 : index, value: html.slice(start, index) }
 }
 
-function tagAttributes(html: string, start: number): { attributes: string[]; next: number } {
+interface HtmlTag {
+  attributes: Array<{ name: string; value?: string }>
+  name: string
+  next: number
+}
+
+function tagAttributes(html: string, start: number): HtmlTag {
   let index = start + 1
   while (/[\w:.-]/.test(html[index] ?? '')) index += 1
-  const attributes: string[] = []
+  const name = html.slice(start + 1, index)
+  const attributes: Array<{ name: string; value?: string }> = []
   while (index < html.length) {
     index = skipSpace(html, index)
-    if (html[index] === '>') return { attributes, next: index + 1 }
-    if (html[index] === '/' && html[index + 1] === '>') return { attributes, next: index + 2 }
-    if (html[index] === '<') return { attributes, next: index }
+    if (html[index] === '>') return { attributes, name, next: index + 1 }
+    if (html[index] === '/' && html[index + 1] === '>') return { attributes, name, next: index + 2 }
+    if (html[index] === '<') return { attributes, name, next: index }
     const nameStart = index
     while (/[^\s"'<>/=]/.test(html[index] ?? '')) index += 1
-    const name = html.slice(nameStart, index)
-    if (!name) {
+    const attributeName = html.slice(nameStart, index)
+    if (!attributeName) {
       index += 1
       continue
     }
-    attributes.push(name)
     index = skipSpace(html, index)
-    if (html[index] === '=') index = skipAttributeValue(html, index + 1)
+    if (html[index] === '=') {
+      const read = readAttributeValue(html, index + 1)
+      attributes.push({ name: attributeName, value: read.value })
+      index = read.next
+    } else attributes.push({ name: attributeName })
   }
-  return { attributes, next: index }
+  return { attributes, name, next: index }
 }
 
-function nextTagAttributes(html: string, from: number): { attributes: string[]; next: number } | undefined {
+function nextTagAttributes(html: string, from: number): HtmlTag | undefined {
   let start = html.indexOf('<', from)
   while (start >= 0) {
     if (html.startsWith('<!--', start)) {
@@ -83,17 +96,126 @@ function nextTagAttributes(html: string, from: number): { attributes: string[]; 
   return undefined
 }
 
-export function motifFieldsWithoutPlacement(html: string): string[] {
-  const fields: string[] = []
+interface MotifFormIssue {
+  element: string
+  attribute?: string
+  kind: 'field-without-placement' | 'malformed-attribute' | 'element'
+}
+
+function motifFormIssues(html: string): MotifFormIssue[] {
+  const issues: MotifFormIssue[] = []
   let cursor = 0
   for (let tag = nextTagAttributes(html, cursor); tag; tag = nextTagAttributes(html, cursor)) {
-    const names = new Set(tag.attributes.map((name) => name.toLowerCase()))
-    if (!names.has('data-motif')) {
-      for (const attribute of tag.attributes) if (/^data-motif-[\w:.-]+$/i.test(attribute)) fields.push(attribute)
+    const element = tag.name.toLowerCase()
+    const attributes = tag.attributes.map((attribute) => attribute.name.toLowerCase())
+    const names = new Set(attributes)
+    const motifFieldPrefix = motifFieldAttribute('')
+    if (element === LIBRARY_MOTIF_ELEMENT) issues.push({ element, kind: 'element' })
+    for (const attribute of attributes) {
+      const field = attribute.startsWith(motifFieldPrefix) ? attribute.slice(motifFieldPrefix.length) : ''
+      if (/^[\w:.-]+$/.test(field) && attribute === motifFieldAttribute(field)) {
+        if (!names.has(MOTIF_ATTRIBUTE)) issues.push({ element, attribute, kind: 'field-without-placement' })
+      } else if (attribute !== MOTIF_ATTRIBUTE && attribute.startsWith(MOTIF_ATTRIBUTE)) {
+        issues.push({ element, attribute, kind: 'malformed-attribute' })
+      }
     }
     cursor = tag.next
   }
-  return fields
+  return issues
+}
+
+function slotPaths(html: string): string[] {
+  const paths: string[] = []
+  let cursor = 0
+  for (let tag = nextTagAttributes(html, cursor); tag; tag = nextTagAttributes(html, cursor)) {
+    for (const attribute of tag.attributes) {
+      if (attribute.name.toLowerCase() === 'data-slot-value' && attribute.value !== undefined) paths.push(attribute.value)
+    }
+    cursor = tag.next
+  }
+  return paths
+}
+
+const RETIRED_SLOT_PATHS = new Map(
+  ['printedPage.number', 'printedPage.total', 'printedPage.documentNumber', 'printedPage.documentTotal', 'printedPage.runningHead'].map((path) => [
+    path,
+    'printed-page paths were replaced by folio and pages variables placed through head templates; declare a variable and place it to clear this refusal',
+  ]),
+)
+const AS_OF_SLOT_PATHS: ReadonlySet<string> = new Set(AS_OF_SLOT_KEYS)
+
+function refineHtmlReferences(
+  location: { html: string; path: PropertyKey[]; region?: boolean },
+  declared: ReadonlySet<string>,
+  recordSlots: ReadonlySet<string>,
+  ctx: z.RefinementCtx,
+): void {
+  const renderedPath = renderIssuePath(location.path)
+  for (const name of dataVariableNames(location.html)) {
+    if (declared.has(name)) continue
+    ctx.addIssue({
+      code: 'custom',
+      path: location.path,
+      message: `${renderedPath}: data-variable names undeclared variable ${JSON.stringify(name)}; declare that variable or remove data-variable to clear this refusal`,
+    })
+  }
+  for (const path of slotPaths(location.html)) {
+    const remedy = RETIRED_SLOT_PATHS.get(path)
+    if (remedy) {
+      ctx.addIssue({
+        code: 'custom',
+        path: location.path,
+        message: `${renderedPath}: data-slot-value names retired slot path ${JSON.stringify(path)}; ${remedy}`,
+      })
+      continue
+    }
+    const recordKey = path.startsWith(`${RECORD_CONTEXT}.`) ? path.slice(RECORD_CONTEXT.length + 1) : undefined
+    const definedRecord = recordKey !== undefined && recordSlots.has(recordKey)
+    if ((recordKey !== undefined && !definedRecord) || (location.region && !definedRecord && !AS_OF_SLOT_PATHS.has(path)))
+      ctx.addIssue({
+        code: 'custom',
+        path: location.path,
+        message: `${renderedPath}: data-slot-value names undefined slot path ${JSON.stringify(path)}; declare that slot or remove data-slot-value to clear this refusal`,
+      })
+  }
+  for (const issue of motifFormIssues(location.html)) {
+    const element = `<${issue.element}>`
+    const message =
+      issue.kind === 'element'
+        ? `${element} is not a document HTML element; place a motif with data-motif or remove ${element} to clear this refusal`
+        : issue.kind === 'malformed-attribute'
+          ? `${element} has malformed motif attribute ${JSON.stringify(issue.attribute)}; use data-motif="<key>" and data-motif-<field>, or remove ${JSON.stringify(issue.attribute)} to clear this refusal`
+          : `${element} ${JSON.stringify(issue.attribute)} needs data-motif on the same element; add data-motif or remove ${JSON.stringify(issue.attribute)} to clear this refusal`
+    ctx.addIssue({ code: 'custom', path: location.path, message: `${renderedPath}: ${message}` })
+  }
+}
+
+function refineHeadTemplatePlacements(locations: Array<{ html: string; path: PropertyKey[] }>, heads: ReadonlySet<string>, ctx: z.RefinementCtx): void {
+  for (const location of locations) {
+    const renderedPath = renderIssuePath(location.path)
+    for (const placement of headTemplatePlacements(location.html)) {
+      if (!placement.name) {
+        ctx.addIssue({
+          code: 'custom',
+          path: location.path,
+          message: `${renderedPath}: segnavia:head-template placement has no data-motif-name; add data-motif-name or remove the placement to clear this refusal`,
+        })
+      } else if (!heads.has(placement.name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: location.path,
+          message: `${renderedPath}: segnavia:head-template placement names undeclared template ${JSON.stringify(placement.name)}; declare that head template or remove the placement to clear this refusal`,
+        })
+      }
+      if (!placement.bounded) {
+        ctx.addIssue({
+          code: 'custom',
+          path: location.path,
+          message: `${renderedPath}: segnavia:head-template placement for ${JSON.stringify(placement.name)} is unclosed; close the element to clear this refusal`,
+        })
+      }
+    }
+  }
 }
 
 export function refineDocumentVariables(
@@ -156,29 +278,16 @@ export function refineDocumentVariables(
     }
   })
   const templates = document.templates ?? []
+  const regionHtml = document.parentPages.flatMap((parent, parentIndex) =>
+    Object.entries(parent.regions).map(([name, region]) => ({ html: region.html, path: ['parentPages', parentIndex, 'regions', name], region: true })),
+  )
   const html = [
     ...contentHtml(document.children ?? []),
     ...templates.flatMap((template, index) => htmlValues({ ...template, type: 'template' }).map((value) => ({ html: value, path: ['templates', index] }))),
+    ...regionHtml,
   ]
-  for (const location of html) {
-    const renderedPath = renderIssuePath(location.path)
-    for (const name of dataVariableNames(location.html)) {
-      if (declared.has(name)) continue
-      ctx.addIssue({
-        code: 'custom',
-        path: location.path,
-        message: `${renderedPath}: data-variable names undeclared variable ${JSON.stringify(name)}; declare that variable or remove data-variable to clear this refusal`,
-      })
-    }
-    for (const field of motifFieldsWithoutPlacement(location.html)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: location.path,
-        message: `${renderedPath}: ${field} needs data-motif on the same element; add data-motif or remove ${field} to clear this refusal`,
-      })
-    }
-  }
   const slots = new Set([...templates.flatMap((template) => template.slots?.map((slot) => slot.key) ?? []), ...(document.recordSlotNames ?? [])])
+  for (const location of html) refineHtmlReferences(location, declared, slots, ctx)
   const heads = new Set(withLibraryEntries(LIBRARY_HEAD_TEMPLATES, document.headTemplates).map((template) => template.name))
   document.headTemplates.forEach((template, index) => {
     template.parts.forEach((part, partIndex) => {
@@ -196,19 +305,5 @@ export function refineDocumentVariables(
         })
     })
   })
-  const regionHtml = document.parentPages.flatMap((parent) => Object.values(parent.regions).map((region) => region.html))
-  for (const placement of regionHtml.flatMap((html) => headTemplatePlacements(html))) {
-    if (!heads.has(placement.name))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['parentPages'],
-        message: `segnavia:head-template placement names undeclared template ${JSON.stringify(placement.name)}; declare that head template or remove the placement to clear this refusal`,
-      })
-    if (!placement.bounded)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['parentPages'],
-        message: `segnavia:head-template placement for ${JSON.stringify(placement.name)} is unclosed; close the element to clear this refusal`,
-      })
-  }
+  refineHeadTemplatePlacements(regionHtml, heads, ctx)
 }

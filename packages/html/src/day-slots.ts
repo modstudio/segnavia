@@ -3,21 +3,14 @@ import {
   AS_OF_CONTEXT,
   AS_OF_DATE_PATH,
   AS_OF_MOMENT_PATH,
+  AS_OF_SLOT_DECLARATIONS,
   AS_OF_ZONE_PATH,
   type AsOfDay,
   type FillValues,
   formatAsOfMoment,
-  type SlotDeclarationInput,
   type SlotsOptions,
 } from '@segnavia/format'
 import { bindingRoot } from './bindings.ts'
-
-const declarations: SlotDeclarationInput[] = [
-  { key: AS_OF_DATE_PATH, label: 'As-of date', type: 'text' },
-  { key: AS_OF_ZONE_PATH, label: 'As-of zone', type: 'text' },
-  { key: AS_OF_ANCHOR_PATH, label: 'As-of anchor', type: 'text' },
-  { key: AS_OF_MOMENT_PATH, label: 'As-of moment', type: 'text' },
-]
 
 function collision(options: SlotsOptions | undefined): string | undefined {
   const declared = options?.declarations?.find((slot) => bindingRoot(slot.key) === AS_OF_CONTEXT)?.key
@@ -61,7 +54,7 @@ export function slotsWithDay(options: SlotsOptions | undefined, day: AsOfDay, so
     source,
     ...(bindDay
       ? {
-          declarations: [...(options?.declarations ?? []), ...declarations],
+          declarations: [...(options?.declarations ?? []), ...AS_OF_SLOT_DECLARATIONS],
           overrides: { ...(options?.overrides ?? {}), ...values },
         }
       : {}),

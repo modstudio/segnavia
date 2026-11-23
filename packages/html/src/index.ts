@@ -193,6 +193,7 @@ export {
 } from './sanitize.ts'
 export { type CssPreflightFinding, cssPreflightFindings } from './sanitize-css.ts'
 export { FITTED_SLOT_MODES, type FittedSlotMode, fittedSlotModes, readSlotOverflowMarker } from './slot-overflow.ts'
+export { refuseUndefinedSlotPaths } from './slot-path-refusal.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

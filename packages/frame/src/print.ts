@@ -58,7 +58,6 @@ import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
   collectSlotPrintCopies,
   EMPTY_SLOTS,
-  hasSlotWork,
   prepareSlotCollection,
   prepareSlots,
   requiredSlotRefusal,
@@ -184,8 +183,7 @@ export async function preparedDeckValuePrint(
   const resolvedDeck = await resolveDeckMedia(deck, options.placements, 'print', signal)
   const refusal = slotFillRefusal(resolvedDeck.scripts, resolvedDeck.slots, options.slots)
   if (refusal) throw refusal
-  const slotWork = hasSlotWork(resolvedDeck.slots, options.slots)
-  const resolvedSlots = slotWork ? await prepareSlots(resolvedDeck.slots, options.slots, signal) : EMPTY_SLOTS
+  const resolvedSlots = await prepareSlots(resolvedDeck.slots, options.slots, signal)
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
   const notesSheetFont =
@@ -225,13 +223,10 @@ async function preparedPagesPrint(
     const refusal = slotFillRefusal(page.scripts, page.slots, options.slots)
     if (refusal) throw refusal
   }
-  const work = pages.map((page) => hasSlotWork(page.slots, options.slots))
-  const resolvedSlots = work.some(Boolean)
-    ? await prepareSlotCollection(
-        pages.map((page) => page.slots),
-        options.slots,
-      )
-    : EMPTY_SLOTS
+  const resolvedSlots = await prepareSlotCollection(
+    pages.map((page) => page.slots),
+    options.slots,
+  )
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))

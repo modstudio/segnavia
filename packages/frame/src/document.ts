@@ -31,7 +31,7 @@ import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
+import { type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 
 const MOUNT_MARGIN = 600
@@ -297,11 +297,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
         }
         const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
         if (refusal) throw refusal
-        if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
-          this.pageDayContexts = contexts.pages
-          this.paintResolved(print)
-          return
-        }
         const resolved = await prepareSlotCollection(declarations, this.slotOptions, controller.signal)
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
         this.resolvedSlots = resolved

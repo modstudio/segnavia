@@ -8,7 +8,6 @@ import {
   type HtmlPage,
   hasSlotWork,
   isPrintedHtmlPage,
-  mapBookHtml,
   type PreparedSlots,
   type PrintedHtmlPage,
   prepareSlotCollection,
@@ -28,6 +27,24 @@ export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions
 function refuseRequired(prepared: PreparedSlots): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
   if (refusal) throw refusal
+}
+
+type PrintedSection = PrintedHtmlPage['printedPages']['sections'][number]
+
+function recordScope(section: PrintedSection): { recordSlots: readonly string[] } {
+  return { recordSlots: 'recordTemplate' in section ? (section.recordTemplate?.slots.map(({ key }) => key) ?? []) : [] }
+}
+
+function fillPrintedSection(section: PrintedSection, prepared: PreparedSlots): PrintedSection {
+  const bound = 'pages' in section ? section : bindRecordValues(section)
+  return withPrintedSectionBodies(
+    bound,
+    printedSectionBodies(bound).map((html) => prepared.apply(html, recordScope(section))),
+  )
+}
+
+function checkPrintedSection(section: PrintedSection, prepared: PreparedSlots): void {
+  for (const html of printedSectionBodies(section)) prepared.apply(html, recordScope(section))
 }
 
 export function filledPage(
@@ -56,15 +73,9 @@ export async function filledPage(
     if (refusal) throw refusal
     const prepared = await prepareSlots(input.slots, slots, signal)
     refuseRequired(prepared)
-    const sections = hasSlotWork(input.slots, slots)
-      ? input.printedPages.sections.map((section) => {
-          const bound = 'pages' in section ? section : bindRecordValues(section)
-          return withPrintedSectionBodies(
-            bound,
-            printedSectionBodies(bound).map((html) => prepared.apply(html)),
-          )
-        })
-      : input.printedPages.sections
+    const work = hasSlotWork(input.slots, slots)
+    const sections = work ? input.printedPages.sections.map((section) => fillPrintedSection(section, prepared)) : input.printedPages.sections
+    if (!work) for (const section of sections) checkPrintedSection(section, prepared)
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
   }
   const page = 'html' in input ? input : resolvePageHtml(input)
@@ -73,7 +84,9 @@ export async function filledPage(
   if (refusal) throw refusal
   const prepared = await prepareSlots(page.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(page.slots, slots) ? { ...page, html: prepared.apply(page.html) } : page
+  const work = hasSlotWork(page.slots, slots)
+  if (!work) prepared.apply(page.html)
+  const value = work ? { ...page, html: prepared.apply(page.html) } : page
   return { value, slots: prepared }
 }
 
@@ -105,7 +118,8 @@ export async function filledPages(
   )
   refuseRequired(prepared)
   const frameGroups: number[][] = []
-  const value = pages.some((page) => hasSlotWork(page.slots, slots))
+  const work = pages.some((page) => hasSlotWork(page.slots, slots))
+  const value = work
     ? pages.map((page) => {
         const firstFrame = prepared.frames.length
         const filled = isPrintedHtmlPage(page)
@@ -113,13 +127,7 @@ export async function filledPages(
               ...page,
               printedPages: {
                 ...page.printedPages,
-                sections: page.printedPages.sections.map((section) => {
-                  const bound = 'pages' in section ? section : bindRecordValues(section)
-                  return withPrintedSectionBodies(
-                    bound,
-                    printedSectionBodies(bound).map((html) => prepared.apply(html)),
-                  )
-                }),
+                sections: page.printedPages.sections.map((section) => fillPrintedSection(section, prepared)),
               },
             }
           : { ...page, html: prepared.apply(page.html) }
@@ -127,6 +135,12 @@ export async function filledPages(
         return filled
       })
     : pages
+  if (!work) {
+    for (const page of pages) {
+      if (isPrintedHtmlPage(page)) for (const section of page.printedPages.sections) checkPrintedSection(section, prepared)
+      else prepared.apply(page.html)
+    }
+  }
   if (frameGroups.length === 0) pages.forEach(() => void frameGroups.push([]))
   return { value, slots: prepared, frameGroups }
 }
@@ -137,7 +151,8 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
   if (refusal) throw refusal
   const prepared = await prepareSlots(deck.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(deck.slots, slots)
+  const work = hasSlotWork(deck.slots, slots)
+  const value = work
     ? {
         ...deck,
         slides: deck.slides.map((slide) => {
@@ -151,6 +166,9 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
         }),
       }
     : deck
+  if (!work) {
+    for (const slide of deck.slides) if ('kind' in slide.content && slide.content.kind === 'html') prepared.apply(slide.content.html)
+  }
   return { value, slots: prepared }
 }
 
@@ -160,7 +178,9 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   if (refusal) throw refusal
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(book.slots, slots) ? mapBookHtml(bindBookRecordValues(book), prepared.apply) : book
+  const work = hasSlotWork(book.slots, slots)
+  const filled = bindBookRecordValues(book, prepared.apply)
+  const value = work ? filled : book
   return { value, slots: prepared }
 }
 

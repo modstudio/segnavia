@@ -107,6 +107,23 @@ const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
 
 describe('href fetches', () => {
+  test('treats SVG image href attributes as image assets', () => {
+    const options = { origins: [{ origin: 'https://images.example', kinds: ['image'] as const }] }
+    const approved =
+      '<svg><image href="https://images.example/a.png"/><image xlink:href="https://images.example/b.png"/><filter><feImage href="https://images.example/c.png"/></filter></svg>'
+    expect(sanitize(approved, options)).toBe(approved)
+    expect(assetOriginRefusals(approved, options)).toEqual([])
+
+    const relative = '<svg><image href="images/a.png"/></svg>'
+    expect(assetOriginRefusals(relative, options)).toMatchObject([{ url: 'images/a.png', kind: 'image', reason: 'not-absolute' }])
+    expect(assetOriginRefusals('<svg><feImage href="https://outside.example/a.png"/></svg>', options)).toMatchObject([
+      { url: 'https://outside.example/a.png', kind: 'image', reason: 'unapproved-origin' },
+    ])
+    expect(sanitize('<svg><image href="#logo"/><image href="data:image/png;base64,AAA"/></svg>', options)).toBe(
+      '<svg><image href="#logo"/><image href="data:image/png;base64,AAA"/></svg>',
+    )
+  })
+
   test('a link policy does not admit external href fetches', () => {
     const links = { protocols: ['https:', 'mailto:'], fragments: true }
     expect(sanitize(fetches, { links })).toBe('<svg><image/><use/><filter><feImage/></filter></svg>')

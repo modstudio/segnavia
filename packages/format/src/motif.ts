@@ -7,12 +7,8 @@ import { SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
 export const RECORD_CONTEXT = 'record'
-export const AS_OF_CONTEXT = 'asOf'
-export const AS_OF_DATE_PATH = `${AS_OF_CONTEXT}.date`
-export const AS_OF_ZONE_PATH = `${AS_OF_CONTEXT}.zone`
-export const AS_OF_ANCHOR_PATH = `${AS_OF_CONTEXT}.anchor`
-export const AS_OF_MOMENT_PATH = `${AS_OF_CONTEXT}.moment`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
+export const LIBRARY_MOTIF_ELEMENT = 'segnavia-motif'
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
 export const HEAD_TEMPLATE_MOTIF = 'segnavia:head-template'
 export const HEAD_TEMPLATE_NAME_ATTRIBUTE = motifFieldAttribute('name')

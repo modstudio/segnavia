@@ -1,4 +1,4 @@
-import type { SlotDeclaration, SlotsOptions } from '@segnavia/format'
+import { AS_OF_SLOT_KEYS, type SlotDeclaration, type SlotsOptions } from '@segnavia/format'
 import {
   classifyMediaAnswer,
   collectSlotPrintCopies,
@@ -9,6 +9,7 @@ import {
   prepareSlots as prepareHtmlSlots,
   RequiredSlotsRefusedError,
   type ResolvePlacement,
+  refuseUndefinedSlotPaths,
   requiredSlotRefusal,
   SlotFillRefusedError,
   SlotFillsConflictError,
@@ -58,8 +59,23 @@ export const EMPTY_SLOTS: PreparedSlots = {
   mergeFit: () => EMPTY_SLOTS.report,
 }
 
+export function unfilledSlots(declarations: Iterable<{ key: string }>): PreparedSlots {
+  const keys = [...declarations].map((slot) => slot.key)
+  const prepared: PreparedSlots = {
+    declarations: [],
+    report: { fill: null, slots: {}, origins: {} },
+    marked: new Map(),
+    frames: [],
+    apply: (html) => refuseUndefinedSlotPaths(html, [...keys, ...AS_OF_SLOT_KEYS]),
+    mergeFit: () => prepared.report,
+  }
+  return prepared
+}
+
 export function prepareSlots(item: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined, signal?: AbortSignal): Promise<PreparedSlots> {
-  return prepareHtmlSlots(item, options, signal)
+  return hasSlotWork(item, options)
+    ? prepareHtmlSlots(item, options, signal)
+    : Promise.resolve(unfilledSlots([...(item ?? []), ...(options?.declarations ?? [])]))
 }
 
 export function prepareSlotCollection(
@@ -67,7 +83,9 @@ export function prepareSlotCollection(
   options: SlotsOptions | undefined,
   signal?: AbortSignal,
 ): Promise<PreparedSlots> {
-  return prepareHtmlSlotCollection(items, options, signal)
+  return items.some((item) => hasSlotWork(item, options))
+    ? prepareHtmlSlotCollection(items, options, signal)
+    : Promise.resolve(unfilledSlots([...items.flatMap((item) => item ?? []), ...(options?.declarations ?? [])]))
 }
 
 export function slotHtml(html: string, prepared: PreparedSlots | undefined): string {

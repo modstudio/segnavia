@@ -33,7 +33,7 @@ import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
-import type { PreparedSlots } from './slot-render.ts'
+import { type PreparedSlots, slotHtml } from './slot-render.ts'
 
 export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side', 'edition']
@@ -365,7 +365,7 @@ export class SegnaviaPaper extends HTMLElement {
     // builder, so assigning its trusted placement markup here cannot parse it
     // as part of the host document.
     box.innerHTML = printablePaper(
-      pages.map((page) => ({ ...page, html: this.resolvedSlots?.apply(page.html) ?? page.html })),
+      pages.map((page) => ({ ...page, html: slotHtml(page.html, this.resolvedSlots) })),
       imposition,
       imposed,
       this.paperIndex,

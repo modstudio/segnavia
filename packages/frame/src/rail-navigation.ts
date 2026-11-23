@@ -9,6 +9,10 @@ export function railSelection(current: number, key: string, count: number, horiz
   return Math.max(0, Math.min(count - 1, current + offset))
 }
 
+export function railSelectionAfterRender(current: number, active: number, nextActive: number, deckChanged: boolean): number {
+  return deckChanged || active !== nextActive ? nextActive : current
+}
+
 export function railMoveTarget(fromIndex: number, overIndex: number, after: boolean, count: number): number {
   const insertion = overIndex + (after ? 1 : 0)
   return Math.max(0, Math.min(count - 1, insertion > fromIndex ? insertion - 1 : insertion))

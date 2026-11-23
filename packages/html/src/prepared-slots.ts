@@ -7,6 +7,6 @@ export interface PreparedSlots {
   marked: ReadonlyMap<string, number>
   /** The measurement marks owned by each frame, in application order. */
   frames: ReadonlyArray<ReadonlyMap<string, number>>
-  apply(html: string): string
+  apply(html: string, scope?: { recordSlots?: readonly string[] }): string
   mergeFit(slots: Record<string, SlotFitState>): SlotReport
 }

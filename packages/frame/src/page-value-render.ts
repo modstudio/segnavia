@@ -17,7 +17,7 @@ import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { prepareShownPage, slotsForShownPage } from './page-preparation.ts'
 import { loadPrintedPageFrame } from './page-printed.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, unfilledSlots } from './slot-render.ts'
 
 export interface PageValueRenderOptions {
   motifs?: MotifsOptions
@@ -36,6 +36,70 @@ export interface PageValueRenderHandlers {
   write(document: string, provisional: boolean, hasLayoutScripts: boolean): void
   composed(identity: PageFrameIdentity): void
   fit(): void
+}
+
+function pageHasSlotWork(page: HtmlPage, slots: SlotsOptions): boolean {
+  const work = hasSlotWork(page.slots, slots)
+  if (!work) unfilledSlots([...(page.slots ?? []), ...(slots.declarations ?? [])]).apply(page.html)
+  return work
+}
+
+function pageHasSlotWorkOrReport(page: HtmlPage, slots: SlotsOptions, handlers: PageValueRenderHandlers): boolean | undefined {
+  try {
+    return pageHasSlotWork(page, slots)
+  } catch (error) {
+    handlers.report(error)
+    handlers.fit()
+  }
+}
+
+function renderUnexpandedPage(
+  page: Page,
+  resolvedPage: HtmlPage,
+  effectiveSlots: SlotsOptions,
+  signal: AbortSignal,
+  options: PageValueRenderOptions,
+  handlers: PageValueRenderHandlers,
+): void {
+  const motifRefusal = framePageMotifRefusal(resolvedPage)
+  if (motifRefusal) {
+    handlers.report(motifRefusal)
+    handlers.fit()
+    return
+  }
+  let sheets: string[]
+  try {
+    sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
+  } catch (error) {
+    handlers.report(error)
+    handlers.fit()
+    return
+  }
+  const provisional = pageHasSlotWorkOrReport(resolvedPage, effectiveSlots, handlers)
+  if (provisional === undefined) return
+  loadPageDocument(
+    resolvedPage,
+    {
+      scripts: page.scripts,
+      dir: pageDirection(resolvedPage),
+      lang: page.lang,
+      sheets,
+      css: options.css,
+      csp: options.csp,
+      origins: options.origins,
+      relayKeys: false,
+      preflight: resolvePreflightProfile(options.profile),
+    },
+    (document, hasLayoutScripts) => handlers.write(document, provisional, hasLayoutScripts),
+    handlers.report,
+  )
+  const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
+  if (refusal) handlers.report(refusal)
+  else if (provisional)
+    void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
+      .then((resolved) => handlers.show(resolvedPage, resolved))
+      .catch(handlers.report)
+  handlers.fit()
 }
 
 export function renderPageValue(
@@ -78,45 +142,7 @@ export function renderPageValue(
       handlers.fit()
       return
     }
-    const motifRefusal = framePageMotifRefusal(resolvedPage)
-    if (motifRefusal) {
-      handlers.report(motifRefusal)
-      handlers.fit()
-      return
-    }
-    let sheets: string[]
-    try {
-      sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
-    } catch (error) {
-      handlers.report(error)
-      handlers.fit()
-      return
-    }
-    const provisional = hasSlotWork(resolvedPage.slots, effectiveSlots)
-    loadPageDocument(
-      resolvedPage,
-      {
-        scripts: page.scripts,
-        dir: pageDirection(resolvedPage),
-        lang: page.lang,
-        sheets,
-        css: options.css,
-        csp: options.csp,
-        origins: options.origins,
-        relayKeys: false,
-        preflight: resolvePreflightProfile(options.profile),
-      },
-      (document, hasLayoutScripts) => handlers.write(document, provisional, hasLayoutScripts),
-      handlers.report,
-    )
-    const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
-    if (refusal) handlers.report(refusal)
-    else if (provisional) {
-      void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
-        .then((resolved) => handlers.show(resolvedPage, resolved))
-        .catch(handlers.report)
-    }
-    handlers.fit()
+    renderUnexpandedPage(page, resolvedPage, effectiveSlots, signal, options, handlers)
     return
   }
   void prepareShownPage(resolvedPage, options.motifs, slots, options.fonts, signal, options.placements, options.widths, day)

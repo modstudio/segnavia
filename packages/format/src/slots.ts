@@ -2,6 +2,19 @@ import { z } from 'zod'
 import type { AsOfDay } from './as-of.ts'
 import { closedObject } from './closed-object.ts'
 
+export const AS_OF_CONTEXT = 'asOf'
+export const AS_OF_DATE_PATH = `${AS_OF_CONTEXT}.date`
+export const AS_OF_ZONE_PATH = `${AS_OF_CONTEXT}.zone`
+export const AS_OF_ANCHOR_PATH = `${AS_OF_CONTEXT}.anchor`
+export const AS_OF_MOMENT_PATH = `${AS_OF_CONTEXT}.moment`
+export const AS_OF_SLOT_DECLARATIONS = [
+  { key: AS_OF_DATE_PATH, label: 'As-of date', type: 'text' },
+  { key: AS_OF_ZONE_PATH, label: 'As-of zone', type: 'text' },
+  { key: AS_OF_ANCHOR_PATH, label: 'As-of anchor', type: 'text' },
+  { key: AS_OF_MOMENT_PATH, label: 'As-of moment', type: 'text' },
+] as const satisfies readonly SlotDeclarationInput[]
+export const AS_OF_SLOT_KEYS = AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)
+
 export const SLOT_TYPES = ['text', 'phone', 'email', 'link', 'qr', 'image'] as const
 export const SlotType = z.enum(SLOT_TYPES)
 export type SlotType = z.infer<typeof SlotType>
