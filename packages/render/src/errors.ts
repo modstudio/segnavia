@@ -40,14 +40,31 @@ export class RenderRefusedError extends Refusal {
   }
 }
 
-export interface InputRefusal {
+export interface RenderInputRef {
   index: number
   id?: string
+}
+
+export interface InputRefusal extends RenderInputRef {
   error: Refusal | (Error & { readonly exceeded: readonly LimitExceeded[] })
 }
 
 function inputName(entry: Pick<InputRefusal, 'index' | 'id'>): string {
   return `input ${entry.index + 1}${entry.id === undefined ? '' : ` (${entry.id})`}`
+}
+
+export function inputRefusalJson(entry: InputRefusal) {
+  const { error } = entry
+  return {
+    index: entry.index,
+    ...(entry.id === undefined ? {} : { id: entry.id }),
+    refusal: {
+      code: error instanceof Refusal ? error.code : 'limit',
+      subject: `input ${entry.index + 1}`,
+      message: `${inputName(entry)}: ${error.message}`,
+      refusals: error instanceof Refusal ? error.refusals : error.exceeded.map((cause) => ({ code: 'limit', subject: cause.measure, message: cause.message })),
+    },
+  }
 }
 
 export class RenderInputsRefusedError extends RenderRefusedError {
@@ -62,11 +79,7 @@ export class RenderInputsRefusedError extends RenderRefusedError {
         : `Inputs were refused: ${entries.map((entry) => `${inputName(entry)}: ${entry.error.message}`).join('; ')}`,
       {
         code: 'render-inputs',
-        refusals: entries.map((entry) => ({
-          code: entry.error instanceof Refusal ? entry.error.code : 'limit',
-          subject: `input ${entry.index + 1}`,
-          message: `${inputName(entry)}: ${entry.error.message}`,
-        })),
+        refusals: entries.map((entry) => inputRefusalJson(entry).refusal),
       },
     )
     this.entries = entries

@@ -13,12 +13,13 @@ export function parsePagePdfOptions(options: PagesPdfOptions, call: 'pagesPdf'):
 export function parsePagePdfOptions(options: PagePdfOptions | PagesPdfOptions, call: PagePdfCall): ParsedPagePdfOptions | ParsedPagesPdfOptions {
   refuseUnknownOptions(call, options)
   const skipRefused = (options as PagesPdfOptions).skipRefused
-  if (call === 'pagesPdf' && skipRefused !== undefined && typeof skipRefused?.report !== 'function') {
+  if (call === 'pagesPdf' && skipRefused !== undefined && skipRefused !== false && typeof skipRefused.report !== 'function') {
     throw new RenderRefusedError(
       'pagesPdf options.skipRefused needs a report function; pass skipRefused: { report(refused) {} }, or omit it to clear this refusal.',
     )
   }
-  const parsed = parsePdfOptions(parseComposedRenderOptions(options, true), call)
+  const normalized = call === 'pagesPdf' && skipRefused === false ? { ...options, skipRefused: undefined } : options
+  const parsed = parsePdfOptions(parseComposedRenderOptions(normalized, true), call)
   return parseWatermarkOption(
     {
       ...parsed,

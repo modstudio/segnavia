@@ -72,14 +72,30 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
-  const brand = await resolveRenderBrand(document, options.brandSource, signal)
-  const page = pageOrPrintedFromDocument(document, brand)
+  const { page, outlineSource } = await preparePageInput(input, options, signal)
   const established = await resolveRenderDayContext(page, options, signal)
   const prepared = page.printedPages?.sections
     ? await prepareRenderedPrintedPageValue(page, options, motifs, signal, established, purpose)
     : await prepareRenderedPageValue(page, options, motifs, signal, established, purpose)
-  return { ...prepared, ...(document.kind === 'printed' ? { outlineSource: documentOutlineSource(document) } : {}) }
+  return { ...prepared, ...(outlineSource ? { outlineSource } : {}) }
+}
+
+export async function preparePageInput(input: PageOrPrintedInput, options: ParsedPageRenderOptions, signal: AbortSignal) {
+  let document: ReturnType<typeof parseDocument>
+  try {
+    document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
+  } catch (error) {
+    if (!(error instanceof Error) || error.name !== 'ZodError' || !('issues' in error) || !Array.isArray(error.issues)) throw error
+    const issue = error.issues[0] as { path?: PropertyKey[] } | undefined
+    const path = issue?.path?.length ? issue.path.map(String).join('.') : 'document'
+    throw new RenderRefusedError(
+      `The input could not be read as a document at ${path}; correct the document, or remove it from the request, to clear this refusal.`,
+      { cause: error },
+    )
+  }
+  const brand = await resolveRenderBrand(document, options.brandSource, signal)
+  const page = pageOrPrintedFromDocument(document, brand)
+  return { document, page, ...(document.kind === 'printed' ? { outlineSource: documentOutlineSource(document) } : {}) }
 }
 
 export async function prepareRenderedPageValue(
@@ -180,7 +196,7 @@ export async function prepareRenderedPages(
   expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
   options: ComposedRenderOptions,
   signal: AbortSignal,
-): Promise<{ options: ComposedRenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
+): Promise<{ options: ComposedRenderOptions; fontCss: string; fontFailures: FontFailure[]; fontFailuresByInput: FontFailure[][] }> {
   let declarations: FontManifest = {}
   const undeclared = new Set<string>()
   for (const item of expanded) {
@@ -193,7 +209,12 @@ export async function prepareRenderedPages(
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, [...undeclared], options.fontSource, local.faces, signal, 'page'))
   options.localFonts?.report?.(local.report)
-  return { options, fontCss: resolved.css, fontFailures: resolved.failures }
+  const fontFailuresByInput = expanded.map((item) => {
+    const references = fontManifestReferences(item.page.style?.fonts, fontManifestWithReferences(item.page.style?.fonts, item.fonts).undeclared)
+    const names = new Set(references.map((reference) => ('app' in reference ? reference.app : reference.fallback)))
+    return resolved.failures.filter((failure) => names.has(failure.font))
+  })
+  return { options, fontCss: resolved.css, fontFailures: resolved.failures, fontFailuresByInput }
 }
 
 export async function renderOptionsWithBookFonts(

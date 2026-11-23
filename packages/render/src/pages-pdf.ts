@@ -17,7 +17,8 @@ import {
 import { type HtmlPage, isPrintedHtmlPage, type PreparedSlots, type PrintedHtmlPage } from '@segnavia/html'
 import { type BookDestination, namedDestinations } from './book-destinations.ts'
 import { writeDocumentOutlines } from './book-structure.ts'
-import { type InputRefusal, RenderInputsRefusedError, RenderRefusedError } from './errors.ts'
+import { type InputRefusal, type RenderInputRef, RenderInputsRefusedError, RenderRefusedError } from './errors.ts'
+import { inputRefusalLedger, refuseOrContinue } from './input-refusal-ledger.ts'
 import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
@@ -27,14 +28,12 @@ import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { pagesTagged } from './pdf-tagging.ts'
-import { isInputScoped, settleRenderInputs } from './render-inputs.ts'
+import { settleRenderInputs } from './render-inputs.ts'
+import type { PagesPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import type { WatermarkPart } from './watermark-stamp.ts'
 
-export type PagesPdfOptions = ComposedRenderOptions & {
-  imposition?: ImpositionInput
-  skipRefused?: { report(refused: readonly InputRefusal[]): void }
-}
+type RenderPagesPdfOptions = ComposedRenderOptions & Pick<PagesPdfOptions, 'imposition' | 'skipRefused'>
 
 interface PagesPdfServices {
   pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number, tagged: boolean): Promise<PrintResult>
@@ -47,7 +46,26 @@ interface PagesPdfServices {
 const watermarkParts = (services: PagesPdfServices, parts: readonly WatermarkPart[], pageCount?: number) =>
   services.watermark ? services.watermark(parts, pageCount) : Promise.resolve(parts.map((part) => part.bytes))
 
-type PageInputFact = { index: number; id?: string }
+export interface RenderPagesPdfInput {
+  ref: RenderInputRef
+  page: HtmlPage | PrintedHtmlPage
+  frames: readonly number[]
+  outlineSource?: OutlineSource
+}
+
+export function renderPagesPdfInputs(
+  pages: Array<HtmlPage | PrintedHtmlPage>,
+  frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
+  outlineSources: ReadonlyArray<OutlineSource | undefined> = [],
+  refs: ReadonlyArray<RenderInputRef> = pages.map((page, index) => ({ index, ...(page.id === undefined ? {} : { id: page.id }) })),
+): RenderPagesPdfInput[] {
+  return pages.map((page, position) => ({
+    ref: refs[position] ?? { index: position, ...(page.id === undefined ? {} : { id: page.id }) },
+    page,
+    frames: frameGroups[position] ?? [],
+    ...(outlineSources[position] ? { outlineSource: outlineSources[position] } : {}),
+  }))
+}
 
 async function declarePrintedPageBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
@@ -74,14 +92,13 @@ async function declarePieceTrimBox(pdf: Uint8Array, geometry: PieceGeometry): Pr
 }
 
 async function composedPdf(
-  pages: HtmlPage[],
+  inputs: Array<RenderPagesPdfInput & { page: HtmlPage }>,
   slots: PreparedSlots,
   imposition: Imposition,
-  opts: PagesPdfOptions,
+  opts: RenderPagesPdfOptions,
   services: PagesPdfServices,
-  frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
-  inputFacts: ReadonlyArray<PageInputFact> = pages.map((page, index) => ({ index, ...(page.id === undefined ? {} : { id: page.id }) })),
-): Promise<{ result: PrintResult } | { refused: InputRefusal[] }> {
+): Promise<RenderedPagesPdf> {
+  const pages = inputs.map(({ page }) => page)
   const press = sharedImpositionPress(pages)
   const imposed = impose(imposition, pages.length, press)
   const boxes = impositionBoxes(imposition, press)
@@ -90,11 +107,12 @@ async function composedPdf(
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
   const baseCss = services.fontFaces(opts)
   const settled = await settleRenderInputs(
-    groups.map((group) => ({ group, ...(inputFacts[group.page] ?? { index: group.page }) })),
+    groups.map((group) => ({ group, ...(inputs[group.page]?.ref ?? { index: group.page }) })),
     async ({ group }) => {
-      const page = pages[group.page]
+      const input = inputs[group.page]
+      const page = input?.page
       const first = group.placements[0]
-      const pageFrames = frameGroups[group.page]
+      const pageFrames = input?.frames
       if (!page || !first || pageFrames === undefined) throw new Error(`The piece for page ${group.page} has no placement.`)
       const geometry = pieceGeometry(first)
       const css = `${page.print ? printProperties(page.print) : ''}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
@@ -139,68 +157,57 @@ async function composedPdf(
     pages.length,
   )
   return {
-    result: {
-      bytes: await composeImposedPdf(
+    output: await composeImposedPdf(
         imposed,
         rendered.map(({ group }, index) => ({
           key: group.key,
-          name: `The rendered piece for input ${inputFacts[group.page]?.index ?? group.page}`,
+          name: `The rendered piece for input ${inputs[group.page]?.ref.index ?? group.page}`,
           bytes: watermarked[index] as Uint8Array,
           placements: group.placements,
         })),
         sides,
         imposition.markColor,
       ),
-      ...(rendered[0]?.rendered.fontFamily ? { fontFamily: rendered[0].rendered.fontFamily } : {}),
-      ...(rendered[0]?.rendered.fontFaceCss ? { fontFaceCss: rendered[0].rendered.fontFaceCss } : {}),
-    },
+    refused: [],
   }
 }
 
 async function renderUnimposedPagesPdf(
-  pages: Array<HtmlPage | PrintedHtmlPage>,
+  inputs: RenderPagesPdfInput[],
   slots: PreparedSlots,
-  opts: PagesPdfOptions,
+  opts: RenderPagesPdfOptions,
   services: PagesPdfServices,
-  frameGroups: ReadonlyArray<readonly number[]>,
-  outlineSources: ReadonlyArray<OutlineSource | undefined>,
-  inputFacts: ReadonlyArray<PageInputFact>,
   priorRefusals: readonly InputRefusal[],
 ): Promise<RenderedPagesPdf> {
+  const pages = inputs.map(({ page }) => page)
   const tagged = pagesTagged(pages.map(isPrintedHtmlPage), false)
-  const settled = await Promise.all(
-    pages.map(async (page, inputIndex) => {
-      const input = inputFacts[inputIndex] ?? { index: inputIndex, ...(page.id === undefined ? {} : { id: page.id }) }
-      try {
-        const rendered = await services.pagePdf(
-          page,
-          slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
-          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
-          input.index,
-          tagged,
-        )
-        return { page, inputIndex, rendered }
-      } catch (error) {
-        if (!isInputScoped(error)) throw error
-        return { page, inputIndex, refusal: { ...input, error } satisfies InputRefusal }
-      }
+  const settled = await settleRenderInputs(
+    inputs.map((input) => ({ ...input.ref, input })),
+    async ({ input }) => ({
+      input,
+      rendered: await services.pagePdf(
+        input.page,
+        slotsForDocument(slots, [input.frames]),
+        { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
+        input.ref.index,
+        tagged,
+      ),
     }),
+    (input) => input.index,
   )
-  const refused = [
-    ...priorRefusals,
-    ...settled.map((entry) => ('refusal' in entry ? entry.refusal : undefined)).filter((entry): entry is InputRefusal => entry !== undefined),
-  ]
-  const accepted = settled.filter((entry): entry is Extract<(typeof settled)[number], { rendered: PrintResult }> => 'rendered' in entry)
-  if (refused.length > 0 && (!opts.skipRefused || accepted.length === 0)) throw new RenderInputsRefusedError(refused)
-  const rendered = accepted.map((entry) => entry.rendered)
+  const ledger = inputRefusalLedger(priorRefusals)
+  ledger.add(settled.refused)
+  const refused = refuseOrContinue(ledger, settled.accepted.length, Boolean(opts.skipRefused))
+  const accepted = settled.accepted.map(({ value }) => value)
+  const rendered = accepted.map(({ rendered }) => rendered)
   const watermarked = await watermarkParts(
     services,
-    accepted.map(({ page, rendered: part }) => ({ ...part, page })),
+    accepted.map(({ input, rendered: part }) => ({ ...part, page: input.page })),
   )
   const output = await services.finish(
     await joinWithOutlines(
       watermarked,
-      accepted.map(({ inputIndex }) => outlineSources[inputIndex]),
+      accepted.map(({ input }) => input.outlineSource),
     ),
     opts,
   )
@@ -208,7 +215,7 @@ async function renderUnimposedPagesPdf(
   return { output, refused }
 }
 
-function parsePagesImposition(pages: Array<HtmlPage | PrintedHtmlPage>, opts: PagesPdfOptions): Imposition {
+function parsePagesImposition(pages: Array<HtmlPage | PrintedHtmlPage>, opts: RenderPagesPdfOptions): Imposition {
   const imposition = Imposition.parse(opts.imposition)
   for (const page of pages) {
     if (!isPrintedHtmlPage(page)) continue
@@ -226,82 +233,59 @@ function parsePagesImposition(pages: Array<HtmlPage | PrintedHtmlPage>, opts: Pa
 }
 
 interface RenderedPagesPdf {
-  output: Uint8Array
+  output?: Uint8Array
   refused: InputRefusal[]
 }
 
-function mergedRefusals(prior: readonly InputRefusal[], current: readonly InputRefusal[]): InputRefusal[] {
-  const entries = new Map(prior.map((entry) => [entry.index, entry]))
-  for (const entry of current) entries.set(entry.index, entry)
-  return [...entries.values()].sort((left, right) => left.index - right.index)
-}
-
-function completed(output: Uint8Array, refused: readonly InputRefusal[], opts: PagesPdfOptions): RenderedPagesPdf {
-  if (refused.length > 0 && !opts.skipRefused) throw new RenderInputsRefusedError(refused)
-  return { output, refused: [...refused] }
+function completed(output: Uint8Array, ledger: ReturnType<typeof inputRefusalLedger>, survivors: number, opts: RenderPagesPdfOptions): RenderedPagesPdf {
+  return { output, refused: refuseOrContinue(ledger, survivors, Boolean(opts.skipRefused)) }
 }
 
 async function retryImposition(
-  pages: Array<HtmlPage | PrintedHtmlPage>,
+  inputs: RenderPagesPdfInput[],
   slots: PreparedSlots,
-  opts: PagesPdfOptions,
+  opts: RenderPagesPdfOptions,
   services: PagesPdfServices,
-  frameGroups: ReadonlyArray<readonly number[]>,
-  outlineSources: ReadonlyArray<OutlineSource | undefined>,
-  inputFacts: ReadonlyArray<PageInputFact>,
-  priorRefusals: readonly InputRefusal[],
+  ledger: ReturnType<typeof inputRefusalLedger>,
   currentRefusals: readonly InputRefusal[],
   remainingPasses: number,
 ): Promise<RenderedPagesPdf> {
-  const refused = mergedRefusals(priorRefusals, currentRefusals)
-  if (!opts.skipRefused) throw new RenderInputsRefusedError(refused)
+  ledger.add(currentRefusals)
+  refuseOrContinue(ledger, inputs.length - currentRefusals.length, Boolean(opts.skipRefused))
   const refusedIndexes = new Set(currentRefusals.map(({ index }) => index))
-  const positions = inputFacts.flatMap((input, position) => (refusedIndexes.has(input.index) ? [] : [position]))
-  if (positions.length === 0 || remainingPasses <= 0) throw new RenderInputsRefusedError(refused)
-  return renderPagesPdfPass(
-    positions.map((position) => pages[position] as HtmlPage | PrintedHtmlPage),
-    slots,
-    opts,
-    services,
-    positions.map((position) => frameGroups[position] ?? []),
-    positions.map((position) => outlineSources[position]),
-    positions.map((position) => inputFacts[position] as PageInputFact),
-    refused,
-    remainingPasses - 1,
-  )
+  const survivors = inputs.filter((input) => !refusedIndexes.has(input.ref.index))
+  if (survivors.length === 0 || remainingPasses <= 0) throw new RenderInputsRefusedError(ledger.entries())
+  return renderPagesPdfPass(survivors, slots, opts, services, ledger, remainingPasses - 1)
 }
 
 // Pages arrive parsed and filled with the slot preparation that measures their overflow.
 export async function renderPagesPdf(
   pages: Array<HtmlPage | PrintedHtmlPage>,
   slots: PreparedSlots,
-  opts: PagesPdfOptions,
+  opts: RenderPagesPdfOptions,
   services: PagesPdfServices,
-  frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
-  outlineSources: ReadonlyArray<OutlineSource | undefined> = [],
-  inputFacts: ReadonlyArray<PageInputFact> = pages.map((page, index) => ({ index, ...(page.id === undefined ? {} : { id: page.id }) })),
+  inputs: RenderPagesPdfInput[] = renderPagesPdfInputs(pages),
   priorRefusals: readonly InputRefusal[] = [],
 ): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
-  const rendered = await renderPagesPdfPass(pages, slots, opts, services, frameGroups, outlineSources, inputFacts, priorRefusals, pages.length)
+  const rendered = await renderPagesPdfPass(inputs, slots, opts, services, inputRefusalLedger(priorRefusals), inputs.length)
   if (rendered.refused.length > 0) opts.skipRefused?.report(rendered.refused)
+  if (!rendered.output) throw new RenderInputsRefusedError(rendered.refused)
   return rendered.output
 }
 
 async function renderPagesPdfPass(
-  pages: Array<HtmlPage | PrintedHtmlPage>,
+  inputs: RenderPagesPdfInput[],
   slots: PreparedSlots,
-  opts: PagesPdfOptions,
+  opts: RenderPagesPdfOptions,
   services: PagesPdfServices,
-  frameGroups: ReadonlyArray<readonly number[]>,
-  outlineSources: ReadonlyArray<OutlineSource | undefined>,
-  inputFacts: ReadonlyArray<PageInputFact>,
-  priorRefusals: readonly InputRefusal[],
+  ledger: ReturnType<typeof inputRefusalLedger>,
   remainingPasses: number,
 ): Promise<RenderedPagesPdf> {
-  if (pages.length === 0 && priorRefusals.length > 0) throw new RenderInputsRefusedError(priorRefusals)
+  const pages = inputs.map(({ page }) => page)
+  if (pages.length === 0 && ledger.entries().length > 0) throw new RenderInputsRefusedError(ledger.entries())
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
-  if (!opts.imposition) return renderUnimposedPagesPdf(pages, slots, opts, services, frameGroups, outlineSources, inputFacts, priorRefusals)
+  if (!opts.imposition) return renderUnimposedPagesPdf(inputs, slots, opts, services, ledger.entries())
   const imposition = parsePagesImposition(pages, opts)
   const printed = pages.filter((page) => page.printedPages)
   if (printed.length > 0) {
@@ -315,26 +299,19 @@ async function renderPagesPdfPass(
       pages.some((page) => !isPrintedHtmlPage(page)),
     )
     const settled = await settleRenderInputs(
-      pages.map((page, position) => ({ page, frames: frameGroups[position] ?? [], ...(inputFacts[position] ?? { index: position }) })),
-      async ({ page, frames, index }) => {
+      inputs.map((input) => ({ ...input.ref, input })),
+      async ({ input }) => {
+        const { page, frames, ref } = input
         if (!isPrintedHtmlPage(page) && !page.printedPages) {
-          const composed = await composedPdf(
-            [page],
-            slots,
-            imposition,
-            opts,
-            { ...services, watermark: undefined },
-            [frames],
-            [{ index, ...(page.id ? { id: page.id } : {}) }],
-          )
-          if ('refused' in composed) throw composed.refused[0]?.error ?? new Error('An imposed input failed without a refusal.')
-          return { ...composed.result, page }
+          const composed = await composedPdf([{ ...input, page }], slots, imposition, opts, { ...services, watermark: undefined })
+          if (!composed.output) return { page, refused: composed.refused }
+          return { bytes: composed.output, page }
         }
         const rendered = await services.pagePdf(
           page,
           slotsForDocument(slots, [frames]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
-          index,
+          ref.index,
           tagged,
         )
         if (!page.print) throw new Error('An identity-imposed printed page has no print geometry.')
@@ -342,26 +319,24 @@ async function renderPagesPdfPass(
       },
       (input) => input.index,
     )
-    if (settled.refused.length > 0) {
-      return retryImposition(pages, slots, opts, services, frameGroups, outlineSources, inputFacts, priorRefusals, settled.refused, remainingPasses)
-    }
+    const nestedRefusals = settled.accepted.flatMap(({ value }) => ('refused' in value ? value.refused : []))
+    const currentRefusals = [...settled.refused, ...nestedRefusals]
+    if (currentRefusals.length > 0) return retryImposition(inputs, slots, opts, services, ledger, currentRefusals, remainingPasses)
     const parts = settled.accepted.map(({ value }) => value)
     const watermarked = await watermarkParts(
       services,
       parts.map((part) => ({ ...part, page: part.page })),
     )
-    const output = await services.finish(await joinWithOutlines(watermarked, outlineSources), opts)
+    const output = await services.finish(await joinWithOutlines(watermarked, inputs.map(({ outlineSource }) => outlineSource)), opts)
     opts.overflow?.report?.({ entries: parts.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
-    return completed(output, priorRefusals, opts)
+    return completed(output, ledger, inputs.length, opts)
   }
   if (!pages.every((page): page is HtmlPage => !isPrintedHtmlPage(page))) {
     throw new RenderRefusedError('A sectioned printed page could not be imposed with other pages; print without imposition to clear this refusal.')
   }
-  const composed = await composedPdf(pages, slots, imposition, opts, services, frameGroups, inputFacts)
-  if ('refused' in composed) {
-    return retryImposition(pages, slots, opts, services, frameGroups, outlineSources, inputFacts, priorRefusals, composed.refused, remainingPasses)
-  }
-  return completed(await services.finish(composed.result.bytes, opts), priorRefusals, opts)
+  const composed = await composedPdf(inputs as Array<RenderPagesPdfInput & { page: HtmlPage }>, slots, imposition, opts, services)
+  if (!composed.output) return retryImposition(inputs, slots, opts, services, ledger, composed.refused, remainingPasses)
+  return completed(await services.finish(composed.output, opts), ledger, inputs.length, opts)
 }
 
 async function joinWithOutlines(parts: Uint8Array[], sources: ReadonlyArray<OutlineSource | undefined>): Promise<Uint8Array> {

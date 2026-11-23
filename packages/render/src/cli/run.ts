@@ -1,8 +1,7 @@
-import { isLimitExceeded, Refusal } from '@segnavia/format'
 import { parseBookPdfOptions } from '../book-options.ts'
 import { directoryFontSource } from '../directory-font-source.ts'
 import { parseDeckPdfOptions } from '../entry-options.ts'
-import { type InputRefusal, RenderRefusedError } from '../errors.ts'
+import { type InputRefusal, inputRefusalJson, RenderRefusedError } from '../errors.ts'
 import { parsePagePdfOptions } from '../page-render-options.ts'
 import { type BookPdfOptions, CONTAINER_ARGS, type DeckPdfInputOptions, type PagePdfOptions, type PagesPdfInputOptions, type Renderer } from '../renderer.ts'
 import { outcomeFromError, parseRenderRequest, type RenderOutcome, type RenderRequest } from './protocol.ts'
@@ -75,7 +74,7 @@ function functionOptionPath(value: unknown, path: string[] = []): string | undef
   return undefined
 }
 
-function cliOptions(request: RenderRequest, environment: RenderEnvironment, refusedInputs: InputRefusal[]): Record<string, unknown> {
+function cliOptions(request: RenderRequest, environment: RenderEnvironment): { options: Record<string, unknown>; refused: InputRefusal[] } {
   const refused = functionOptionPath(request.options)
   if (refused)
     throw new RenderRefusedError(`The command-line render option ${refused} requires a function; remove it to clear this refusal.`, {
@@ -87,28 +86,22 @@ function cliOptions(request: RenderRequest, environment: RenderEnvironment, refu
       code: 'render-request',
       subject: 'SEGNAVIA_FONTS',
     })
+  const refusedInputs: InputRefusal[] = []
   const options =
     request.render === 'pages' && request.options.skipRefused === true
       ? { ...request.options, skipRefused: { report: (entries: readonly InputRefusal[]) => refusedInputs.push(...entries) } }
-      : request.options
-  return request.fonts ? { ...options, fontSource: directoryFontSource(request.fonts, { root: environment.SEGNAVIA_FONTS as string }) } : options
+      : request.render === 'pages' && request.options.skipRefused === false
+        ? { ...request.options, skipRefused: undefined }
+        : request.options
+  return {
+    options: request.fonts ? { ...options, fontSource: directoryFontSource(request.fonts, { root: environment.SEGNAVIA_FONTS as string }) } : options,
+    refused: refusedInputs,
+  }
 }
 
 function refusedLine(entries: readonly InputRefusal[]): string {
   return `${JSON.stringify({
-    refused: entries.map(({ index, id, error }) => ({
-      index,
-      ...(id === undefined ? {} : { id }),
-      refusal:
-        error instanceof Refusal
-          ? { code: error.code, subject: error.subject ?? null, message: error.message, refusals: error.refusals }
-          : {
-              code: 'limit',
-              subject: isLimitExceeded(error) ? (error.exceeded[0]?.measure ?? null) : null,
-              message: error.message,
-              refusals: isLimitExceeded(error) ? error.exceeded.map((cause) => ({ code: 'limit', subject: cause.measure, message: cause.message })) : [],
-            },
-    })),
+    refused: entries.map(inputRefusalJson),
   })}\n`
 }
 
@@ -133,8 +126,7 @@ export async function runRenderRequest(input: Uint8Array, environment: RenderEnv
         code: 'render-request',
         subject: 'SEGNAVIA_CHROMIUM',
       })
-    const refusedInputs: InputRefusal[] = []
-    const options = cliOptions(request, environment, refusedInputs)
+    const { options, refused } = cliOptions(request, environment)
     const renderer = await open({
       executablePath: environment.SEGNAVIA_CHROMIUM,
       ...(environment.SEGNAVIA_CHROMIUM_CONTAINER === '1' ? { args: CONTAINER_ARGS } : {}),
@@ -144,7 +136,7 @@ export async function runRenderRequest(input: Uint8Array, environment: RenderEnv
       try {
         await renderer.close()
       } catch {}
-      return { exitCode: 0, stdout, stderr: refusedInputs.length === 0 ? '' : refusedLine(refusedInputs) }
+      return { exitCode: 0, stdout, stderr: refused.length === 0 ? '' : refusedLine(refused) }
     } catch (error) {
       try {
         await renderer.close()

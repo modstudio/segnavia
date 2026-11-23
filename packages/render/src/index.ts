@@ -40,7 +40,7 @@ import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { captureInputRefusals, preparePagesPdfInputs } from './pages-pdf-inputs.ts'
+import { captureInputRefusals, preparedRenderPagesPdfInputs, preparePagesPdfInputs, preparePagesPdfSlotInputs } from './pages-pdf-inputs.ts'
 import { enforce } from './pdf-finish.ts'
 import { createMergePdfsOperation } from './pdf-merge.ts'
 import { addPdfOutline } from './pdf-outline.ts'
@@ -259,13 +259,18 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const preparedInputs = await preparePagesPdfInputs(inputs, parsedOptions, deadline.signal)
         const refusedInputs = captureInputRefusals(parsedOptions.skipRefused, preparedInputs.refused)
         const renderOptions = { ...parsedOptions, ...(refusedInputs.option ? { skipRefused: refusedInputs.option } : {}) }
-        const parsed = preparedInputs.accepted.map(({ page }) => page)
         const acceptedByIndex = new Map(preparedInputs.accepted.map((input) => [input.index, input]))
-        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount(parsed, parsedOptions.slots))
-        const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted.map(({ fontCss }) => fontCss).join(''), deadline, withTab)
+        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount(preparedInputs.accepted.map(({ page }) => page), parsedOptions.slots))
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted[0]?.fontCss ?? '', deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, preparedInputs.accepted[0]?.established.slots)
-          const { value: pages, slots, frameGroups } = await filledPages(parsed, effectiveSlots, deadline.signal)
+          const slotInputs = await preparePagesPdfSlotInputs(preparedInputs.accepted, effectiveSlots)
+          const survivingInputs = slotInputs.accepted.map(({ value }) => value)
+          const { value: pages, slots, frameGroups } = await filledPages(
+            survivingInputs.map(({ page }) => page),
+            effectiveSlots,
+            deadline.signal,
+          )
           const resolvedLayoutScripts = await resolveRenderLayoutScripts(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
             pages,
@@ -293,14 +298,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               },
               piecePdf: (page, slots, geometry, css, options, tagged) =>
                 renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark), tagged),
-              fontFaces: (options) => `${preparedInputs.accepted.map(({ fontCss }) => fontCss).join('')}${fontFaces(options.fonts)}`,
+              fontFaces: (options) => `${preparedInputs.accepted[0]?.fontCss ?? ''}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               watermark: watermarkCopies.stamp,
             },
-            frameGroups,
-            preparedInputs.accepted.map(({ outlineSource }) => outlineSource),
-            preparedInputs.accepted.map(({ index, id }) => ({ index, id })),
-            preparedInputs.refused,
+            preparedRenderPagesPdfInputs(pages, frameGroups, survivingInputs),
+            [...preparedInputs.refused, ...slotInputs.refused],
           )
         })
         watermarkCopies.validate()
@@ -308,7 +311,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           await withDocumentMetadata(
             await finishWithBrowser(bytes, parsedOptions, deadline),
             parsedOptions.metadata,
-            outputDate(preparedInputs.accepted.map(({ established }) => established.day)),
+            outputDate(preparedInputs.days),
             preparedInputs.accepted[0] ? printedPageDirection(preparedInputs.accepted[0].page) : undefined,
           ),
           parsedOptions.limits,

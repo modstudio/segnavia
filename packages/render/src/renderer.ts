@@ -35,8 +35,11 @@ export interface RendererOptions {
 
 export type PagePdfOptions = PageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
 export type ParsedPagePdfOptions = ParsedPageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
-export type PagesPdfOptions = PagePdfOptions & { imposition?: ImpositionInput; skipRefused?: { report(refused: readonly InputRefusal[]): void } }
-export type ParsedPagesPdfOptions = ParsedPagePdfOptions & Pick<PagesPdfOptions, 'imposition' | 'skipRefused'>
+export type PagesPdfOptions = PagePdfOptions & { imposition?: ImpositionInput; skipRefused?: false | { report(refused: readonly InputRefusal[]): void } }
+export type ParsedPagesPdfOptions = ParsedPagePdfOptions & {
+  imposition?: ImpositionInput
+  skipRefused?: { report(refused: readonly InputRefusal[]): void }
+}
 export type BookPdfOptions = ComposedRenderInput & PdfOptions & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[]; watermark?: Watermark }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }

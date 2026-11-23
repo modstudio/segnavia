@@ -144,5 +144,6 @@ test('pagesPdf does not skip a render-wide pagePdf failure', async () => {
     }),
   )
   await expect(rendering).rejects.toBe(failure)
+  expect(failure.message).toBe('Input 2 (bad) could not be rendered: page renderer failed')
   expect(reports).toEqual([])
 })

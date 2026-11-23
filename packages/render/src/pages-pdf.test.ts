@@ -4,7 +4,7 @@ import { prepareSlotCollection, prepareSlots, resolvePageHtml, resolvePrintedPag
 import { PDFDocument } from 'pdf-lib'
 import type { Page as BrowserPage } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
-import { renderPagesPdf } from './pages-pdf.ts'
+import { renderPagesPdf, renderPagesPdfInputs } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { enforce } from './pdf-finish.ts'
 import { pt } from './pdf-geometry.ts'
@@ -132,7 +132,7 @@ test('pagesPdf keeps every input aligned with the slot frames its HTML produced'
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
-    frameGroups,
+    renderPagesPdfInputs(value, frameGroups),
   )
 
   expect(frameGroups).toEqual([[0, 1], [2]])

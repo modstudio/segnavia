@@ -192,7 +192,15 @@ test('pages skipRefused writes the PDF to stdout and one refusal line to stderr'
   expect(outcome.exitCode).toBe(0)
   expect(outcome.stdout).toEqual(new Uint8Array([37, 80, 68, 70]))
   expect(outcome.stderr.trim().split('\n')).toHaveLength(1)
-  expect(JSON.parse(outcome.stderr)).toMatchObject({ refused: [{ index: 1, id: 'bad', refusal: { code: 'render', message: 'bad page' } }] })
+  expect(JSON.parse(outcome.stderr)).toMatchObject({ refused: [{ index: 1, id: 'bad', refusal: { code: 'render', message: 'input 2 (bad): bad page' } }] })
+})
+
+test('pages skipRefused false stays off', async () => {
+  const calls: unknown[][] = []
+  const host = opened(calls)
+  const outcome = await runRenderRequest(request('pages', { skipRefused: false }), environment, host.open)
+  expect(outcome.exitCode).toBe(0)
+  expect(calls[1]?.[2]).toMatchObject({ skipRefused: undefined })
 })
 
 test('pages without skipRefused returns every named input refusal', async () => {
