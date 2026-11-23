@@ -99,6 +99,14 @@ export class DeckController extends ControllerFrameServing {
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
+  get fonts(): ControllerOptions['fonts'] {
+    return this.options.fonts
+  }
+  set fonts(value: ControllerOptions['fonts']) {
+    if (this.options.fonts === value) return
+    this.options.fonts = value
+    if (this.current.deck) this.emit()
+  }
   addNavigationGuard(guard: (reason: NavigationGuardReason) => void | Promise<void>): () => void {
     return addNavigationGuard(this, guard)
   }

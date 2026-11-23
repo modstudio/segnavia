@@ -15,6 +15,13 @@ test('fontFaces without unicodeRange is the @font-face rule it emits today', () 
   )
 })
 
+test('fontFaces keeps an approved URL for the offline asset router', () => {
+  const url = 'https://assets.example/fonts/face.woff2'
+  expect(fontFaces([{ family: 'Face', url, format: 'woff2' }], [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }])).toContain(
+    `src:url("${url}")`,
+  )
+})
+
 test('fontFaces leaves a sibling without unicodeRange byte-identical and still emits the other face', () => {
   const css = fontFaces([face({ family: 'Segnavia Scripts', unicodeRange: 'U+0000-024F' }), face({ family: 'Segnavia Scripts' })])
   expect(css).toBe(

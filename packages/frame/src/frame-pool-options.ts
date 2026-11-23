@@ -1,4 +1,4 @@
-import type { OriginApproval, PreflightProfile } from '@segnavia/format'
+import type { FontFailure, OriginApproval, PreflightProfile } from '@segnavia/format'
 import type { FormsOption } from './bridge.ts'
 import type { FrameReadinessOptions } from './frame-entry.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -12,6 +12,8 @@ export interface PoolOptions extends FrameReadinessOptions {
   csp: string
   forms?: FormsOption
   origins?: Iterable<OriginApproval>
+  fontCss?: string
+  fontFailures?: FontFailure[]
   frameTitle: FrameTitle
   transition?: HostTransition
   reducedMotion: boolean

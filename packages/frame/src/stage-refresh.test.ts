@@ -28,6 +28,7 @@ const { SegnaviaStage } = await import('./stage.ts')
 function stageHarness(controller: InstanceType<typeof DeckController>, mountedFrame = true) {
   const rendered: string[] = []
   const formPolicies: Array<'refuse' | undefined> = []
+  const fontSheets: string[] = []
   let mounted = mountedFrame
   const stage = {
     isConnected: true,
@@ -37,6 +38,13 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     slotGeneration: 0,
     resolvedSlots: EMPTY_SLOTS,
     slotOptions: undefined,
+    fontOptions: undefined,
+    fontDeck: null,
+    fontInput: undefined,
+    fontOrigins: undefined,
+    fontGeneration: 0,
+    fontResolution: undefined,
+    resolvedFonts: undefined,
     authoringRefusesScripts: false,
     css: '',
     cspExtra: '',
@@ -47,9 +55,10 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
       clear() {
         mounted = false
       },
-      update(state: DeckState, _controller: unknown, options: { forms?: FormsOption }) {
+      update(state: DeckState, _controller: unknown, options: { forms?: FormsOption; fontCss?: string }) {
         if (state.content?.kind === 'url') rendered.push(state.content.src)
         formPolicies.push(options.forms)
+        fontSheets.push(options.fontCss ?? '')
         mounted = true
       },
     },
@@ -73,8 +82,36 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     ),
   })
   Object.defineProperty(stage, 'forms', Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'forms') as PropertyDescriptor)
-  return { formPolicies, rendered, stage: stage as typeof stage & { forms: FormsOption | undefined } }
+  return { fontSheets, formPolicies, rendered, stage: stage as typeof stage & { forms: FormsOption | undefined } }
 }
+
+test('a stage resolves a URL face once per deck load and puts no font bytes in its frame CSS', async () => {
+  let resolutions = 0
+  const controller = new DeckController({
+    hash: null,
+    fonts: {
+      source: {
+        async font() {
+          resolutions++
+          return { family: 'Body', faces: [{ family: 'Body', url: 'https://fonts.gstatic.com/s/body.woff2', format: 'woff2' }] }
+        },
+      },
+    },
+  })
+  await controller.loadDeckValue({
+    title: 'Deck',
+    style: { fonts: { body: { faces: [{}] } } },
+    slides: [{ id: 'shown', content: { kind: 'html', html: '<p>Shown</p>' } }],
+  })
+  const { fontSheets, stage } = stageHarness(controller)
+  stage.update(controller.state)
+  await Bun.sleep(0)
+  await Bun.sleep(0)
+  stage.update(controller.state)
+  expect(resolutions).toBe(1)
+  expect(fontSheets.at(-1)).toContain('https://fonts.gstatic.com/s/body.woff2')
+  expect(fontSheets.at(-1)).not.toContain('data:font/')
+})
 
 test('a stage passes its controller form refusal to the frame pool', async () => {
   const controller = new DeckController({ hash: null, forms: 'refuse' })

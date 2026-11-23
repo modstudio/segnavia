@@ -9,7 +9,7 @@
 // data-word, data-shown, data-direction and data-refused. A visible canvas has data-active, and
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
-import { type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOptions, type TransitionInput } from '@segnavia/format'
+import { type FontFailure, type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, type FormsOption, MESSAGE, type PageSelection } from './bridge.ts'
@@ -21,6 +21,7 @@ import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
+import { type FontsOptions, resolveFonts } from './page-fonts.ts'
 import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
@@ -57,6 +58,13 @@ export class SegnaviaStage extends AsOfElement {
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
+  private fontOptions: FontsOptions | undefined
+  private fontDeck: DeckState['deck'] = null
+  private fontInput: FontsOptions | undefined
+  private fontOrigins: Iterable<OriginApproval> | undefined
+  private fontGeneration = 0
+  private fontResolution: AbortController | undefined
+  private resolvedFonts: { css: string; failures: FontFailure[] } | undefined
   declare fit: 'box' | 'viewport'
   private owned: DeckController | null = null
   private attached: DeckController | null = null
@@ -94,6 +102,16 @@ export class SegnaviaStage extends AsOfElement {
   }
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
+  }
+
+  get fonts(): FontsOptions | undefined {
+    return this.fontOptions
+  }
+  set fonts(value: FontsOptions | undefined) {
+    if (this.fontOptions === value) return
+    this.fontOptions = value
+    this.resetFontResolution()
+    if (this.attached?.state.deck) this.update(this.attached.state)
   }
   set slots(value: SlotsOptions | undefined) {
     this.cancelSelectionRequests()
@@ -161,6 +179,7 @@ export class SegnaviaStage extends AsOfElement {
     this.slotGeneration++
     this.slotDeck = null
     this.resolvedSlots = undefined
+    this.resetFontResolution()
     this.attached?.removeEventListener('change', this.onChange)
     this.attached?.removeEventListener('error', this.onControllerError)
     this.attached = controller
@@ -195,6 +214,7 @@ export class SegnaviaStage extends AsOfElement {
   disconnectedCallback() {
     this.cancelSelectionRequests()
     this.cancelSlotPreparation()
+    this.cancelFontResolution()
     this.slotDeck = null
     this.resolvedSlots = undefined
     this.pool.cancelPending()
@@ -268,6 +288,35 @@ export class SegnaviaStage extends AsOfElement {
     this.refused?.update(state)
     const deck = state.deck
     if (!deck || !state.content) return
+    const fontInput = this.fontOptions ?? this.attached?.fonts
+    const fontOrigins = this.origins
+    if (this.fontDeck !== deck || this.fontInput !== fontInput || this.fontOrigins !== fontOrigins) {
+      this.fontResolution?.abort()
+      this.fontResolution = undefined
+      const generation = ++this.fontGeneration
+      const controller = new AbortController()
+      this.fontDeck = deck
+      this.fontInput = fontInput
+      this.fontOrigins = fontOrigins
+      if (!fontInput) this.resolvedFonts = { css: '', failures: [] }
+      else {
+        this.resolvedFonts = undefined
+        this.fontResolution = controller
+        void resolveFonts(deck.style?.fonts, { ...fontInput, origins: fontOrigins, signal: controller.signal })
+          .then((resolved) => {
+            if (!this.isConnected || controller.signal.aborted || generation !== this.fontGeneration || this.fontDeck !== deck) return
+            this.resolvedFonts = resolved
+            this.fontResolution = undefined
+            this.rebuildFrames()
+          })
+          .catch((error) => {
+            if (!this.isConnected || controller.signal.aborted || generation !== this.fontGeneration || this.fontDeck !== deck) return
+            this.fontResolution = undefined
+            dispatchElementError(this, error)
+          })
+      }
+    }
+    if (!this.resolvedFonts) return
     if (this.slotDeck !== deck) {
       this.cancelSlotPreparation()
       this.slotGeneration++
@@ -306,6 +355,8 @@ export class SegnaviaStage extends AsOfElement {
       csp: this.cspExtra,
       forms: this.forms ?? this.attached?.forms,
       origins: this.origins,
+      fontCss: this.resolvedFonts.css,
+      fontFailures: this.resolvedFonts.failures,
       frameTitle: this.frameTitle,
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -369,6 +420,20 @@ export class SegnaviaStage extends AsOfElement {
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
+  }
+
+  private cancelFontResolution() {
+    this.fontResolution?.abort()
+    this.fontResolution = undefined
+  }
+
+  private resetFontResolution() {
+    this.cancelFontResolution()
+    this.fontGeneration++
+    this.fontDeck = null
+    this.fontInput = undefined
+    this.fontOrigins = undefined
+    this.resolvedFonts = undefined
   }
 
   private rebuildFrames() {

@@ -1,4 +1,4 @@
-import type { Deck, OriginApproval, Slide } from '@segnavia/format'
+import type { Deck, FontFailure, OriginApproval, Slide } from '@segnavia/format'
 import { documentNeedsSlotFit } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
@@ -22,6 +22,7 @@ export function thumbnailCanvas(
   origins?: Iterable<OriginApproval>,
   // A caller that inspects the slide's animation through its frame needs the bridge to answer.
   reportsAnimation = false,
+  fonts: { css: string; failures: FontFailure[] } = { css: '', failures: [] },
 ): HTMLElement {
   const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots)))
   const folio = deckFolioAt(deckFolios(deck), index)
@@ -30,6 +31,8 @@ export function thumbnailCanvas(
     css,
     csp: '',
     origins,
+    fontCss: fonts.css,
+    fontFailures: fonts.failures,
     frameTitle: defaultFrameTitle,
     loaded: () => {},
     failed: (error) => dispatchElementError(canvas, error),

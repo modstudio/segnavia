@@ -82,7 +82,7 @@ export async function renderPagesPdfOperation(
         },
         piecePdf: (page, slots, geometry, css, options, tagged) =>
           renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark), tagged),
-        fontFaces: (options) => `${preparedInputs.accepted[0]?.fontCss ?? ''}${fontFaces(options.fonts)}`,
+        fontFaces: (options) => `${preparedInputs.accepted[0]?.fontCss ?? ''}${fontFaces(options.fonts, options.origins)}`,
         finish: async (pdf) => pdf,
         watermark: watermarkCopies.stamp,
         progress: copyReporter,

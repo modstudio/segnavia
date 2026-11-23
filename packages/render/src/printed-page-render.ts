@@ -27,7 +27,7 @@ export function renderedPageDocument(
     }
     return printedPageValueDocument(page, {
       nonce: newNonce(),
-      baseCss: `${fontCss}${fontFaces(options.fonts)}`,
+      baseCss: `${fontCss}${fontFaces(options.fonts, options.origins)}`,
       css: options.css,
       layoutScripts,
       readyCallback: RENDER_READY_BINDING,

@@ -68,6 +68,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   declare css: PlayerForwardedProperties['css']
   declare cspExtra: PlayerForwardedProperties['cspExtra']
   declare forms: PlayerForwardedProperties['forms']
+  declare fonts: PlayerForwardedProperties['fonts']
   declare origins: PlayerForwardedProperties['origins']
   declare slots: PlayerForwardedProperties['slots']
   declare transition: PlayerForwardedProperties['transition']

@@ -19,6 +19,7 @@ import { mountThumbnailDesignedCover, thumbnailCoverFrameInputs, thumbnailCoverS
 import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
+import { resolveFonts } from './page-fonts.ts'
 
 function thumbnailDayChangesCanvas(deck: Deck, content: ResolvedContent, slots: ThumbnailProperties['slots'], refused: boolean): boolean {
   return refused || hasSlotWork(deck.slots, slots) || (content.kind === 'html' && hasAsOfBinding(content.html))
@@ -277,9 +278,12 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.controller = controller
     try {
       await controller.loadDeckValue(deck, this.baseUrl)
+      const resolvedFonts = this.fontOptions
+        ? await resolveFonts(deck.style?.fonts, { ...this.fontOptions, origins: this.origins, signal: new AbortController().signal })
+        : { css: '', failures: [] }
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, undefined, this.origins)
+      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, undefined, this.origins, false, resolvedFonts)
       authored.part.add('canvas')
       this.viewport.append(authored)
       this.measure()
@@ -301,7 +305,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
         const slots = await prepareSurfaceSlots(refusal ? undefined : deck.slots, established, slotPreparation.signal)
         if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
         dispatchAsof(this, established.day)
-        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots, this.origins)
+        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots, this.origins, false, resolvedFonts)
         filled.part.add('canvas')
         this.viewport.replaceChildren(filled)
         this.measure()

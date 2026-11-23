@@ -179,16 +179,28 @@ export type LocalFaceTransport = z.infer<typeof LocalFaceTransport>
 export const LocalFacesTransport = z.array(LocalFaceTransport)
 export type LocalFacesInput = LocalFaceTransport[]
 
-export interface FontFace {
+interface FontFaceBase {
   family: string
-  data: Uint8Array
   format: FontFormat
   // A CSS font-weight: 'normal' or 'bold', an integer 1-1000, or two such integers low then high separated by one space (a variable-font range).
   weight?: number | string
   style?: 'normal' | 'italic'
   unicodeRange?: string
-  postscriptName?: string
 }
+
+export type FontFace = FontFaceBase &
+  (
+    | {
+        data: Uint8Array
+        url?: never
+        postscriptName?: string
+      }
+    | {
+        url: string
+        data?: never
+        postscriptName?: never
+      }
+  )
 
 export interface AppFont {
   family: string

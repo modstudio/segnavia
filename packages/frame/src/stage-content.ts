@@ -1,4 +1,4 @@
-import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
+import { type Deck, type Folio, firstStrongDirection, type FontFailure, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
 import { type BuiltFrameDocument, buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -15,6 +15,8 @@ interface StageCanvasOptions {
   csp: string
   forms?: FormsOption
   origins?: Iterable<OriginApproval>
+  fontCss?: string
+  fontFailures?: FontFailure[]
   frameTitle: FrameTitle
   loaded: () => void
   slots?: PreparedSlots
@@ -35,10 +37,11 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       dir: deck.dir,
       lang: deck.lang,
       fonts: deck.style?.fonts,
-      sheets: frameStyleSheets(deck.style, deck.brand),
+      sheets: frameStyleSheets(deck.style, deck.brand, options.fontCss),
       css: options.css,
       csp: options.csp || undefined,
       origins: options.origins,
+      fontFailures: options.fontFailures,
       reportHeight: false,
       bridge: options.bridge,
       preflight: options.preflight,
