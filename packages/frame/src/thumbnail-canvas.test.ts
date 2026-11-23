@@ -20,12 +20,19 @@ const controller = {
     return '/frames/thumbnail'
   },
 } as DeckController
+const unserved = { url: (src: string) => src } as DeckController
 
-function htmlThumbnail(html: string, slots?: PreparedSlots, reportsAnimation = false, origins?: Parameters<typeof thumbnailCanvas>[7]) {
+function htmlThumbnail(
+  html: string,
+  slots?: PreparedSlots,
+  reportsAnimation = false,
+  origins?: Parameters<typeof thumbnailCanvas>[7],
+  host: DeckController = controller,
+) {
   const deck = Deck.parse({ title: 'Thumbnail', slides: [{ id: 'one', content: { kind: 'html', html } }] })
   const slide = deck.slides[0]
   if (!slide) throw new Error('Expected a slide.')
-  return thumbnailCanvas(controller, deck, slide, 0, slide.content as ResolvedContent, '', slots, origins, reportsAnimation).querySelector('iframe')
+  return thumbnailCanvas(host, deck, slide, 0, slide.content as ResolvedContent, '', slots, origins, reportsAnimation).querySelector('iframe')
 }
 
 describe('thumbnail geometry and resolution identity', () => {
@@ -73,6 +80,14 @@ describe('thumbnail geometry and resolution identity', () => {
     await Promise.resolve()
     expect(served[0]?.html).toContain('<script nonce="')
     expect(served[0]?.policy).toContain("script-src 'nonce-")
+    expect(frame?.getAttribute('sandbox')).toBe('allow-scripts')
+  })
+
+  test('without a seam, a bridged preview keeps its document in srcdoc', () => {
+    const frame = htmlThumbnail('<p>Rail preview</p>', undefined, true, undefined, unserved)
+    expect(frame?.srcdoc).toContain('<script nonce="')
+    expect(frame?.srcdoc).toContain("script-src 'nonce-")
+    expect(frame?.src ?? '').toBe('')
     expect(frame?.getAttribute('sandbox')).toBe('allow-scripts')
   })
 
