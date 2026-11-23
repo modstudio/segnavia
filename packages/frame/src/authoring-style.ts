@@ -1,6 +1,4 @@
-import { CORNER_SCALE_CSS } from './controls-style.ts'
-
-export const NOTES_CSS = `<style data-segnavia-authoring>${CORNER_SCALE_CSS}
+export const NOTES_CSS = `<style data-segnavia-authoring>
 [data-authoring-notes]{display:grid;gap:6px;padding:12px;border-block-start:1px solid var(--_line);background:var(--_surface)}
 [data-authoring-notes] label{font:600 13px/1.4 system-ui;color:var(--_ink)}
 [data-authoring-notes] textarea{box-sizing:border-box;inline-size:100%;min-block-size:96px;resize:block;padding:9px 10px;border:1px solid var(--_line);border-radius:var(--_radius-field);background:var(--_bg);color:var(--_ink);font:inherit}

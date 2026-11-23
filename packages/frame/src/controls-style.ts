@@ -16,8 +16,8 @@ export const CORNER_SCALE_CSS = `
   --_radius:var(--segnavia-radius,12px);
   --_radius-control:calc(var(--_radius) * 5 / 6);
   --_radius-field:calc(var(--_radius) * 2 / 3);
-  --_radius-menu-item:calc(var(--_radius) * 7 / 12);
-  --_radius-menu:calc(var(--_radius) * 1 / 2);
+  --_radius-panel-button:calc(var(--_radius) * 7 / 12);
+  --_radius-toggle:calc(var(--_radius) * 1 / 2);
   --_radius-list-item:calc(var(--_radius) * 5 / 12);
   --_radius-mark:calc(var(--_radius) * 1 / 3);
   --_radius-line:calc(var(--_radius) * 1 / 6);

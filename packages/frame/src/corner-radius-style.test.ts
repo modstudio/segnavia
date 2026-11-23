@@ -3,19 +3,18 @@ import { CORNER_SCALE_CSS } from './controls-style.ts'
 
 test('the corner scale reproduces the styled component defaults at 12px', () => {
   const roles = {
-    control: [5, 6, 10],
-    field: [2, 3, 8],
-    'menu-item': [7, 12, 7],
-    menu: [1, 2, 6],
-    'list-item': [5, 12, 5],
-    mark: [1, 3, 4],
-    line: [1, 6, 2],
+    control: [5, 6],
+    field: [2, 3],
+    'panel-button': [7, 12],
+    toggle: [1, 2],
+    'list-item': [5, 12],
+    mark: [1, 3],
+    line: [1, 6],
   } as const
 
   expect(CORNER_SCALE_CSS).toContain('--_radius:var(--segnavia-radius,12px)')
-  for (const [role, [numerator, denominator, defaultRadius]] of Object.entries(roles)) {
+  for (const [role, [numerator, denominator]] of Object.entries(roles)) {
     expect(CORNER_SCALE_CSS).toContain(`--_radius-${role}:calc(var(--_radius) * ${numerator} / ${denominator})`)
-    expect((12 * numerator) / denominator).toBe(defaultRadius)
   }
 })
 
@@ -23,15 +22,20 @@ test('styled corner declarations use the corner scale or a named exception', asy
   const exceptions = new Map([
     ['base-style.ts:inherit', 1],
     ['controls.ts:50%', 1],
+    ['document-rail.ts:inherit', 1],
     ['item-settings-style.ts:var(--segnavia-radius,0)', 1],
     ['player-style.ts:0', 2],
     ['print-document.ts:${frame.borderRadius', 1],
+    ['rail.ts:inherit', 1],
   ])
   const foundExceptions = new Map<string, number>()
+  const definedAliases = new Set([...CORNER_SCALE_CSS.matchAll(/(--_radius(?:-[\w-]+)?):/g)].map((match) => match[1]))
+  const referencedAliases = new Set<string>()
 
   const files = [...new Bun.Glob('*.ts').scanSync(import.meta.dir)].filter((name) => !name.endsWith('.test.ts')).sort()
   for (const file of files) {
     const source = await Bun.file(`${import.meta.dir}/${file}`).text()
+    for (const match of source.matchAll(/var\((--_radius(?:-[\w-]+)?)/g)) referencedAliases.add(match[1] ?? '')
     for (const match of source.matchAll(/border-radius:([^;}]+)/g)) {
       const value = match[1]?.trim() ?? ''
       if (value.includes('var(--_radius')) continue
@@ -41,5 +45,8 @@ test('styled corner declarations use the corner scale or a named exception', asy
     }
   }
 
+  for (const alias of referencedAliases) {
+    expect(definedAliases.has(alias), `undefined corner-scale alias ${alias}`).toBeTrue()
+  }
   expect(foundExceptions).toEqual(exceptions)
 })

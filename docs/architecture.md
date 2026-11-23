@@ -989,13 +989,13 @@ Styled component corners share one scale. `--segnavia-radius` is the outer corne
 | Player box | 1 | 12px |
 | Buttons, thumbnails, rails and paper orientation | 5/6 | 10px |
 | Fields, settings panels and notes textarea | 2/3 | 8px |
-| Item-settings and slide-panel buttons | 7/12 | 7px |
-| Slide menu | 1/2 | 6px |
+| Item-settings launcher and slide-settings panel buttons | 7/12 | 7px |
+| Rail slide-menu toggle | 1/2 | 6px |
 | Slide-settings list buttons | 5/12 | 5px |
-| Track segment, rail numbers, print mark and caption word | 1/3 | 4px |
+| Segmented track segment, rail numbers, print mark and caption word | 1/3 | 4px |
 | Track fill and line, and reorder marker | 1/6 | 2px |
 
-The play button remains circular. Fullscreen and presentation use square window edges. The player stage keeps a concentric corner of four pixels less than the outer corner, clamped at zero. Item settings retain their square default until the host sets `--segnavia-radius`. Image-frame geometry and the Markdown raw-inline `--segnavia-markdown-raw-inline-radius` token are independent of the control scale. Headless thumbnail geometry inherits its containing corner.
+The play button remains circular. Fullscreen and presentation use square window edges. Continuous track segments stay square. The player stage keeps a concentric corner of four pixels less than the outer corner, clamped at zero. Item settings retain their square default until the host sets `--segnavia-radius`. Image-frame geometry and the Markdown raw-inline `--segnavia-markdown-raw-inline-radius` token are independent of the control scale. Headless thumbnail geometry inherits its containing corner.
 
 Compact below-controls uses one recipe. The player's container query and its measure path share `COMPACT_PLAYER_WIDTH` (560). At that width and below, with `controls` below and not presenting, the bar flattens into the player grid: slide, caption, track, transport row, rail, host actions side by side, then `below`. The stage takes a light edge. The shadow tree is the same at every width: `.actions` stays inside `.end`, so keyboard order is Play, Next, host actions, end controls, then rail, even though compact paints the actions last. Moving `.actions` after `segnavia-rail` was tried and rejected, because Chromium's Tab then left the player at the rail and never reached the actions; reachability outranks matching the painted order. A slotted `<button>` with text stretches to its share of the row instead of keeping the icon-button square. Overlay compact does not flatten: the bar stays stacked on the slide, actions remain a second row of that bar, and the rail sits below the slide. Presentation keeps the bar as a box, hides the rail, and also keeps desk DOM. With no assigned `slot="actions"` nodes the player drops `data-actions` and the actions row is hidden, so containment reserves no height for it. Compact transport padding uses logical insets. Overlay caption clearance uses `--segnavia-bar-height`, an internal custom property the player sets on the caption from the measured bar; it is not host output. At compact widths the player still hides the counter and notes panel and, below 380px, presentation.
 
