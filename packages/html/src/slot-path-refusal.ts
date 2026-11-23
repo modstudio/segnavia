@@ -4,8 +4,8 @@ import { elements, parse } from './sanitize.ts'
 
 /** Refuses value bindings absent from the declarations available when the HTML is shown. */
 export function refuseUndefinedSlotPaths(html: string, declaredKeys: Iterable<string>): string {
-  if (!html.includes('data-slot-value')) return html
   const valueName = bindingNames('slot').value
+  if (!html.toLowerCase().includes(valueName)) return html
   const defined = new Set(declaredKeys)
   const document = parse(html)
   for (const element of elements(document.children)) {

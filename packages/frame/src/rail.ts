@@ -2,6 +2,7 @@ import { animationMessage, MESSAGE } from './bridge.ts'
 import { SegnaviaDeckControl } from './control.ts'
 import type { DeckState } from './controller.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
+import { dispatchElementError } from './element-error.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection } from './rail-navigation.ts'
 import { railOrderMoves } from './rail-order.ts'
@@ -319,7 +320,7 @@ export class SegnaviaRail extends SegnaviaDeckControl {
         preview.append(canvas)
         this.measure()
       })
-      .catch(() => {})
+      .catch((error) => dispatchElementError(preview, error))
   }
 
   private unmount(index: number, state: DeckState) {

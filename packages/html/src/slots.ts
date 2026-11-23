@@ -1,5 +1,5 @@
 import {
-  AS_OF_SLOT_DECLARATIONS,
+  AS_OF_SLOT_KEYS,
   mergeSlotDeclarations,
   Refusal,
   resolveSlotValue,
@@ -318,7 +318,7 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
     return html
   }
   const names = bindingNames('slot')
-  refuseUndefinedSlotPaths(html, [...resolved.declarations.keys(), ...AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)])
+  refuseUndefinedSlotPaths(html, [...resolved.declarations.keys(), ...AS_OF_SLOT_KEYS])
   const document = parse(html)
   const bound = elements(document.children).filter(
     (element) => element.attribs['data-slot-overflow'] !== undefined || Object.values(names).some((name) => element.attribs[name] !== undefined),

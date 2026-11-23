@@ -14,6 +14,21 @@ test('filledPage refuses an undefined value binding with no declarations or host
   await expect(filledPage(page, undefined)).rejects.toThrow('data-slot-value names undefined slot path "nope"')
 })
 
+test('a printed section with no slot work refuses an undefined value binding', async () => {
+  const page = resolvePrintedPageHtml(
+    Page.parse({
+      scripts: 'refuse',
+      print: { paper: 'letter' },
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        parentRules: [{ parent: 'body' }],
+        sections: [{ id: 'body', html: '<p data-slot-value="nope"></p>' }],
+      },
+    }),
+  )
+  await expect(filledPage(page, undefined)).rejects.toThrow('data-slot-value names undefined slot path "nope"')
+})
+
 test('filledBook applies host values to chapters, designed pages, templates and regions', async () => {
   const book = parseBookFixture({
     title: 'Workbook',

@@ -17,7 +17,7 @@ import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { prepareShownPage, slotsForShownPage } from './page-preparation.ts'
 import { loadPrintedPageFrame } from './page-printed.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
+import { type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 export interface PageValueRenderOptions {
   motifs?: MotifsOptions
@@ -36,10 +36,6 @@ export interface PageValueRenderHandlers {
   write(document: string, provisional: boolean, hasLayoutScripts: boolean): void
   composed(identity: PageFrameIdentity): void
   fit(): void
-}
-
-function shownSlotDeclarations(page: HtmlPage, slots: SlotsOptions): Array<{ key: string }> {
-  return [...(page.slots ?? []), ...(slots.declarations ?? [])]
 }
 
 export function renderPageValue(
@@ -90,14 +86,13 @@ export function renderPageValue(
     }
     let sheets: string[]
     try {
-      slotHtml(resolvedPage.html, undefined, shownSlotDeclarations(resolvedPage, effectiveSlots))
       sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
     } catch (error) {
       handlers.report(error)
       handlers.fit()
       return
     }
-    const provisional = hasSlotWork(resolvedPage.slots, effectiveSlots)
+    const provisional = true
     loadPageDocument(
       resolvedPage,
       {
@@ -116,11 +111,10 @@ export function renderPageValue(
     )
     const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
     if (refusal) handlers.report(refusal)
-    else if (provisional) {
+    else
       void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
         .then((resolved) => handlers.show(resolvedPage, resolved))
         .catch(handlers.report)
-    }
     handlers.fit()
     return
   }

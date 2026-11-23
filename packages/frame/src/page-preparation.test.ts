@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test'
 import type { HtmlPage } from '@segnavia/html'
 import { prepareShownPage } from './page-preparation.ts'
-import { SlotFillRefusedError } from './slot-render.ts'
+import { prepareSlots, SlotFillRefusedError, slotHtml } from './slot-render.ts'
+
+test('host-only declarations remain provisional until prepared slot paths are known', async () => {
+  const html = '<p data-slot-value="host.name"></p><p data-slot-value="typo"></p>'
+  expect(slotHtml(html, undefined)).toBe(html)
+  const prepared = await prepareSlots(undefined, { declarations: [{ key: 'host.name', label: 'Host name', type: 'text' }] })
+  expect(() => prepared.apply('<p data-slot-value="host.name"></p>')).not.toThrow()
+  expect(() => prepared.apply(html)).toThrow('data-slot-value names undefined slot path "typo"')
+})
 
 test('a scripted slot fill refuses before an unresolved declared font', async () => {
   const page: HtmlPage = {
@@ -68,7 +76,6 @@ test('a page with no slot work refuses an undefined value binding', async () => 
     scripts: 'refuse',
     style: { fonts: {} },
   }
-  await expect(prepareShownPage(page, undefined, undefined, undefined, new AbortController().signal)).rejects.toThrow(
-    'data-slot-value names undefined slot path "nope"',
-  )
+  const prepared = await prepareShownPage(page, undefined, undefined, undefined, new AbortController().signal)
+  expect(() => prepared.resolved?.apply(prepared.page.html)).toThrow('data-slot-value names undefined slot path "nope"')
 })
