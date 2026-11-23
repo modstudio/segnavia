@@ -24,12 +24,13 @@ function page(): PlanValue['pages'][number] {
 
 function plan(): PlanValue {
   return {
-    version: 8,
+    version: 9,
     fingerprint: 'fnv1a64:0000000000000000',
     breaks: [],
     pages: [page()],
     folios: ['1'],
     folioPrints: [true],
+    numberingTotals: ['1'],
     total: '1',
     documentFolios: ['1'],
     documentTotal: '1',
@@ -45,6 +46,7 @@ function planWithPages(count: number): PlanValue {
     pages,
     folios: pages.map((item) => String(item.number)),
     folioPrints: pages.map(() => true),
+    numberingTotals: pages.map((item) => String(item.number)),
     documentFolios: pages.map((item) => String(item.number)),
   }
 }
@@ -56,7 +58,7 @@ describe('Plan', () => {
   })
 
   test('refuses the first invalid field with a clearing action', () => {
-    expect(() => Plan.parse({ ...plan(), version: 3 })).toThrow(/version.*compute a new plan to clear this refusal/)
+    expect(() => Plan.parse({ ...plan(), version: 8 })).toThrow(/version.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse(planWithPages(2), { limits: { pages: 1 } })).toThrow(/composed flow.*pages limit.*clear this refusal/)
     expect(() => Plan.parse({ ...plan(), pages: [{ ...page(), start: { flow: 'chapter', block: 0, line: -1 } }] })).toThrow(
       /pages.0.start.line.*non-negative.*clear this refusal/,
@@ -66,6 +68,7 @@ describe('Plan', () => {
     )
     expect(() => Plan.parse({ ...plan(), folios: [] })).toThrow(/folios.*pages.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse({ ...plan(), folioPrints: [] })).toThrow(/folioPrints.*pages.*compute a new plan to clear this refusal/)
+    expect(() => Plan.parse({ ...plan(), numberingTotals: [] })).toThrow(/numberingTotals.*pages.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse({ ...plan(), documentFolios: [] })).toThrow(/documentFolios.*pages.*compute a new plan to clear this refusal/)
   })
 

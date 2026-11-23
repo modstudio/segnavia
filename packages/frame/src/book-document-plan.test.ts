@@ -10,12 +10,13 @@ test('carries saved plans and breaks in config without closing the composer scri
     chapters: [{ id: 'chapter-a', title: 'One', html: '<p>Text</p>' }],
   })
   const plan = {
-    version: 8 as const,
+    version: 9 as const,
     fingerprint: '</script><script>unsafe()</script>',
     breaks: ['middle'],
     pages: [],
     folios: [],
     folioPrints: [],
+    numberingTotals: [],
     total: '0',
     documentFolios: [],
     documentTotal: '0',
@@ -24,7 +25,7 @@ test('carries saved plans and breaks in config without closing the composer scri
   }
   const html = bookValueDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
   expect(html).toContain('"breaks":["middle"]')
-  expect(html).toContain('"plan":{"version":8')
+  expect(html).toContain('"plan":{"version":9')
   expect(html).not.toContain('</script><script>unsafe()</script>')
   expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
 })

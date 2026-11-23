@@ -35,10 +35,13 @@ describe('planBook', () => {
     expect(result).toEqual({
       ok: true,
       plan: {
-        version: 8,
+        version: 9,
         pages: paginated.pages.map((page, index) => ({
           ...page,
-          variables: { ...(expectedFolios[index] ? { 'segnavia:folio': expectedFolios[index] } : {}), 'segnavia:pages-total': total },
+          variables: {
+            ...(expectedFolios[index] ? { 'segnavia:folio': expectedFolios[index] } : {}),
+            'segnavia:pages-total': folios.numberingTotals[index] ?? '',
+          },
         })),
         ...folios,
         ...documentNumbers,
@@ -79,24 +82,24 @@ describe('planBook', () => {
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
     expect(result.ok && result.plan.pages.filter((page) => page.flow === 'record').map((page) => page.variables)).toEqual([
       {
-        folio: '2',
+        folio: '1',
         'document-folio': '3',
         'record-folio': '1',
-        pages: '3',
+        pages: '2',
+        'document-pages': '4',
+        'record-pages': '2',
+        'segnavia:folio': '1',
+        'segnavia:pages-total': '2',
+      },
+      {
+        folio: '2',
+        'document-folio': '4',
+        'record-folio': '2',
+        pages: '2',
         'document-pages': '4',
         'record-pages': '2',
         'segnavia:folio': '2',
-        'segnavia:pages-total': '3',
-      },
-      {
-        folio: '3',
-        'document-folio': '4',
-        'record-folio': '2',
-        pages: '3',
-        'document-pages': '4',
-        'record-pages': '2',
-        'segnavia:folio': '3',
-        'segnavia:pages-total': '3',
+        'segnavia:pages-total': '2',
       },
     ])
   })
@@ -181,8 +184,8 @@ describe('planBook', () => {
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
     expect(result.ok && result.plan.pages.filter((page) => page.flow === 'record').map((page) => page.variables)).toEqual([
-      { 'record-pages': '2', 'segnavia:pages-total': '3' },
-      { 'record-folio': '2', 'record-pages': '2', 'segnavia:folio': '3', 'segnavia:pages-total': '3' },
+      { 'record-pages': '2', 'segnavia:pages-total': '2' },
+      { 'record-folio': '2', 'record-pages': '2', 'segnavia:folio': '1', 'segnavia:pages-total': '1' },
     ])
   })
 

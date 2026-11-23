@@ -55,6 +55,26 @@ test('resolves chapter-number on the server margin path', () => {
   expect(facts[0]?.variables?.chapter).toBe('4')
 })
 
+test('resolves numbering totals from the page owning run on the server margin path', () => {
+  const sections = [
+    { id: 'one', kind: 'chapter' as const, division: 'body' as const },
+    { id: 'two', kind: 'chapter' as const, division: 'body' as const, numbering: { restart: 8 } },
+  ]
+  const facts = marginFactsFor(
+    sections,
+    new Map([
+      ['one', { page: 1, x: 0, y: 0 }],
+      ['two', { page: 3, x: 0, y: 0 }],
+    ]),
+    4,
+    new Set(),
+    { system: 'arabic', printed: true },
+    [{ name: 'run-total', kind: 'pages', of: 'numbering' }],
+  )
+
+  expect(facts.map((page) => page.variables?.['run-total'])).toEqual(['2', '2', '9', '9'])
+})
+
 test('resolves content variables from ordered continuous-page set points', () => {
   const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const }]
   const pages = [

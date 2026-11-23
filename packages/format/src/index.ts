@@ -122,10 +122,12 @@ export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitV
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {
   computeFolios,
+  computeNumberingRuns,
   type Folio,
   folioScript,
   type NumberedPage,
   Numbering,
+  type NumberingRuns,
   SectionNumbering,
   sequenceFolios,
 } from './folio.ts'

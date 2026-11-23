@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computeFolios, folioScript, type Numbering, sequenceFolios } from './folio.ts'
+import { computeFolios, computeNumberingRuns, folioScript, type Numbering, sequenceFolios } from './folio.ts'
 
 const arabic: Numbering = { system: 'arabic', start: 1, restart: false, counted: true, printed: true }
 
@@ -60,6 +60,28 @@ describe('folio computation', () => {
     ])
   })
 
+  test('totals each numbering run with its last counted folio', () => {
+    expect(
+      computeNumberingRuns([
+        { numbering: arabic },
+        { numbering: arabic },
+        { numbering: { ...arabic, start: 1, restart: true } },
+        { numbering: arabic },
+        { numbering: { ...arabic, counted: false } },
+      ]),
+    ).toMatchObject({ runIndexes: [0, 0, 1, 1, 1], totals: ['2', '2'] })
+  })
+
+  test('keeps an uncounted-only run empty and formats Hebrew run totals', () => {
+    expect(
+      computeNumberingRuns([
+        { numbering: { ...arabic, counted: false } },
+        { numbering: { ...arabic, system: 'hebrew', start: 15, restart: true } },
+        { numbering: { ...arabic, system: 'hebrew' } },
+      ]),
+    ).toMatchObject({ runIndexes: [0, 1, 1], totals: ['', 'טז'] })
+  })
+
   test('builds a counted sequence in one number system', () => {
     expect(sequenceFolios(3, 'roman-upper')).toEqual([
       { number: 1, text: 'I', printed: true },
@@ -69,8 +91,9 @@ describe('folio computation', () => {
   })
 
   test('embeds the same folio computation in a script', () => {
-    const embedded = new Function(`${folioScript()};return {computeFolios,sequenceFolios}`)() as {
+    const embedded = new Function(`${folioScript()};return {computeFolios,computeNumberingRuns,sequenceFolios}`)() as {
       computeFolios: typeof computeFolios
+      computeNumberingRuns: typeof computeNumberingRuns
       sequenceFolios: typeof sequenceFolios
     }
     expect(embedded.computeFolios([{ numbering: { ...arabic, system: 'roman-upper', start: 4 } }])).toEqual([{ number: 4, text: 'IV', printed: true }])
@@ -78,6 +101,7 @@ describe('folio computation', () => {
       { number: 1, text: 'i', printed: true },
       { number: 2, text: 'ii', printed: true },
     ])
+    expect(embedded.computeNumberingRuns([{ numbering: arabic }]).totals).toEqual(['1'])
   })
 
   test('keeps embedded formatter and folio names after minification', async () => {
@@ -104,8 +128,9 @@ describe('folio computation', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {computeFolios,sequenceFolios}`)() as {
+    const embedded = new Function(`${script};return {computeFolios,computeNumberingRuns,sequenceFolios}`)() as {
       computeFolios: typeof computeFolios
+      computeNumberingRuns: typeof computeNumberingRuns
       sequenceFolios: typeof sequenceFolios
     }
     expect(embedded.computeFolios([{ numbering: { ...arabic, system: 'hebrew', start: 15 } }])).toEqual([{ number: 15, text: 'טו', printed: true }])

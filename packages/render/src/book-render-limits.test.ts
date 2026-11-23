@@ -29,12 +29,13 @@ function planPage(number: number): Plan['pages'][number] {
 function savedPlan(pageCount: number): Plan {
   const pages = Array.from({ length: pageCount }, (_, index) => planPage(index + 1))
   return {
-    version: 8,
+    version: 9,
     fingerprint: 'saved',
     breaks: [],
     pages,
     folios: pages.map((page) => String(page.number)),
     folioPrints: pages.map(() => true),
+    numberingTotals: pages.map(() => String(pageCount)),
     total: String(pageCount),
     documentFolios: pages.map((page) => String(page.number)),
     documentTotal: String(pageCount),
