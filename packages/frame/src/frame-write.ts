@@ -28,14 +28,20 @@ function serveFrameRefusal(document: ServedFrameDocument, reason: unknown): Erro
   )
 }
 
-export async function writeFrameDocument(iframe: HTMLIFrameElement, document: ServedFrameDocument, serve?: ServeFrame): Promise<boolean> {
+export async function writeFrameDocument(
+  iframe: HTMLIFrameElement,
+  html: string,
+  kind: ServedFrameKind,
+  serve?: ServeFrame,
+): Promise<boolean> {
   const write = (writes.get(iframe) ?? 0) + 1
   writes.set(iframe, write)
   if (!serve) {
     iframe.removeAttribute?.('src')
-    iframe.srcdoc = document.html
+    iframe.srcdoc = html
     return true
   }
+  const document = { html, policy: frameDocumentPolicy(html), kind }
   let value: string
   try {
     value = await serve(document)
@@ -46,7 +52,7 @@ export async function writeFrameDocument(iframe: HTMLIFrameElement, document: Se
   if (writes.get(iframe) !== write) return false
   let url: URL
   try {
-    url = new URL(value, typeof location === 'undefined' ? 'https://example.test/' : location.href)
+    url = new URL(value, iframe.ownerDocument.baseURI)
   } catch {
     throw serveFrameRefusal(document, `the returned value ${JSON.stringify(value)} is not a URL`)
   }
@@ -55,8 +61,4 @@ export async function writeFrameDocument(iframe: HTMLIFrameElement, document: Se
   iframe.removeAttribute?.('srcdoc')
   iframe.src = url.href
   return true
-}
-
-export function servedFrameDocument(html: string, kind: ServedFrameKind): ServedFrameDocument {
-  return { html, policy: frameDocumentPolicy(html), kind }
 }

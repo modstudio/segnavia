@@ -9,7 +9,7 @@ import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from '
 import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -242,11 +242,7 @@ export class SegnaviaBook extends BookSourcesElement {
     if (layout) iframe.dataset.segnaviaBookLayout = layout
     iframe.dataset.segnaviaBookGeneration = String(this.loadGeneration)
     iframe.title = rendered.title
-    void writeFrameDocument(
-      iframe,
-      { html: rendered.srcdoc, policy: this.serveFrameValue ? frameDocumentPolicy(rendered.srcdoc) : '', kind: 'book' },
-      this.serveFrameValue,
-    ).catch((error) => bookElement.reportBookError(this, error))
+    void writeFrameDocument(iframe, rendered.srcdoc, 'book', this.serveFrameValue).catch((error) => bookElement.reportBookError(this, error))
     return iframe
   }
 

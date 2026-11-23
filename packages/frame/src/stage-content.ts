@@ -2,7 +2,7 @@ import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type 
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 import { LAYOUT_FRAME_ATTRIBUTE, type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
@@ -51,11 +51,9 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
 
 function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, options: StageCanvasOptions): void {
   iframe.addEventListener('load', options.loaded, { once: true })
-  void writeFrameDocument(
-    iframe,
-    { html: srcdoc, policy: options.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: options.kind ?? 'slide' },
-    options.serveFrame,
-  ).catch((reason) => options.failed?.(reason instanceof Error ? reason : new Error(String(reason))))
+  void writeFrameDocument(iframe, srcdoc, options.kind ?? 'slide', options.serveFrame).catch((reason) =>
+    options.failed?.(reason instanceof Error ? reason : new Error(String(reason))),
+  )
 }
 
 function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript {

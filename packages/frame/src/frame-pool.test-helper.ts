@@ -13,6 +13,8 @@ export class FramePoolTestElement {
   part = { add() {} }
   title = ''
   srcdoc = ''
+  src = ''
+  ownerDocument = { baseURI: 'https://frames.example/deck/' } as Document
   inert = false
   isConnected = false
   contentWindow: Record<string, never> | null = null

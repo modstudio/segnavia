@@ -4,6 +4,7 @@ import type { DeckController, ResolvedContent } from './controller.ts'
 import { installFramePoolTestDocument } from './frame-pool.test-helper.ts'
 import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
 import { stageCanvas } from './stage-content.ts'
+import type { ServedFrameDocument } from './frame-write.ts'
 
 let restoreDocument = () => {}
 beforeAll(() => {
@@ -23,6 +24,27 @@ const controller = { url: (src: string) => `https://example.test/${src}` } as De
 const options = { css: '', csp: '', frameTitle: () => '', loaded: () => {}, folio: { number: 1, text: '1', printed: true } }
 
 describe('stageCanvas', () => {
+  test('serves an HTML slide through the controller seam', async () => {
+    let received: ServedFrameDocument | undefined
+    const servedController = {
+      ...controller,
+      serveFrame: (document: ServedFrameDocument) => {
+        received = document
+        return '/frames/slide'
+      },
+    } as DeckController
+    const slide = deck.slides[0]
+    if (!slide) throw new Error('Expected the HTML slide.')
+    const canvas = stageCanvas(servedController, deck, slide, slide.content as ResolvedContent, {
+      ...options,
+      serveFrame: servedController.serveFrame,
+    })
+    await Promise.resolve()
+    const iframe = canvas.querySelector('iframe')
+    expect(received?.kind).toBe('slide')
+    expect(iframe?.src).toBe('https://frames.example/frames/slide')
+  })
+
   test('permits forms only in frame-policy HTML documents', () => {
     const htmlSlide = deck.slides[0]
     const urlSlide = deck.slides[1]

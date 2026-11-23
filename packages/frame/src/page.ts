@@ -19,7 +19,7 @@ import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { loadShownPageDocument } from './page-document-loading.ts'
@@ -374,7 +374,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
       },
       { once: true },
     )
-    void writeFrameDocument(iframe, { html: srcdoc, policy: this.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: 'page' }, this.serveFrame).catch(
+    void writeFrameDocument(iframe, srcdoc, 'page', this.serveFrame).catch(
       (error) => {
         if (written === this.documentWrites) dispatchPageFailure(this, error, true)
       },

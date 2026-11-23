@@ -1,7 +1,7 @@
 import type { OriginApproval, PreflightProfile } from '@segnavia/format'
 import { frameSandbox, newNonce } from './bridge.ts'
 import { dispatchElementError } from './element-error.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
 import type { PreparedPrintedPages } from './printed-pages-load.ts'
 import {
@@ -147,9 +147,7 @@ export function composePrintedPaper(
   frame.dataset.generation = String(generation)
   frame.style.visibility = 'hidden'
   const html = state.nonce === candidateNonce ? candidate : build(state.nonce)
-  void writeFrameDocument(frame, { html, policy: options.serveFrame ? frameDocumentPolicy(html) : '', kind: 'printed-page' }, options.serveFrame).catch(
-    options.failed,
-  )
+  void writeFrameDocument(frame, html, 'printed-page', options.serveFrame).catch(options.failed)
   state.document = html
   state.pending = frame
   state.slot.append(frame)
