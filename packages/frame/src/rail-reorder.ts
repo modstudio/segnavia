@@ -2,7 +2,7 @@ import type { TextDirection } from '@segnavia/format'
 import { railMoveTarget, railSelection } from './rail-navigation.ts'
 
 export const RAIL_REORDER_CSS = `
-button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:2px}
+button[data-insert="before"]::before,button[data-insert="after"]::after{content:"";position:absolute;z-index:3;inset-inline:0;block-size:3px;background:var(--segnavia-accent,#356ae6);border-radius:var(--_radius-line)}
 button[data-insert="before"]::before{inset-block-start:-6px}button[data-insert="after"]::after{inset-block-end:-6px}
 `
 

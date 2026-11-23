@@ -11,7 +11,20 @@
 //
 // Logical properties throughout, so every component mirrors in right to left.
 
-export const TOKENS_CSS = `
+export const CORNER_SCALE_CSS = `
+:host{
+  --_radius:var(--segnavia-radius,12px);
+  --_radius-control:calc(var(--_radius) * 5 / 6);
+  --_radius-field:calc(var(--_radius) * 2 / 3);
+  --_radius-panel-button:calc(var(--_radius) * 7 / 12);
+  --_radius-toggle:calc(var(--_radius) * 1 / 2);
+  --_radius-list-item:calc(var(--_radius) * 5 / 12);
+  --_radius-mark:calc(var(--_radius) * 1 / 3);
+  --_radius-line:calc(var(--_radius) * 1 / 6);
+}
+`
+
+export const TOKENS_CSS = `${CORNER_SCALE_CSS}
 :host{
   --_bg:var(--segnavia-bg,light-dark(#f4f4f2,#0f1013));
   --_surface:var(--segnavia-surface,light-dark(#fff,#17181d));
@@ -20,7 +33,6 @@ export const TOKENS_CSS = `
   --_line:var(--segnavia-line,light-dark(#e1e1de,#2b2d35));
   --_accent:var(--segnavia-accent,light-dark(#3a52dd,#8d9dff));
   --_accent-ink:var(--segnavia-accent-ink,light-dark(#fff,#0f1013));
-  --_radius:var(--segnavia-radius,12px);
   --_font:var(--segnavia-font,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Hebrew","Noto Sans Arabic",sans-serif);
   --_control-size:var(--segnavia-control-size,36px);
   --_play-size:var(--segnavia-play-size,48px);
@@ -35,7 +47,7 @@ export const TOKENS_CSS = `
 export function buttonChrome(...selectors: string[]): string {
   const select = (state = '') => selectors.map((value) => (value.includes('&') ? value.replace('&', state) : `${value}${state}`)).join(',')
   const selector = select()
-  return `${selector}{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:10px;color:var(--_ink);cursor:pointer}
+  return `${selector}{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;inline-size:var(--_control-size);block-size:var(--_control-size);border-radius:var(--_radius-control);color:var(--_ink);cursor:pointer}
 ${select(':hover')}{background:var(--_line)}
 ${select(':focus-visible')}{outline:2px solid var(--_accent);outline-offset:1px}
 ${select('[disabled]')}{opacity:.35;cursor:default;background:none}`

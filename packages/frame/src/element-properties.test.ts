@@ -270,36 +270,38 @@ test('a continuous deck track renders segments beyond the furthest reach as lock
   expect(segments.map((segment) => segment.dataset.state)).toEqual(['done', 'current', 'locked'])
 })
 
-test('a segmented deck track labels titled and untitled slides', () => {
+test('a segmented deck track slider labels titled and untitled current slides', () => {
   const slides = [
     { id: 'a', title: 'Intro', content: { kind: 'html' as const, html: '' } },
     { id: 'b', content: { kind: 'html' as const, html: '' } },
   ]
-  const state = { ...initialDeckState(), deck: { slides }, slide: slides[0], index: 0 } as unknown as DeckState
-  const labels: string[] = []
-  const items = slides.map((_, index) => ({
-    dataset: { go: String(index) },
-    style: { setProperty() {} },
+  const attributes: Record<string, string> = {}
+  const list = {
+    tabIndex: -1,
     setAttribute(name: string, value: string) {
-      if (name === 'aria-label') labels[index] = value
+      attributes[name] = value
     },
-    removeAttribute() {},
-  }))
-  const renderer = trackPrototype as {
-    renderSegments(list: unknown, state: unknown, continuous: boolean): void
   }
+  const renderer = trackPrototype as {
+    configureAccessibility(list: unknown, state: unknown, continuous: boolean): void
+  }
+  const labels = { slides: 'Slides', slide: (number: number, total: number, title?: string) => (title ? `${title}, ${number}/${total}` : `${number}/${total}`) }
+  const playback = new DeckPlaybackState()
+  const state = { ...initialDeckState(), deck: { slides }, slide: slides[0], index: 0 } as unknown as DeckState
 
-  renderer.renderSegments.call(
-    {
-      deckController: { state },
-      labels: { slide: (number: number, total: number, title?: string) => (title ? `${title}, ${number}/${total}` : `${number}/${total}`) },
-    },
-    { querySelectorAll: () => items },
-    {},
-    false,
-  )
+  renderer.configureAccessibility.call({ labels }, list, playback.read(state), false)
+  expect(attributes).toEqual({
+    'aria-label': 'Slides',
+    role: 'slider',
+    'aria-valuemin': '1',
+    'aria-valuemax': '2',
+    'aria-valuenow': '1',
+    'aria-valuetext': 'Intro, 1/2',
+  })
+  expect(list.tabIndex).toBe(0)
 
-  expect(labels).toEqual(['Intro, 1/2', '2/2'])
+  renderer.configureAccessibility.call({ labels }, list, playback.read({ ...state, slide: slides[1] ?? null, index: 1 }), false)
+  expect(attributes['aria-valuetext']).toBe('2/2')
 })
 
 test('the rail labels titled and untitled slides', () => {
