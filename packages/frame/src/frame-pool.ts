@@ -1,7 +1,7 @@
-import { comparableContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { frameWindow } from './deck-window.ts'
 import type { FrameEntry } from './frame-entry.ts'
+import { poolContentValue } from './frame-pool-content.ts'
 import { addFrame, canReuseFrame, type FrameEvents, removeFrame, syncFrames } from './frame-pool-entry.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 import { type TurnTransition, transitionFor } from './transition.ts'
@@ -11,18 +11,6 @@ interface PendingTurn {
   visibleId: string
   running: boolean
   cancel: () => void
-}
-
-function poolContentValue(content: ResolvedContent, scripts: NonNullable<DeckState['deck']>['scripts'], controller: DeckController, options: PoolOptions) {
-  return comparableContent(
-    content,
-    (path) => controller.url(path),
-    scripts,
-    `${options.fontCss ?? ''}${options.css}`,
-    options.csp,
-    options.origins,
-    options.forms,
-  )
 }
 
 export class FramePool {

@@ -17,14 +17,9 @@ import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverFrameInputs, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
+import { resolveThumbnailFonts } from './thumbnail-fonts.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
-
-async function resolveThumbnailFonts(deck: Deck, options: ThumbnailProperties['fonts'], origins: ThumbnailProperties['origins']) {
-  return options ? resolveFonts(deck.style?.fonts, { ...options, origins, signal: new AbortController().signal }) : { css: '', failures: [] }
-}
-
-import { resolveFonts } from './page-fonts.ts'
 
 function thumbnailDayChangesCanvas(deck: Deck, content: ResolvedContent, slots: ThumbnailProperties['slots'], refused: boolean): boolean {
   return refused || hasSlotWork(deck.slots, slots) || (content.kind === 'html' && hasAsOfBinding(content.html))

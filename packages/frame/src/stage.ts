@@ -1,14 +1,3 @@
-// <segnavia-stage>: shows the current slide of a DeckController, scaled to
-// fit the box the host gives it, with a shot's annotations shown on cue. It
-// draws no controls and brings no appearance: a host styles it, and builds
-// its own controls from `stage.controller`.
-// Give it a controller, or a deck: attributes src, hash ("off" to leave the
-// address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
-// a slide (through the bridge), go to the controller in reading direction.
-// State is mirrored as data attributes for styling: data-slide, data-playing,
-// data-word, data-shown, data-direction and data-refused. A visible canvas has data-active, and
-// a pending incoming canvas on any swap has data-incoming. Motion uses
-// data-transition, data-entering, data-leaving, data-running and data-axis.
 import { type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
@@ -23,13 +12,12 @@ import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
 import type { FontsOptions, ResolvedFonts } from './page-fonts.ts'
 import { requestSelection } from './selection-request.ts'
-import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
+import type { PreparedSlots } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
 import { postLoadedStageCue, postReadyStageCue, postStageCue } from './stage-cue.ts'
-import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { defineStageFitProperty } from './stage-fit-property.ts'
-import { stageFrameEvents } from './stage-frame-events.ts'
 import { cancelStageFonts, stageFonts } from './stage-fonts.ts'
+import { stageFrameEvents } from './stage-frame-events.ts'
 import { recordFrameRefusal, shownFrameRefusal } from './stage-frame-refusal.ts'
 import { measureStage } from './stage-measure.ts'
 import { handleStageMessage } from './stage-message.ts'
@@ -40,6 +28,7 @@ import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { StageRefusalState } from './stage-refusal-state.ts'
 import type { StageReserve } from './stage-reserve.ts'
 import { cancelStageSelectionRequests, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
+import { resetStageSlots, stageSlots } from './stage-slots.ts'
 import { createSourceController } from './stage-source-controller.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
@@ -79,9 +68,6 @@ export class SegnaviaStage extends AsOfElement {
   declare serveFrame: StagePropertyValues['serveFrame']
   private slotOptions: SlotsOptions | undefined
   private resolvedSlots: PreparedSlots | undefined
-  private slotDeck: DeckState['deck'] = null
-  private slotGeneration = 0
-  private slotPreparation: AbortController | undefined
   private frameRebuilder = new StageFrameRebuilder(
     this.pool,
     () => this.attached,
@@ -110,10 +96,8 @@ export class SegnaviaStage extends AsOfElement {
   }
   set slots(value: SlotsOptions | undefined) {
     this.cancelSelectionRequests()
-    this.cancelSlotPreparation()
-    this.slotGeneration++
+    resetStageSlots(this)
     this.slotOptions = value
-    this.slotDeck = null
     this.rebuildFrames()
   }
 
@@ -170,9 +154,7 @@ export class SegnaviaStage extends AsOfElement {
   set controller(controller: DeckController | null) {
     const controllerUnchanged = controller === this.attached
     this.cancelSelectionRequests()
-    this.cancelSlotPreparation()
-    this.slotGeneration++
-    this.slotDeck = null
+    resetStageSlots(this)
     this.resolvedSlots = undefined
     cancelStageFonts(this)
     this.attached?.removeEventListener('change', this.onChange)
@@ -208,9 +190,8 @@ export class SegnaviaStage extends AsOfElement {
 
   disconnectedCallback() {
     this.cancelSelectionRequests()
-    this.cancelSlotPreparation()
+    resetStageSlots(this)
     cancelStageFonts(this)
-    this.slotDeck = null
     this.resolvedSlots = undefined
     this.pool.cancelPending()
     this.pool.clear()
@@ -297,33 +278,23 @@ export class SegnaviaStage extends AsOfElement {
   }
 
   private renderDeck(state: DeckState, deck: NonNullable<DeckState['deck']>, resolvedFonts: ResolvedFonts) {
-    if (this.slotDeck !== deck) {
-      this.cancelSlotPreparation()
-      this.slotGeneration++
-      const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
-      const refreshFrames = stageDayChangesFrames(deck, this.slotOptions, refusal !== undefined)
-      const generation = this.slotGeneration
-      const controller = new AbortController()
-      const asOfLoad = captureAsOfLoad(this)
-      this.slotPreparation = controller
-      this.slotDeck = deck
-      this.resolvedSlots = EMPTY_SLOTS
-      if (refusal) dispatchElementError(this, refusal)
-      void prepareStageDay(deck, asOfLoad, refusal ? undefined : deck.slots, refusal ? undefined : this.slotOptions, controller.signal)
-        .then(({ established, resolved }) => {
-          if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
-          this.resolvedSlots = resolved
-          dispatchAsof(this, established.day)
-          if (refreshFrames) this.rebuildFrames()
-        })
-        .catch((error) => {
-          if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
-          this.resolvedSlots = EMPTY_SLOTS
-          if (refreshFrames) this.rebuildFrames()
-          dispatchElementError(this, error)
-        })
-    }
-    if (!this.resolvedSlots) return
+    this.resolvedSlots = stageSlots(
+      this,
+      deck,
+      captureAsOfLoad(this),
+      this.slotOptions,
+      () => this.isConnected,
+      (error) => dispatchElementError(this, error),
+      (day, rebuild) => {
+        dispatchAsof(this, day)
+        if (rebuild) this.rebuildFrames()
+      },
+      (error, rebuild) => {
+        if (rebuild) this.rebuildFrames()
+        dispatchElementError(this, error)
+      },
+    )
+    if (!this.style) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.dataset.layout = deck.layout
     const scripts = shownScripts(deck.scripts, this.authoringRefusesScripts)
@@ -395,11 +366,6 @@ export class SegnaviaStage extends AsOfElement {
 
   private cancelSelectionRequestsExcept(slideId: string | undefined) {
     cancelStageSelectionRequests(this.selectionRequests, (request) => request.slideId === slideId)
-  }
-
-  private cancelSlotPreparation() {
-    this.slotPreparation?.abort()
-    this.slotPreparation = undefined
   }
 
   private rebuildFrames() {
