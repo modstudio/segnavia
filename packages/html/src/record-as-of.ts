@@ -13,7 +13,7 @@ import { fillAsOfBindings } from './as-of-bindings.ts'
 import { bindRecordValues } from './record-values.ts'
 
 type BookEntry = BookFrontMatterEntry | BookChapterEntry
-type BookHtmlMapper = (html: string) => string
+type BookHtmlMapper = (html: string, scope?: { recordSlots?: readonly string[] }) => string
 type ParentRegions = Record<string, { html: string }>
 
 export function fillParentRegions<T extends ParentRegions>(regions: T, day: AsOfDay): T {
@@ -21,6 +21,7 @@ export function fillParentRegions<T extends ParentRegions>(regions: T, day: AsOf
 }
 
 function mapBookEntry<T extends BookEntry>(entry: T, apply: BookHtmlMapper): T {
+  const scope = 'recordTemplate' in entry ? { recordSlots: entry.recordTemplate?.slots.map(({ key }) => key) } : undefined
   if (isDesignedSection(entry)) return { ...entry, pages: entry.pages.map((page) => ({ ...page, html: apply(page.html) })) }
   if (isTemplatedSection(entry)) {
     return {
@@ -31,7 +32,7 @@ function mapBookEntry<T extends BookEntry>(entry: T, apply: BookHtmlMapper): T {
       })),
     }
   }
-  if ('html' in entry) return { ...entry, html: apply(entry.html as string) } as T
+  if ('html' in entry) return { ...entry, html: apply(entry.html as string, scope) } as T
   return entry
 }
 
@@ -63,8 +64,18 @@ export function mapBookHtml(book: Book, apply: BookHtmlMapper): Book {
   }
 }
 
-export function bindBookRecordValues(book: Book): Book {
-  return mapBookEntries(book, (entry) => ('html' in entry ? (bindRecordValues(entry) as BookEntry) : entry))
+export function bindBookRecordValues(book: Book, apply: BookHtmlMapper = (html) => html): Book {
+  const bound = mapBookEntries(
+    book,
+    (entry) => {
+      if (!('html' in entry)) return mapBookEntry(entry, apply)
+      const scope = { recordSlots: entry.recordTemplate?.slots.map(({ key }) => key) }
+      const section = bindRecordValues(entry) as BookEntry
+      return { ...section, html: apply(section.html, scope) }
+    },
+    apply,
+  )
+  return { ...bound, templates: bound.templates.map((template) => ({ ...template, html: apply(template.html) })) }
 }
 
 export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {

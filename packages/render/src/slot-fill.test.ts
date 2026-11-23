@@ -100,6 +100,26 @@ test('filledBook binds a chapter record once before applying host slots', async 
   expect(() => bookDocument(value)).not.toThrow()
 })
 
+test('filledBook accepts a record-template slot used by entry HTML without host slot work', async () => {
+  const book = Book.parse({
+    title: 'Records',
+    mode: 'continuous',
+    body: [
+      {
+        id: 'one',
+        title: 'One',
+        html: '<p data-slot-value="name">Authored name</p>',
+        values: { name: 'Ada' },
+        record: { index: 1, count: 1 },
+        recordTemplate: { name: 'row', slots: [{ key: 'name', label: 'Name', type: 'text' }] },
+      },
+    ],
+  })
+
+  const { value } = await filledBook(book, undefined)
+  expect(() => bookDocument(value)).not.toThrow()
+})
+
 test('filledBook refuses a missing required slot by name', async () => {
   const book = parseBookFixture({
     title: 'Workbook',

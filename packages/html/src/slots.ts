@@ -311,14 +311,14 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
   }
 }
 
-function applySlots(html: string, resolved: ResolvedSlots): string {
+function applySlots(html: string, resolved: ResolvedSlots, scope?: { recordSlots?: readonly string[] }): string {
   resolved.markedHere.clear()
   if (!hasBindings(html, 'slot') && !html.includes('data-slot-overflow')) {
     resolved.frames.push(new Map())
     return html
   }
   const names = bindingNames('slot')
-  refuseUndefinedSlotPaths(html, [...resolved.declarations.keys(), ...AS_OF_SLOT_KEYS])
+  refuseUndefinedSlotPaths(html, [...resolved.declarations.keys(), ...AS_OF_SLOT_KEYS, ...(scope?.recordSlots ?? [])])
   const document = parse(html)
   const bound = elements(document.children).filter(
     (element) => element.attribs['data-slot-overflow'] !== undefined || Object.values(names).some((name) => element.attribs[name] !== undefined),
@@ -353,7 +353,7 @@ async function prepared(declarations: SlotDeclaration[], options: SlotsOptions, 
       return marked
     },
     frames: resolved.frames,
-    apply: (html) => applySlots(html, resolved),
+    apply: (html, scope) => applySlots(html, resolved, scope),
     mergeFit: (slots) => {
       const report = mergeSlotFitResults(declarations, resolved.report, slots)
       resolved.report = report

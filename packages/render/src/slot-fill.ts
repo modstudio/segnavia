@@ -1,4 +1,4 @@
-import { AS_OF_SLOT_KEYS, type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
+import { type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
   bindBookRecordValues,
@@ -14,7 +14,6 @@ import {
   prepareSlotCollection,
   prepareSlots,
   printedSectionBodies,
-  refuseUndefinedSlotPaths,
   requiredSlotRefusal,
   resolvePageHtml,
   type SlotPrintOptions,
@@ -29,12 +28,6 @@ export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions
 function refuseRequired(prepared: PreparedSlots): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
   if (refusal) throw refusal
-}
-
-function refuseUndefinedPrintedSectionSlots(section: PrintedHtmlPage['printedPages']['sections'][number], prepared: PreparedSlots): void {
-  const sectionKeys = 'pages' in section ? [] : (section.recordTemplate?.slots.map(({ key }) => key) ?? [])
-  const declaredKeys = [...prepared.declarations.map(({ key }) => key), ...sectionKeys, ...AS_OF_SLOT_KEYS]
-  for (const html of printedSectionBodies(section)) refuseUndefinedSlotPaths(html, declaredKeys)
 }
 
 export function filledPage(
@@ -69,11 +62,14 @@ export async function filledPage(
           const bound = 'pages' in section ? section : bindRecordValues(section)
           return withPrintedSectionBodies(
             bound,
-            printedSectionBodies(bound).map((html) => prepared.apply(html)),
+            printedSectionBodies(bound).map((html) => prepared.apply(html, { recordSlots: section.recordTemplate?.slots.map(({ key }) => key) })),
           )
         })
       : input.printedPages.sections
-    if (!work) for (const section of sections) refuseUndefinedPrintedSectionSlots(section, prepared)
+    if (!work)
+      for (const section of sections)
+        for (const html of printedSectionBodies(section))
+          prepared.apply(html, { recordSlots: 'pages' in section ? [] : section.recordTemplate?.slots.map(({ key }) => key) })
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
   }
   const page = 'html' in input ? input : resolvePageHtml(input)
@@ -129,7 +125,9 @@ export async function filledPages(
                   const bound = 'pages' in section ? section : bindRecordValues(section)
                   return withPrintedSectionBodies(
                     bound,
-                    printedSectionBodies(bound).map((html) => prepared.apply(html)),
+                    printedSectionBodies(bound).map((html) =>
+                      prepared.apply(html, { recordSlots: section.recordTemplate?.slots.map(({ key }) => key) }),
+                    ),
                   )
                 }),
               },
@@ -141,7 +139,10 @@ export async function filledPages(
     : pages
   if (!work) {
     for (const page of pages) {
-      if (isPrintedHtmlPage(page)) for (const section of page.printedPages.sections) refuseUndefinedPrintedSectionSlots(section, prepared)
+      if (isPrintedHtmlPage(page))
+        for (const section of page.printedPages.sections)
+          for (const html of printedSectionBodies(section))
+            prepared.apply(html, { recordSlots: 'pages' in section ? [] : section.recordTemplate?.slots.map(({ key }) => key) })
       else prepared.apply(page.html)
     }
   }
@@ -183,8 +184,8 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
   const work = hasSlotWork(book.slots, slots)
-  const value = work ? mapBookHtml(bindBookRecordValues(book), prepared.apply) : book
-  if (!work) mapBookHtml(book, prepared.apply)
+  const filled = bindBookRecordValues(book, prepared.apply)
+  const value = work ? filled : book
   return { value, slots: prepared }
 }
 
