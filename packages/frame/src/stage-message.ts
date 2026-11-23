@@ -1,4 +1,5 @@
-import { dispatchFontFailures, MESSAGE, messageFrom } from './bridge.ts'
+import type { FontFailure } from '@segnavia/format'
+import { MESSAGE, messageFrom } from './bridge.ts'
 import type { DeckController } from './controller.ts'
 import type { FramePool } from './frame-pool.ts'
 import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
@@ -14,11 +15,12 @@ export function handleStageMessage(
   refuse: (slideId: string, cause: unknown) => void,
   ready: (slideId: string) => void,
   event: MessageEvent,
+  reportFontFailures: (failures: FontFailure[]) => void = () => {},
 ) {
   const message = messageFrom(event, pool.frames(), surfacePreflightFor(target).resolvedProfile())
   const content = pool.contentFor(event.source)
   dispatchSoundPlay(target, message, content?.kind === 'html' ? content.sounds : undefined)
-  dispatchFontFailures(target, message)
+  if (message?.type === MESSAGE.fontFailures && message.failures) reportFontFailures(message.failures)
   if (message?.type === MESSAGE.preflight && message.report && surfacePreflightFor(target).enabled) {
     const slideId = pool.slideIdFor(event.source)
     if (slideId) surfacePreflightFor(target).receive(slideId, message.report)

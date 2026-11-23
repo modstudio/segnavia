@@ -91,7 +91,8 @@ function validatedFace(font: FontFace, origins?: Iterable<OriginApproval>): Font
 export function fontFaceCss(font: FontFace, origins?: Iterable<OriginApproval>): string {
   const validated = validatedFace(font, origins)
   if ('url' in validated) {
-    return `@font-face{font-family:${quotedFamily(validated.family)};src:url(${JSON.stringify(validated.url)}) format(${JSON.stringify(validated.format)});font-weight:${validated.weight ?? 'normal'};font-style:${validated.style ?? 'normal'};${unicodeRangeDeclaration(validated)}font-display:block}`
+    const canonicalUrl = JSON.stringify(new URL(validated.url).href).replaceAll('<', '\\3c ')
+    return `@font-face{font-family:${quotedFamily(validated.family)};src:url(${canonicalUrl}) format(${JSON.stringify(validated.format)});font-weight:${validated.weight ?? 'normal'};font-style:${validated.style ?? 'normal'};${unicodeRangeDeclaration(validated)}font-display:block}`
   }
   let resolved: ResolvedFontFace
   try {

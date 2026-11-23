@@ -39,6 +39,8 @@ export interface ResolvedFonts {
   failures: FontFailure[]
 }
 
+export const EMPTY_RESOLVED_FONTS: ResolvedFonts = { css: '', failures: [] }
+
 export class FontRefusedError extends Refusal {
   readonly exceeded?: readonly LimitExceeded[]
 
@@ -174,7 +176,7 @@ export async function pageFontCss(
   const { manifest, undeclared } = fontManifestWithReferences(page.style?.fonts, motifFonts)
   if (!fonts) {
     refuseMissingFontSource(manifest, undeclared, place)
-    return { css: '', failures: [] }
+    return EMPTY_RESOLVED_FONTS
   }
   return resolveFontReferences(manifest, undeclared, fonts, signal, place)
 }
@@ -195,7 +197,7 @@ export async function expandedPagesFontCss(
   for (const name of Object.keys(declarations)) undeclared.delete(name)
   if (!fonts) {
     refuseMissingFontSource(declarations, [...undeclared], place)
-    return { css: '', failures: [] }
+    return EMPTY_RESOLVED_FONTS
   }
   return resolveFontReferences(declarations, [...undeclared], fonts, signal, place)
 }
@@ -209,7 +211,7 @@ export async function expandedBookFontCss(
   const { manifest, undeclared } = fontManifestWithReferences(expanded.book.style?.fonts, expanded.fonts)
   if (!fonts) {
     refuseMissingFontSource(manifest, undeclared, place)
-    return { css: '', failures: [] }
+    return EMPTY_RESOLVED_FONTS
   }
   return resolveFontReferences(manifest, undeclared, fonts, signal, place)
 }

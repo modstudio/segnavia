@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import type { OriginApproval } from '@segnavia/format'
 import type { FormsOption } from './bridge.ts'
 import type { DeckState } from './controller-types.ts'
 
@@ -10,6 +11,15 @@ Object.assign(globalThis, {
     constructor(type: string, options: CustomEventInit<T> = {}) {
       super(type, options)
       this.detail = options.detail as T
+    }
+  },
+  ErrorEvent: class extends Event {
+    error: unknown
+    message: string
+    constructor(type: string, options: ErrorEventInit = {}) {
+      super(type)
+      this.error = options.error
+      this.message = options.message ?? ''
     }
   },
   ResizeObserver: class {
@@ -29,6 +39,8 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
   const rendered: string[] = []
   const formPolicies: Array<'refuse' | undefined> = []
   const fontSheets: string[] = []
+  const errors: unknown[] = []
+  const failures: unknown[] = []
   let mounted = mountedFrame
   const stage = {
     isConnected: true,
@@ -65,7 +77,9 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     style: { setProperty() {} },
     dataset: {},
     querySelector: () => null,
-    dispatchEvent() {
+    dispatchEvent(event: Event) {
+      if (event.type === 'error') errors.push((event as ErrorEvent).error)
+      if (event.type === 'fontfailure') failures.push((event as CustomEvent).detail)
       return true
     },
     cancelSelectionRequests() {},
@@ -82,7 +96,15 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     ),
   })
   Object.defineProperty(stage, 'forms', Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'forms') as PropertyDescriptor)
-  return { fontSheets, formPolicies, rendered, stage: stage as typeof stage & { forms: FormsOption | undefined } }
+  Object.defineProperty(stage, 'origins', Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'origins') as PropertyDescriptor)
+  return {
+    errors,
+    failures,
+    fontSheets,
+    formPolicies,
+    rendered,
+    stage: stage as typeof stage & { forms: FormsOption | undefined; origins: Iterable<OriginApproval> },
+  }
 }
 
 test('a stage resolves a URL face once per deck load and puts no font bytes in its frame CSS', async () => {
@@ -111,6 +133,62 @@ test('a stage resolves a URL face once per deck load and puts no font bytes in i
   expect(resolutions).toBe(1)
   expect(fontSheets.at(-1)).toContain('https://fonts.gstatic.com/s/body.woff2')
   expect(fontSheets.at(-1)).not.toContain('data:font/')
+})
+
+test('setting approving origins after fonts re-resolves the loaded stage face', async () => {
+  const controller = new DeckController({
+    hash: null,
+    fonts: {
+      source: {
+        async font() {
+          return { family: 'Body', faces: [{ family: 'Body', url: 'https://assets.example/fonts/body.woff2', format: 'woff2' }] }
+        },
+      },
+    },
+  })
+  await controller.loadDeckValue({
+    title: 'Deck',
+    style: { fonts: { body: { faces: [{}] } } },
+    slides: [{ id: 'shown', content: { kind: 'html', html: '<p>Shown</p>' } }],
+  })
+  const { fontSheets, stage } = stageHarness(controller)
+  stage.update(controller.state)
+  await Bun.sleep(0)
+  stage.origins = [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }]
+  await Bun.sleep(0)
+  await Bun.sleep(0)
+  expect(fontSheets.at(-1)).toContain('https://assets.example/fonts/body.woff2')
+})
+
+test('a rejected stage font source reports an error and still renders the deck', async () => {
+  const refusal = new Error('font source unavailable')
+  const controller = new DeckController({ hash: null, fonts: { source: { font: async () => Promise.reject(refusal) } } })
+  await controller.loadDeckValue({
+    title: 'Deck',
+    style: { fonts: { body: { faces: [{}] } } },
+    slides: [{ id: 'shown', content: { kind: 'html', html: '<p>Shown</p>' } }],
+  })
+  const { errors, fontSheets, stage } = stageHarness(controller)
+  stage.update(controller.state)
+  await Bun.sleep(0)
+  await Bun.sleep(0)
+  expect(errors).toEqual([refusal])
+  expect(fontSheets).toEqual([''])
+})
+
+test('an unsupplied stage face dispatches its bounded failure once', async () => {
+  const controller = new DeckController({ hash: null, fonts: { source: { font: async () => undefined } } })
+  await controller.loadDeckValue({
+    title: 'Deck',
+    style: { fonts: { body: { faces: [{}] } } },
+    slides: [{ id: 'shown', content: { kind: 'html', html: '<p>Shown</p>' } }],
+  })
+  const { failures, stage } = stageHarness(controller)
+  stage.update(controller.state)
+  await Bun.sleep(0)
+  await Bun.sleep(0)
+  stage.update(controller.state)
+  expect(failures).toEqual([{ failures: [{ font: 'body', family: 'body', weight: 400, reason: 'unsupplied' }] }])
 })
 
 test('a stage passes its controller form refusal to the frame pool', async () => {

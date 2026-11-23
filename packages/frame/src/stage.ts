@@ -16,7 +16,9 @@ import type { PreparedSlots } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
 import { postLoadedStageCue, postReadyStageCue, postStageCue } from './stage-cue.ts'
 import { defineStageFitProperty } from './stage-fit-property.ts'
-import { cancelStageFonts, stageFonts } from './stage-fonts.ts'
+import { resetStageFontFailures, stageFontFailures } from './stage-font-failures.ts'
+import { defineStageFontsProperty, stageFontsInput } from './stage-font-property.ts'
+import { cancelStageFonts, resolvedStageFonts } from './stage-fonts.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { recordFrameRefusal, shownFrameRefusal } from './stage-frame-refusal.ts'
 import { measureStage } from './stage-measure.ts'
@@ -36,7 +38,19 @@ import { parseTransitionProperty, transitionFromAttributes } from './transition-
 export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'edition', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
-    defineStagePropertyAccessors(SegnaviaStage.prototype, (stage) => stage.rebuildFrames())
+    defineStagePropertyAccessors(
+      SegnaviaStage.prototype,
+      (stage) => stage.rebuildFrames(),
+      (stage) => {
+        cancelStageFonts(stage)
+        stage.rebuildFrames()
+      },
+    )
+    defineStageFontsProperty(SegnaviaStage.prototype, (stage) => {
+      cancelStageFonts(stage)
+      resetStageFontFailures(stage)
+      if (stage.attached?.state.deck) stage.update(stage.attached.state)
+    })
     defineStageProfileProperty(SegnaviaStage.prototype, (stage) => (stage as SegnaviaStage).rebuildFrames())
     defineStageFitProperty(SegnaviaStage.prototype)
   }
@@ -48,7 +62,7 @@ export class SegnaviaStage extends AsOfElement {
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
-  private fontOptions: FontsOptions | undefined
+  declare fonts: FontsOptions | undefined
   declare fit: 'box' | 'viewport'
   private owned: DeckController | null = null
   private attached: DeckController | null = null
@@ -84,27 +98,15 @@ export class SegnaviaStage extends AsOfElement {
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
-
-  get fonts(): FontsOptions | undefined {
-    return this.fontOptions
-  }
-  set fonts(value: FontsOptions | undefined) {
-    if (this.fontOptions === value) return
-    this.fontOptions = value
-    cancelStageFonts(this)
-    if (this.attached?.state.deck) this.update(this.attached.state)
-  }
   set slots(value: SlotsOptions | undefined) {
     this.cancelSelectionRequests()
     resetStageSlots(this)
     this.slotOptions = value
     this.rebuildFrames()
   }
-
   protected asOfInputsChanged(): void {
     this.slots = this.slotOptions
   }
-
   setAuthoringScriptsRefused(refused: boolean) {
     if (refused === this.authoringRefusesScripts) return
     this.authoringRefusesScripts = refused
@@ -157,6 +159,7 @@ export class SegnaviaStage extends AsOfElement {
     resetStageSlots(this)
     this.resolvedSlots = undefined
     cancelStageFonts(this)
+    resetStageFontFailures(this)
     this.attached?.removeEventListener('change', this.onChange)
     this.attached?.removeEventListener('error', this.onControllerError)
     this.attached = controller
@@ -264,10 +267,10 @@ export class SegnaviaStage extends AsOfElement {
     this.refused?.update(state)
     const deck = state.deck
     if (!deck || !state.content) return
-    const resolvedFonts = stageFonts(
+    const resolvedFonts = resolvedStageFonts(
       this,
       deck,
-      this.fontOptions ?? this.attached?.fonts,
+      stageFontsInput(this) ?? this.attached?.fonts,
       this.origins,
       () => this.isConnected,
       () => this.rebuildFrames(),
@@ -307,7 +310,6 @@ export class SegnaviaStage extends AsOfElement {
       forms: this.forms ?? this.attached?.forms,
       origins: this.origins,
       fontCss: resolvedFonts.css,
-      fontFailures: resolvedFonts.failures,
       frameTitle: this.frameTitle,
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -350,7 +352,9 @@ export class SegnaviaStage extends AsOfElement {
 
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
-    handleStageMessage(this, this.pool, this.resolvedSlots, this.attached, this.reportFrameRefusal, this.onFrameReady, event)
+    handleStageMessage(this, this.pool, this.resolvedSlots, this.attached, this.reportFrameRefusal, this.onFrameReady, event, (failures) =>
+      stageFontFailures(this).report(this, failures),
+    )
   }
   private reportFrameRefusal = (slideId: string, cause: unknown) => {
     const error = recordFrameRefusal(this.pool, this.attached, slideId, cause)

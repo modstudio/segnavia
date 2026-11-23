@@ -3,7 +3,7 @@ import { fillPageAsOfBindings, type HtmlPage, resolveDayContextsFor } from '@seg
 import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
-import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import { expandedPagesFontCss, type ResolveFontsOptions } from './page-fonts.ts'
 import { type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
 export async function preparePaperDays(
@@ -14,7 +14,7 @@ export async function preparePaperDays(
     motifs?: MotifsOptions
     placements?: PlacementsOptions
     pageWidths?: PageWidths
-    fonts?: FontsOptions
+    fonts?: ResolveFontsOptions
     signal: AbortSignal
     established?(days: AsOfDay[]): void
   },

@@ -4,7 +4,7 @@ import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
-import type { FontsOptions } from './page-fonts.ts'
+import type { ResolveFontsOptions } from './page-fonts.ts'
 
 type InitialBookView = { kind: 'ready'; prepared: ReturnType<typeof prepareBookViewWithoutSources> } | { kind: 'refused' } | { kind: 'deferred' }
 
@@ -24,7 +24,7 @@ async function prepareDatedBookView(
   day: AsOfDay,
   options: {
     motifs?: MotifsOptions
-    fonts?: FontsOptions
+    fonts?: ResolveFontsOptions
     placements?: PlacementsOptions
     pageWidths?: PageWidths
     profile: PreflightProfile
@@ -45,7 +45,7 @@ export function startBookViewLoad(
   inputs: ReturnType<typeof captureAsOfLoad>,
   options: {
     motifs?: MotifsOptions
-    fonts?: FontsOptions
+    fonts?: ResolveFontsOptions
     placements?: PlacementsOptions
     pageWidths?: PageWidths
     profile: PreflightProfile

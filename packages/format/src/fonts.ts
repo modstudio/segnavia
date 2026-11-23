@@ -199,6 +199,8 @@ export type FontFace = FontFaceBase &
       }
   )
 
+export type ByteFontFace = Extract<FontFace, { data: Uint8Array }>
+
 export interface AppFont {
   family: string
   faces: FontFace[]

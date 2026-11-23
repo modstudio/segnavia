@@ -15,11 +15,14 @@ test('fontFaces without unicodeRange is the @font-face rule it emits today', () 
   )
 })
 
-test('fontFaces keeps an approved URL for the offline asset router', () => {
-  const url = 'https://assets.example/fonts/face.woff2'
-  expect(fontFaces([{ family: 'Face', url, format: 'woff2' }], [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }])).toContain(
-    `src:url("${url}")`,
-  )
+test('fontFaces refuses a URL outside the approved offline asset routes', () => {
+  const work = () =>
+    fontFaces(
+      [{ family: 'Face', url: 'https://assets.example/private/face.woff2', format: 'woff2' }],
+      [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }],
+    )
+  expect(work).toThrow(RenderRefusedError)
+  expect(work).toThrow('could not establish an approved font URL')
 })
 
 test('fontFaces leaves a sibling without unicodeRange byte-identical and still emits the other face', () => {

@@ -17,7 +17,7 @@ import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverFrameInputs, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
-import { resolveThumbnailFonts } from './thumbnail-fonts.ts'
+import { cancelThumbnailFonts, prepareThumbnailFonts, resolveThumbnailFonts } from './thumbnail-fonts.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
 
@@ -53,7 +53,6 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
   private slotPreparation: AbortController | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly viewport = document.createElement('div')
-
   constructor() {
     super()
     upgradeProperties(this)
@@ -214,6 +213,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.designedCoverDisposal = undefined
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
+    cancelThumbnailFonts(this)
     this.resolution++
     this.viewport.replaceChildren()
     this.controller?.destroy()
@@ -266,6 +266,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     if (!deck || !slide || this.controller) return
     const resolution = ++this.resolution
     const asOfLoad = captureAsOfLoad(this)
+    const fontPreparation = prepareThumbnailFonts(this)
     const controller = new DeckController({
       base: this.baseUrl,
       resolveSlide: this.slideResolver,
@@ -278,7 +279,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.controller = controller
     try {
       await controller.loadDeckValue(deck, this.baseUrl)
-      const resolvedFonts = await resolveThumbnailFonts(deck, this.fontOptions, this.origins)
+      const resolvedFonts = await resolveThumbnailFonts(deck, this.fontOptions, this.origins, fontPreparation.signal)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
       const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, undefined, this.origins, false, resolvedFonts)

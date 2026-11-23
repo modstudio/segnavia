@@ -332,7 +332,7 @@ export class SegnaviaPaper extends HTMLElement {
       motifs: this.motifOptions,
       placements: this.placementOptions,
       pageWidths: this.widthOptions,
-      fonts: this.fontOptions,
+      fonts: this.fontOptions ? { ...this.fontOptions, origins: this.origins } : undefined,
       signal: controller.signal,
       established: (days) => {
         if (current()) for (const day of days) dispatchAsof(this, day)

@@ -1,5 +1,5 @@
 import {
-  type FontFace,
+  type ByteFontFace,
   FontFaceRefusedError,
   type FontReferencesSource,
   type Limits,
@@ -13,8 +13,6 @@ import {
 } from '@segnavia/format'
 import { bytesToBase64, fontFormat } from '@segnavia/html'
 import { FontRefusedError } from './page-fonts.ts'
-
-type ByteFontFace = Extract<FontFace, { data: Uint8Array }>
 
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
 
@@ -175,13 +173,12 @@ export async function readLocalFonts(fonts: FontReferencesSource, options: { sig
   return { faces, unavailable: unavailableFaces }
 }
 
-export function packLocalFaces(faces: readonly FontFace[], fonts: FontReferencesSource, limits?: Limits): LocalFacesInput {
+export function packLocalFaces(faces: readonly ByteFontFace[], fonts: FontReferencesSource, limits?: Limits): LocalFacesInput {
   const families = new Map<string, string>()
   for (const reference of localFontReferences(fonts)) {
     if (!families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
   }
   const selected = faces.flatMap((face) => {
-    if (!('data' in face)) return []
     const family = families.get(face.family.toLowerCase())
     if (!family) return []
     return [{ face, family }]

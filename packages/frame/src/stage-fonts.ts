@@ -1,5 +1,6 @@
 import type { Deck, OriginApproval } from '@segnavia/format'
-import { type FontsOptions, type ResolvedFonts, resolveFonts } from './page-fonts.ts'
+import { EMPTY_RESOLVED_FONTS, type FontsOptions, type ResolvedFonts, resolveFonts } from './page-fonts.ts'
+import { stageFontFailures } from './stage-font-failures.ts'
 
 interface FontResolution {
   deck: Deck
@@ -23,7 +24,7 @@ export function stageFonts(
   input: FontsOptions | undefined,
   origins: Iterable<OriginApproval> | undefined,
   current: () => boolean,
-  ready: () => void,
+  ready: (resolved: ResolvedFonts) => void,
   failed: (error: unknown) => void,
 ): ResolvedFonts | undefined {
   let state = resolutions.get(host)
@@ -32,7 +33,7 @@ export function stageFonts(
   state = { deck, input, origins, generation: (state?.generation ?? 0) + 1 }
   resolutions.set(host, state)
   if (!input) {
-    state.resolved = { css: '', failures: [] }
+    state.resolved = EMPTY_RESOLVED_FONTS
     return state.resolved
   }
   const controller = new AbortController()
@@ -44,13 +45,39 @@ export function stageFonts(
       if (!current() || controller.signal.aborted || latest !== state || latest.generation !== generation) return
       latest.resolved = resolved
       latest.controller = undefined
-      ready()
+      ready(resolved)
     },
     (error) => {
       const latest = resolutions.get(host)
       if (!current() || controller.signal.aborted || latest !== state || latest.generation !== generation) return
       latest.controller = undefined
+      latest.resolved = EMPTY_RESOLVED_FONTS
       failed(error)
+      ready(EMPTY_RESOLVED_FONTS)
     },
+  )
+}
+
+export function resolvedStageFonts(
+  host: object & EventTarget,
+  deck: Deck,
+  input: FontsOptions | undefined,
+  origins: Iterable<OriginApproval> | undefined,
+  current: () => boolean,
+  ready: () => void,
+  failed: (error: unknown) => void,
+): ResolvedFonts | undefined {
+  stageFontFailures(host).begin(deck)
+  return stageFonts(
+    host,
+    deck,
+    input,
+    origins,
+    current,
+    (resolved) => {
+      stageFontFailures(host).report(host, resolved.failures)
+      ready()
+    },
+    failed,
   )
 }

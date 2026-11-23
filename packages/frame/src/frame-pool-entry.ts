@@ -53,7 +53,6 @@ export function addFrame({ entries, events, host, index, content, state, control
     forms: pool.forms,
     origins: pool.origins,
     fontCss: pool.fontCss,
-    fontFailures: pool.fontFailures,
     frameTitle: pool.frameTitle,
     loaded: () => entry.markLoaded(pool),
     failed: (error) => {

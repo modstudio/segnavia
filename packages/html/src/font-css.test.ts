@@ -59,6 +59,15 @@ describe('fontCss', () => {
     ).toThrow('add { origin: "https://assets.example", kinds: ["font"], pathname: "/private/body.woff2" } to origins to clear this refusal')
   })
 
+  test('canonicalizes an approved URL before writing it into style text', () => {
+    const css = fontFaceCss({ family: 'Remote Face', url: 'https://assets.example/fonts/body.woff2?</style><script>alert(1)</script>', format: 'woff2' }, [
+      { origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' },
+    ])
+    expect(css).not.toContain('</style')
+    expect(css).not.toContain('<script')
+    expect(css).toContain('%3C/style%3E%3Cscript%3Ealert(1)%3C/script%3E')
+  })
+
   test('extracts a named collection face before writing CSS', () => {
     const css = fontCss({
       app: new Map(),

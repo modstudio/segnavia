@@ -1,5 +1,5 @@
 import {
-  type FontFace,
+  type ByteFontFace,
   FontFaceRefusedError,
   type FontReference,
   type LocalFacesInput,
@@ -12,8 +12,6 @@ import {
 } from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
-
-type ByteFontFace = Extract<FontFace, { data: Uint8Array }>
 
 export interface LocalFontsReport {
   fellBack: Array<{ family: string; fallback: string }>
