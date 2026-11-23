@@ -911,11 +911,11 @@ with `bridge: true`; `bridge` is not part of a deck document and
 A URL slide with cues declares `annotationCount`, an integer from 0 to 256, in
 the deck document so parsing can bound every cue index. Its resolved content
 must declare `bridge: true`. The stage posts the bounded `segnavia:cue` shown
-indexes whenever they change and again when the frame reports ready.
+indexes whenever they change, and again when the frame loads and when it
+reports ready.
 `bridgeForHost` trusts only its parent window, sets `data-segnavia-cues` on the
 root and toggles `data-shown` on matching `[data-annotation]` elements. With no
-message the root attribute is absent, leaving every annotation visible for
-print and thumbnails. The host bridge's complete inbound set is `freeze`,
+message, or a null one, every annotation is visible; print sends no message. The host bridge's complete inbound set is `freeze`,
 `release`, `inspect` and `cue`, with the bounds recorded in the Security
 invariants.
 
