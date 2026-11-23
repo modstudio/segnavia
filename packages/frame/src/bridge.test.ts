@@ -186,16 +186,18 @@ describe('frame document', () => {
       querySelectorAll: (selector: string) => (selector === '[data-annotation]' ? marks : []),
     }
     const parent = { postMessage: () => {} }
+    function MutationObserver(callback: () => void) {
+      onMutation = callback
+      return { observe: () => {} }
+    }
     const window = {
+      MutationObserver,
       addEventListener: (name: string, listener: typeof onMessage) => {
         if (name === 'message') onMessage = listener
       },
     }
-    const MutationObserver = (callback: () => void) => {
-      onMutation = callback
-      return { observe: () => {} }
-    }
     Function('document', 'parent', 'window', 'Map', 'MutationObserver', bridgeForHost({ reportHeight: false }))(document, parent, window, Map, MutationObserver)
+    expect(onMutation).toBeDefined()
     onMessage?.({ source: {}, data: { type: MESSAGE.cue, annotations: [0] } })
     expect(rootAttributes.size).toBe(0)
     onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations: [1, 1] } })
@@ -207,10 +209,10 @@ describe('frame document', () => {
       onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations } })
       expect(marks.map((candidate) => candidate.shown())).toEqual([false, true])
     }
-    const added = mark(0)
+    const added = mark(1)
     marks.push(added)
     onMutation?.()
-    expect(added.shown()).toBe(false)
+    expect(added.shown()).toBe(true)
     onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations: null } })
     expect(marks.map((mark) => mark.shown())).toEqual([true, true, true])
   })
