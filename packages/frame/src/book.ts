@@ -228,7 +228,6 @@ export class SegnaviaBook extends BookSourcesElement {
     }
     return layout
   }
-
   get serveFrame(): ServeFrame | undefined {
     return this.serveFrameValue
   }
@@ -243,7 +242,6 @@ export class SegnaviaBook extends BookSourcesElement {
     this.formsValue = value
     if (this.currentView) this.mount()
   }
-
   private mountFrame(rendered: { title: string; srcdoc: string; policy: string; scripts: Scripts }, layout: BookLayout | null = null): HTMLIFrameElement {
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', frameSandbox(rendered.scripts, this.formsValue))
@@ -260,7 +258,6 @@ export class SegnaviaBook extends BookSourcesElement {
     bookElement.showBookLayoutFrames(this.querySelectorAll<HTMLIFrameElement>('iframe[data-segnavia-book-layout]'), layout)
     this.shownLayout = layout
   }
-
   private renderFrame(view: BookView, css: string | undefined, layout: BookLayout) {
     return bookFrame(view, {
       css,
@@ -272,7 +269,6 @@ export class SegnaviaBook extends BookSourcesElement {
       preflightSeed: this.preflightSeed,
     })
   }
-
   private mountLayoutFrame(layout: BookLayout): HTMLIFrameElement | null {
     const view = this.preparedView
     if (!view?.pagination || (layout === 'flow' && !view.flow)) return null

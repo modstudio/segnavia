@@ -172,7 +172,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.extraCsp = value
     this.paint()
   }
-
   get forms(): 'refuse' | undefined {
     return this.formsValue
   }
@@ -181,15 +180,12 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.formsValue = value
     this.paint()
   }
-
   get pages(): Document[] {
     return this.sourceDocuments
   }
-
   get currentPageIndex(): number {
     return this.currentPage
   }
-
   set pages(value: PageOrPrintedInput[] | undefined) {
     const documents = parseDocumentEditions(value ?? [], this.edition)
     this.editionDocuments = documents.authored

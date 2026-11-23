@@ -130,7 +130,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     if (this.controller.state.deck) this.update(this.controller.state)
     this.dispatchEvent(new CustomEvent('segnavia-labels'))
   }
-
   set resolveSlide(resolve: DeckController['resolveSlide']) {
     this.controller.resolveSlide = resolve
   }
@@ -142,11 +141,9 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.controller.serveFrame = value
     this.stage.serveFrame = value
   }
-
   get rail(): boolean {
     return this.hasAttribute('rail')
   }
-
   set rail(value: boolean) {
     this.toggleAttribute('rail', value)
   }

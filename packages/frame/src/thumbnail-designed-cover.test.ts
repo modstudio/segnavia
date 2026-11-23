@@ -63,7 +63,9 @@ test('a thumbnail live cover receives its slot options with its other sources', 
 
 test('a thumbnail live cover receives the serving seam with its frame inputs', () => {
   const serveFrame = () => '/frames/cover'
-  expect(thumbnailCoverFrameInputs(thumbnailCoverSources(undefined, undefined, undefined, undefined), undefined, [], undefined, serveFrame).serveFrame).toBe(serveFrame)
+  expect(thumbnailCoverFrameInputs(thumbnailCoverSources(undefined, undefined, undefined, undefined), undefined, [], undefined, serveFrame).serveFrame).toBe(
+    serveFrame,
+  )
 })
 
 test('a thumbnail live cover passes form refusal with its frame inputs', () => {

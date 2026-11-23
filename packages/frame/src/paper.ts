@@ -75,12 +75,10 @@ export class SegnaviaPaper extends HTMLElement {
   private slotGeneration = 0
   private resolvedGeneration = 0
   private slotPreparation: AbortController | undefined
-
   constructor() {
     super()
     upgradeProperties(this)
   }
-
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
