@@ -4,10 +4,10 @@ import { stepTrackKeyTarget } from './step-track-key.ts'
 describe('step track key policy', () => {
   test('moves by slide with arrows and page keys', () => {
     expect(stepTrackKeyTarget('ArrowRight', 2, 6, 'ltr', 5)).toBe(3)
-    expect(stepTrackKeyTarget('ArrowDown', 2, 6, 'ltr', 5)).toBe(3)
+    expect(stepTrackKeyTarget('ArrowUp', 2, 6, 'ltr', 5)).toBe(3)
     expect(stepTrackKeyTarget('PageDown', 2, 6, 'ltr', 5)).toBe(3)
     expect(stepTrackKeyTarget('ArrowLeft', 2, 6, 'ltr', 5)).toBe(1)
-    expect(stepTrackKeyTarget('ArrowUp', 2, 6, 'ltr', 5)).toBe(1)
+    expect(stepTrackKeyTarget('ArrowDown', 2, 6, 'ltr', 5)).toBe(1)
     expect(stepTrackKeyTarget('PageUp', 2, 6, 'ltr', 5)).toBe(1)
   })
 
