@@ -70,12 +70,18 @@ export function bindBookRecordValues(book: Book, apply: BookHtmlMapper = (html) 
     (entry) => {
       if (!('html' in entry)) return mapBookEntry(entry, apply)
       const scope = { recordSlots: entry.recordTemplate?.slots.map(({ key }) => key) }
-      const section = bindRecordValues(entry) as BookEntry
-      return { ...section, html: apply(section.html, scope) }
+      const section = bindRecordValues(entry)
+      return { ...section, html: apply(section.html, scope) } as BookEntry
     },
     apply,
   )
-  return { ...bound, templates: bound.templates.map((template) => ({ ...template, html: apply(template.html) })) }
+  return {
+    ...bound,
+    templates: bound.templates.map((template) => ({
+      ...template,
+      html: apply(template.html, { recordSlots: template.slots?.map(({ key }) => key) }),
+    })),
+  }
 }
 
 export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {

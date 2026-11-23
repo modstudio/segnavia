@@ -21,3 +21,11 @@ test('refuses a value binding absent from the merged document and host declarati
   )
   expect(() => host.apply('<p data-slot-value="record.name"></p>')).not.toThrow()
 })
+
+test('record-template slots widen the paths valid for one application', async () => {
+  const prepared = await prepareSlots([], {})
+  const html = '<p data-slot-value="name">Authored name</p>'
+
+  expect(() => prepared.apply(html)).toThrow('undefined slot path "name"')
+  expect(prepared.apply(html, { recordSlots: ['name'] })).toContain('Authored name')
+})

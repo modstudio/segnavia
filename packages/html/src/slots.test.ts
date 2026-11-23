@@ -394,11 +394,3 @@ test('slot application leaves authored copyfit on elements it does not lower', a
   })
   expect(prepared.apply('<div><p data-fit="size" data-fit-min="12px">Heading</p><p data-slot-value="name">Name</p></div>')).toContain('data-fit-min="12px"')
 })
-
-test('record-template slots widen the paths valid for one application', async () => {
-  const prepared = await prepareSlots([], {})
-  const html = '<p data-slot-value="name">Authored name</p>'
-
-  expect(() => prepared.apply(html)).toThrow('undefined slot path "name"')
-  expect(prepared.apply(html, { recordSlots: ['name'] })).toContain('Authored name')
-})

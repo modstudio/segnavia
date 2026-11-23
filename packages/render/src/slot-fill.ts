@@ -8,7 +8,6 @@ import {
   type HtmlPage,
   hasSlotWork,
   isPrintedHtmlPage,
-  mapBookHtml,
   type PreparedSlots,
   type PrintedHtmlPage,
   prepareSlotCollection,
@@ -28,6 +27,24 @@ export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions
 function refuseRequired(prepared: PreparedSlots): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
   if (refusal) throw refusal
+}
+
+type PrintedSection = PrintedHtmlPage['printedPages']['sections'][number]
+
+function recordScope(section: PrintedSection): { recordSlots: readonly string[] } {
+  return { recordSlots: 'recordTemplate' in section ? (section.recordTemplate?.slots.map(({ key }) => key) ?? []) : [] }
+}
+
+function fillPrintedSection(section: PrintedSection, prepared: PreparedSlots): PrintedSection {
+  const bound = 'pages' in section ? section : bindRecordValues(section)
+  return withPrintedSectionBodies(
+    bound,
+    printedSectionBodies(bound).map((html) => prepared.apply(html, recordScope(section))),
+  )
+}
+
+function checkPrintedSection(section: PrintedSection, prepared: PreparedSlots): void {
+  for (const html of printedSectionBodies(section)) prepared.apply(html, recordScope(section))
 }
 
 export function filledPage(
@@ -57,19 +74,8 @@ export async function filledPage(
     const prepared = await prepareSlots(input.slots, slots, signal)
     refuseRequired(prepared)
     const work = hasSlotWork(input.slots, slots)
-    const sections = work
-      ? input.printedPages.sections.map((section) => {
-          const bound = 'pages' in section ? section : bindRecordValues(section)
-          return withPrintedSectionBodies(
-            bound,
-            printedSectionBodies(bound).map((html) => prepared.apply(html, { recordSlots: section.recordTemplate?.slots.map(({ key }) => key) })),
-          )
-        })
-      : input.printedPages.sections
-    if (!work)
-      for (const section of sections)
-        for (const html of printedSectionBodies(section))
-          prepared.apply(html, { recordSlots: 'pages' in section ? [] : section.recordTemplate?.slots.map(({ key }) => key) })
+    const sections = work ? input.printedPages.sections.map((section) => fillPrintedSection(section, prepared)) : input.printedPages.sections
+    if (!work) for (const section of sections) checkPrintedSection(section, prepared)
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
   }
   const page = 'html' in input ? input : resolvePageHtml(input)
@@ -121,15 +127,7 @@ export async function filledPages(
               ...page,
               printedPages: {
                 ...page.printedPages,
-                sections: page.printedPages.sections.map((section) => {
-                  const bound = 'pages' in section ? section : bindRecordValues(section)
-                  return withPrintedSectionBodies(
-                    bound,
-                    printedSectionBodies(bound).map((html) =>
-                      prepared.apply(html, { recordSlots: section.recordTemplate?.slots.map(({ key }) => key) }),
-                    ),
-                  )
-                }),
+                sections: page.printedPages.sections.map((section) => fillPrintedSection(section, prepared)),
               },
             }
           : { ...page, html: prepared.apply(page.html) }
@@ -139,10 +137,7 @@ export async function filledPages(
     : pages
   if (!work) {
     for (const page of pages) {
-      if (isPrintedHtmlPage(page))
-        for (const section of page.printedPages.sections)
-          for (const html of printedSectionBodies(section))
-            prepared.apply(html, { recordSlots: 'pages' in section ? [] : section.recordTemplate?.slots.map(({ key }) => key) })
+      if (isPrintedHtmlPage(page)) for (const section of page.printedPages.sections) checkPrintedSection(section, prepared)
       else prepared.apply(page.html)
     }
   }

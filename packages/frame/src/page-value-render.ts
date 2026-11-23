@@ -38,6 +38,12 @@ export interface PageValueRenderHandlers {
   fit(): void
 }
 
+function pageHasSlotWork(page: HtmlPage, slots: SlotsOptions): boolean {
+  const work = hasSlotWork(page.slots, slots)
+  if (!work) unfilledSlots([...(page.slots ?? []), ...(slots.declarations ?? [])]).apply(page.html)
+  return work
+}
+
 export function renderPageValue(
   page: Page,
   day: AsOfDay,
@@ -92,8 +98,7 @@ export function renderPageValue(
       handlers.fit()
       return
     }
-    const provisional = hasSlotWork(resolvedPage.slots, effectiveSlots)
-    if (!provisional) unfilledSlots([...(resolvedPage.slots ?? []), ...(effectiveSlots.declarations ?? [])]).apply(resolvedPage.html)
+    const provisional = pageHasSlotWork(resolvedPage, effectiveSlots)
     loadPageDocument(
       resolvedPage,
       {
