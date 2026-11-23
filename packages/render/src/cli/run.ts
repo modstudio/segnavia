@@ -1,3 +1,4 @@
+import { isLimitExceeded, Refusal } from '@segnavia/format'
 import { parseBookPdfOptions } from '../book-options.ts'
 import { directoryFontSource } from '../directory-font-source.ts'
 import { parseDeckPdfOptions } from '../entry-options.ts'
@@ -98,7 +99,15 @@ function refusedLine(entries: readonly InputRefusal[]): string {
     refused: entries.map(({ index, id, error }) => ({
       index,
       ...(id === undefined ? {} : { id }),
-      refusal: { code: error.code, subject: error.subject ?? null, message: error.message, refusals: error.refusals },
+      refusal:
+        error instanceof Refusal
+          ? { code: error.code, subject: error.subject ?? null, message: error.message, refusals: error.refusals }
+          : {
+              code: 'limit',
+              subject: isLimitExceeded(error) ? (error.exceeded[0]?.measure ?? null) : null,
+              message: error.message,
+              refusals: isLimitExceeded(error) ? error.exceeded.map((cause) => ({ code: 'limit', subject: cause.measure, message: cause.message })) : [],
+            },
     })),
   })}\n`
 }

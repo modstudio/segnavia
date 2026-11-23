@@ -43,7 +43,7 @@ export class RenderRefusedError extends Refusal {
 export interface InputRefusal {
   index: number
   id?: string
-  error: Refusal
+  error: Refusal | (Error & { readonly exceeded: readonly LimitExceeded[] })
 }
 
 function inputName(entry: Pick<InputRefusal, 'index' | 'id'>): string {
@@ -63,7 +63,7 @@ export class RenderInputsRefusedError extends RenderRefusedError {
       {
         code: 'render-inputs',
         refusals: entries.map((entry) => ({
-          code: entry.error.code,
+          code: entry.error instanceof Refusal ? entry.error.code : 'limit',
           subject: `input ${entry.index + 1}`,
           message: `${inputName(entry)}: ${entry.error.message}`,
         })),

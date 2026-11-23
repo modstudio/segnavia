@@ -27,6 +27,8 @@ const pdf = await renderer.pagesPdf(documents, {
 
 The command-line equivalent is `"options": { "skipRefused": true }`. On success the PDF remains on standard output and one JSON line on standard error contains `{ "refused": [...] }`; without the option, no input is omitted.
 
+For an imposed render, omission re-imposes the surviving inputs so the resulting sheets, placement and marks describe only those survivors. A render-wide failure, including shared slot filling, a deadline or renderer availability, is never skipped.
+
 Use `renderer.stampPdf(bytes, { watermark, protection })` to apply the same watermark and PDF protection model to a PDF supplied by the host. Its image watermark uses the same offline `origins`, `assets` and `assetBudget` seam as the render methods. A text watermark uses `watermark.font`, then the first family in `fonts`, then `sans-serif`. Received files and decoded object streams are bounded by host-only `limits.input.bytes` and `limits.input.streamBytes`. The renderer stays offline and never follows external references in the PDF. Stamping changes the file, so an original digital signature no longer validates.
 
 ## Folder fonts

@@ -260,6 +260,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const refusedInputs = captureInputRefusals(parsedOptions.skipRefused, preparedInputs.refused)
         const renderOptions = { ...parsedOptions, ...(refusedInputs.option ? { skipRefused: refusedInputs.option } : {}) }
         const parsed = preparedInputs.accepted.map(({ page }) => page)
+        const acceptedByIndex = new Map(preparedInputs.accepted.map((input) => [input.index, input]))
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount(parsed, parsedOptions.slots))
         const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted.map(({ fontCss }) => fontCss).join(''), deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
@@ -271,23 +272,25 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             slots,
             { ...renderOptions, limits: innerLimits(renderOptions.limits), press: undefined },
             {
-              pagePdf: (page, slots, options, inputIndex, tagged) =>
-                renderPagePdf(
+              pagePdf: (page, slots, options, inputIndex, tagged) => {
+                const accepted = acceptedByIndex.get(inputIndex)
+                return renderPagePdf(
                   page,
                   slots,
                   {
                     ...options,
-                    preflight: withPreflightSeed(options.preflight, preparedInputs.accepted.find((input) => input.index === inputIndex)?.preflight),
+                    preflight: withPreflightSeed(options.preflight, accepted?.preflight),
                   },
                   { withTab },
                   inputIndex,
                   deadline,
-                  preparedInputs.accepted.find((input) => input.index === inputIndex)?.fontCss ?? '',
-                  preparedInputs.accepted.find((input) => input.index === inputIndex)?.fontFailures ?? [],
+                  accepted?.fontCss ?? '',
+                  accepted?.fontFailures ?? [],
                   resolvedLayoutScripts,
                   Boolean(parsedOptions.watermark),
                   tagged,
-                ),
+                )
+              },
               piecePdf: (page, slots, geometry, css, options, tagged) =>
                 renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark), tagged),
               fontFaces: (options) => `${preparedInputs.accepted.map(({ fontCss }) => fontCss).join('')}${fontFaces(options.fonts)}`,

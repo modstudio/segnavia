@@ -22,6 +22,14 @@ const services = (render: Parameters<typeof renderPagesPdf>[3]['pagePdf']): Para
   finish: async (bytes) => bytes,
 })
 
+const imposition = {
+  paper: { width: 30, height: 30, unit: 'mm' as const },
+  columns: 1,
+  rows: 1,
+  cell: { width: 20, height: 20 },
+  margin: { top: 5, right: 5, bottom: 5, left: 5 },
+}
+
 test('pagesPdf settles and names every refused input by its original position', async () => {
   const pages = [page({ id: 'good', html: '<p>Good</p>' }), page({ id: 'bad-a', html: '<p>A</p>' }), page({ id: 'bad-b', html: '<p>B</p>' })]
   const rendering = renderPagesPdf(
@@ -72,4 +80,69 @@ test('pagesPdf refuses when skipping would leave no output', async () => {
     }),
   )
   await expect(rendering).rejects.toBeInstanceOf(RenderInputsRefusedError)
+})
+
+test('pagesPdf names an input whose imposed piece is refused', async () => {
+  const pages = [
+    page({ id: 'good', html: '<p>Good</p>', size: { width: 100, height: 100 } }),
+    page({ id: 'bad', html: '<p>Bad</p>', size: { width: 100, height: 100 } }),
+  ]
+  const rendering = renderPagesPdf(
+    pages,
+    slots,
+    { imposition },
+    {
+      ...services(async () => ({ bytes: await pdf() })),
+      piecePdf: async (input) => {
+        if (input.id === 'bad') throw new RenderRefusedError('bad imposed page')
+        return { bytes: await pdf() }
+      },
+    },
+  )
+  await expect(rendering).rejects.toMatchObject({
+    code: 'render-inputs',
+    entries: [{ index: 1, id: 'bad', error: { message: 'bad imposed page' } }],
+  })
+})
+
+test('pagesPdf re-imposes survivors after skipping a refused imposed input', async () => {
+  const pages = [
+    page({ id: 'good', html: '<p>Good</p>', size: { width: 100, height: 100 } }),
+    page({ id: 'bad', html: '<p>Bad</p>', size: { width: 100, height: 100 } }),
+  ]
+  const reports: unknown[] = []
+  const output = await renderPagesPdf(
+    pages,
+    slots,
+    { imposition, skipRefused: { report: (refused) => reports.push(refused) } },
+    {
+      ...services(async () => ({ bytes: await pdf() })),
+      piecePdf: async (input) => {
+        if (input.id === 'bad') throw new RenderRefusedError('bad imposed page')
+        return { bytes: await pdf() }
+      },
+    },
+  )
+  expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
+  expect(reports).toMatchObject([
+    {
+      0: { index: 1, id: 'bad', error: { message: 'bad imposed page' } },
+    },
+  ])
+})
+
+test('pagesPdf does not skip a render-wide pagePdf failure', async () => {
+  const failure = new Error('page renderer failed')
+  const reports: unknown[] = []
+  const rendering = renderPagesPdf(
+    [page({ id: 'good', html: '<p>Good</p>' }), page({ id: 'bad', html: '<p>Bad</p>' })],
+    slots,
+    { skipRefused: { report: (refused) => reports.push(refused) } },
+    services(async (input) => {
+      if (input.id === 'bad') throw failure
+      return { bytes: await pdf() }
+    }),
+  )
+  await expect(rendering).rejects.toBe(failure)
+  expect(reports).toEqual([])
 })

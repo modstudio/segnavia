@@ -1,5 +1,5 @@
-import { Refusal } from '@segnavia/format'
-import { type InputRefusal, RenderRefusedError } from './errors.ts'
+import { isLimitExceeded, Refusal } from '@segnavia/format'
+import type { InputRefusal } from './errors.ts'
 
 export interface SettledRenderInput<T> {
   index: number
@@ -12,9 +12,8 @@ function inputId(input: unknown): string | undefined {
   return typeof input.id === 'string' ? input.id : undefined
 }
 
-function refusal(error: unknown): Refusal {
-  if (error instanceof Refusal) return error
-  return new RenderRefusedError(error instanceof Error ? error.message : String(error), { cause: error })
+export function isInputScoped(error: unknown): error is InputRefusal['error'] {
+  return error instanceof Refusal || isLimitExceeded(error)
 }
 
 export async function settleRenderInputs<Input, Value>(
@@ -28,7 +27,8 @@ export async function settleRenderInputs<Input, Value>(
       try {
         return { index, value: await work(input, position) }
       } catch (error) {
-        return { index, refusal: { index, ...(inputId(input) === undefined ? {} : { id: inputId(input) }), error: refusal(error) } }
+        if (!isInputScoped(error)) throw error
+        return { index, refusal: { index, ...(inputId(input) === undefined ? {} : { id: inputId(input) }), error } }
       }
     }),
   )

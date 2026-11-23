@@ -1,7 +1,7 @@
 import { type PageOrPrintedInput, pageOrPrintedFromDocument } from '@segnavia/format'
 import { documentOutlineSource, fillPageAsOfBindings, parseDocument, resolveEdition } from '@segnavia/html'
 import { resolveRenderBrand } from './brand.ts'
-import type { InputRefusal } from './errors.ts'
+import { type InputRefusal, RenderRefusedError } from './errors.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
 import { expandRenderedPageValue, prepareExpandedRenderedPage } from './page-document.ts'
 import { settleRenderInputs } from './render-inputs.ts'
@@ -45,7 +45,13 @@ export function captureInputRefusals(option: ParsedPagesPdfOptions['skipRefused'
 }
 
 async function parseInput(input: PageOrPrintedInput, index: number, options: ParsedPagesPdfOptions, signal: AbortSignal) {
-  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
+  let document: ReturnType<typeof parseDocument>
+  try {
+    document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
+  } catch (error) {
+    if (!(error instanceof Error) || error.name !== 'ZodError' || !('issues' in error) || !Array.isArray(error.issues)) throw error
+    throw new RenderRefusedError(error.message, { cause: error })
+  }
   const brand = await resolveRenderBrand(document, options.brandSource, signal)
   const page = pageOrPrintedFromDocument(document, brand)
   return { index, id: document.id, document, page }
