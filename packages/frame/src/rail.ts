@@ -5,7 +5,7 @@ import { CORNER_SCALE_CSS } from './controls-style.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { dispatchElementError } from './element-error.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
-import { railOverflow, railSelection } from './rail-navigation.ts'
+import { railOverflow, railSelection, railSelectionAfterRender } from './rail-navigation.ts'
 import { railOrderMoves } from './rail-order.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
@@ -65,6 +65,7 @@ export class SegnaviaRail extends SegnaviaDeckControl {
   })
   private selected = 0
   private active = -1
+  private activeDeck: DeckState['deck'] = null
   private reorder = new RailReorder({
     root: this.root,
     count: () => this.deckController?.state.deck?.slides.length ?? 0,
@@ -120,10 +121,9 @@ export class SegnaviaRail extends SegnaviaDeckControl {
     this.dir = state.direction
     this.setAttribute('aria-label', this.labels.rail)
     this.reconcile(state)
-    if (this.active !== state.index) {
-      this.active = state.index
-      this.selected = state.index
-    }
+    this.selected = railSelectionAfterRender(this.selected, this.active, state.index, this.activeDeck !== deck)
+    this.active = state.index
+    this.activeDeck = deck
     this.syncSelection(state)
     this.observe(state)
     this.markOverflow()
