@@ -139,8 +139,8 @@ ${observe}`
 
 // The sandbox and the document policy fail closed together: only the exact
 // scripted mode admits form events, and no author frame receives same-origin.
-export function frameSandbox(scripts: Scripts | undefined): string {
-  return scripts === 'sandboxed' ? 'allow-scripts allow-forms' : 'allow-scripts'
+export function frameSandbox(scripts: Scripts | undefined, forms?: 'refuse'): string {
+  return scripts === 'sandboxed' && forms !== 'refuse' ? 'allow-scripts allow-forms' : 'allow-scripts'
 }
 
 // The bridge is written to run in old engines too: it is the one script that

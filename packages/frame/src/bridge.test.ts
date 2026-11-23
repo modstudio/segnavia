@@ -62,8 +62,8 @@ describe('frame document', () => {
   })
 
   test('sandbox tokens allow forms only for the exact scripted mode and never same-origin', () => {
-    const sandboxes = [frameSandbox('sandboxed'), frameSandbox('refuse'), frameSandbox(undefined)]
-    expect(sandboxes).toEqual(['allow-scripts allow-forms', 'allow-scripts', 'allow-scripts'])
+    const sandboxes = [frameSandbox('sandboxed'), frameSandbox('sandboxed', 'refuse'), frameSandbox('refuse'), frameSandbox(undefined)]
+    expect(sandboxes).toEqual(['allow-scripts allow-forms', 'allow-scripts', 'allow-scripts', 'allow-scripts'])
     expect(sandboxes.every((sandbox) => !sandbox.includes('allow-same-origin'))).toBe(true)
   })
   test('relays viewer and presentation shortcuts', () => {

@@ -38,7 +38,18 @@ function harness() {
   Object.assign(globalThis, {
     document: {
       createElement(tag: string) {
-        if (tag === 'iframe') return { setAttribute() {}, title: '' }
+        if (tag === 'iframe') {
+          const attributes = new Map<string, string>()
+          return {
+            setAttribute(name: string, value: string) {
+              attributes.set(name, value)
+            },
+            getAttribute(name: string) {
+              return attributes.get(name) ?? null
+            },
+            title: '',
+          }
+        }
         return { className: '', dir: '', style: style(), append() {} }
       },
     },
@@ -52,6 +63,12 @@ const printed = Page.parse({
   html: '<p>Paper</p>',
   print: { paper: 'letter' },
   printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+})
+
+test('a page frame leaves forms out only when the host refuses them', () => {
+  const scripted = Page.parse({ html: '<form></form>', scripts: 'sandboxed' })
+  expect(mountPageFrame(harness(), scripted, undefined, '').getAttribute('sandbox')).toBe('allow-scripts allow-forms')
+  expect(mountPageFrame(harness(), scripted, undefined, '', 'refuse').getAttribute('sandbox')).toBe('allow-scripts')
 })
 
 test('bounded composed papers keep the host height and clear a reported height', () => {

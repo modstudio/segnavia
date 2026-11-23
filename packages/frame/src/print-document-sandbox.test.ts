@@ -36,4 +36,17 @@ describe('print frame sandbox', () => {
     expect(printableDeckValue(deck)).toContain('sandbox="allow-scripts"')
     expect(printableDeckValue(deck)).not.toContain('allow-forms')
   })
+
+  test('leaves forms out of scripted deck and page frames when requested', () => {
+    const deck = Deck.parse({
+      title: 'Form refusal',
+      scripts: 'sandboxed',
+      slides: [{ id: 'html', content: { kind: 'html', html: '<form></form>' } }],
+    })
+    const page = Page.parse({ html: '<form></form>', scripts: 'sandboxed' })
+    expect(printableDeckValue(deck)).toContain('sandbox="allow-scripts allow-forms"')
+    expect(printableDeckValue(deck, { forms: 'refuse' })).toContain('sandbox="allow-scripts"')
+    expect(printablePageValues([page], grid)).toContain('sandbox="allow-scripts allow-forms"')
+    expect(printablePageValues([page], grid, { forms: 'refuse' })).toContain('sandbox="allow-scripts"')
+  })
 })

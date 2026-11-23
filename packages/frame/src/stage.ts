@@ -49,6 +49,7 @@ export class SegnaviaStage extends AsOfElement {
   declare css: string
   declare edition: string | undefined
   declare cspExtra: string
+  declare forms: 'refuse' | undefined
   declare profile: PreflightProfileInput
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
@@ -301,6 +302,7 @@ export class SegnaviaStage extends AsOfElement {
       neighbors: this.neighbors,
       css: this.css,
       csp: this.cspExtra,
+      forms: this.forms ?? this.attached?.forms,
       origins: this.origins,
       frameTitle: this.frameTitle,
       transition: this.transition,

@@ -22,7 +22,7 @@ export function clearPageFrame(element: HTMLElement, height: PageFrameHeightStat
   delete element.dataset.measured
 }
 
-export function mountPageFrame(element: HTMLElement, page: Page, widths: PageWidths | undefined, label: string): HTMLIFrameElement {
+export function mountPageFrame(element: HTMLElement, page: Page, widths: PageWidths | undefined, label: string, forms?: 'refuse'): HTMLIFrameElement {
   element.toggleAttribute('data-composed-papers', Boolean(page.printedPages))
   const sheet = document.createElement('div')
   sheet.className = 'segnavia-page__sheet'
@@ -36,7 +36,7 @@ export function mountPageFrame(element: HTMLElement, page: Page, widths: PageWid
     if (width.marginInline !== undefined) sheet.style.marginInline = width.marginInline
   }
   const iframe = document.createElement('iframe')
-  iframe.setAttribute('sandbox', frameSandbox(page.scripts))
+  iframe.setAttribute('sandbox', frameSandbox(page.scripts, forms))
   iframe.title = label || 'Page'
   sheet.append(iframe)
   element.replaceChildren(sheet)

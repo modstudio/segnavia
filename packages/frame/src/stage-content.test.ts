@@ -74,6 +74,13 @@ describe('stageCanvas', () => {
     expect(url.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
   })
 
+  test('leaves forms out when the host refuses them', () => {
+    const slide = deck.slides[0]
+    if (!slide) throw new Error('Expected the HTML test slide.')
+    const canvas = stageCanvas(controller, deck, slide, slide.content as ResolvedContent, { ...options, forms: 'refuse' })
+    expect(canvas.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
+  })
+
   test('reports a style compile refusal without mounting a partial frame', () => {
     const refused = Deck.parse({
       ...deck,

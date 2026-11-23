@@ -21,6 +21,7 @@ interface DocumentPageMountOptions {
   brands?: BrandsOptions
   css: string
   csp: string
+  forms?: 'refuse'
   origins: import('@segnavia/format').OriginApproval[]
   profile: PreflightProfile
   preflight(report: import('@segnavia/format').PreflightReport): void
@@ -35,6 +36,7 @@ export function mountDocumentPage(sheet: HTMLElement, options: DocumentPageMount
   element.brands = options.brands
   element.css = options.css
   element.cspExtra = options.csp
+  element.forms = options.forms
   element.origins = options.origins
   element.profile = options.profile
   element.part.add('page')

@@ -110,6 +110,7 @@ export const DECK_PDF_OPTION_KEYS = {
   notesFont: true,
   inline: true,
   baseCss: true,
+  forms: true,
   nonce: true,
   omitHtmlSlideFrames: true,
   layoutScripts: true,

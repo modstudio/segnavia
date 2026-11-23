@@ -58,6 +58,7 @@ export interface ControllerOptions {
   schedule?: (tick: () => void) => () => void
   seek?: SeekPolicy
   completeAt?: number
+  forms?: 'refuse'
   serveFrame?: ServeFrame
 }
 

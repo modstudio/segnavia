@@ -16,6 +16,7 @@ interface ThumbnailPageOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   css: string
+  forms?: 'refuse'
   serveFrame?: ServeFrame
 }
 
@@ -46,6 +47,7 @@ export function mountThumbnailPage(
   page.origins = options.origins ?? []
   page.css = options.css
   page.cspExtra = ''
+  page.forms = options.forms
   page.serveFrame = options.serveFrame
   page.toggleAttribute('bounded', true)
   page.part.add('canvas')

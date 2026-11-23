@@ -48,6 +48,7 @@ export class SegnaviaPaper extends HTMLElement {
   declare edition: string | undefined
   declare css: string
   declare cspExtra: string
+  declare forms: 'refuse' | undefined
   declare origins: Iterable<OriginApproval>
   declare anchors: AsOfElementProperties['anchors']
   declare asOf: AsOfElementProperties['asOf']
@@ -369,6 +370,7 @@ export class SegnaviaPaper extends HTMLElement {
     const options = {
       css: `${this.resolvedFontCss}${this.css}`,
       cspExtra: this.cspExtra,
+      forms: this.forms,
       origins: this.origins,
       pageWidths: this.widthOptions,
     }

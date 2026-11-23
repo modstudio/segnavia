@@ -9,6 +9,7 @@ export interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean
   css: string
   csp: string
+  forms?: 'refuse'
   origins?: Iterable<OriginApproval>
   frameTitle: FrameTitle
   transition?: HostTransition

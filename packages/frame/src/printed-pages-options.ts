@@ -120,7 +120,6 @@ export abstract class PrintedPagesOptionsElement extends PageParseOptionsElement
     this.serveFrameValue = value
     this.printedPagesReload()
   }
-
   protected abstract printedPagesReload(): void
   protected abstract printedPagesWindowChanged(): void
 }

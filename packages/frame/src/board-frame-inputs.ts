@@ -16,6 +16,7 @@ export interface BoardFrameInputs {
   anchors?: AsOfElementProperties['anchors']
   asOf?: AsOfElementProperties['asOf']
   moment?: AsOfElementProperties['moment']
+  forms?: 'refuse'
   serveFrame?: ServeFrame
 }
 
@@ -28,6 +29,7 @@ export interface FrameInputsTarget {
   anchors: AsOfElementProperties['anchors']
   asOf: AsOfElementProperties['asOf']
   moment: AsOfElementProperties['moment']
+  forms?: 'refuse'
   serveFrame?: ServeFrame
 }
 
@@ -40,6 +42,7 @@ export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameIn
   target.anchors = inputs.anchors
   target.asOf = inputs.asOf
   target.moment = inputs.moment
+  target.forms = inputs.forms
   target.serveFrame = inputs.serveFrame
 }
 
@@ -84,6 +87,13 @@ export abstract class BoardFrameInputsElement extends BoardDocumentElement {
   }
   get serveFrame(): ServeFrame | undefined {
     return this.frameInputs.serveFrame
+  }
+  get forms(): 'refuse' | undefined {
+    return this.frameInputs.forms
+  }
+  set forms(value: 'refuse' | undefined) {
+    this.frameInputs = { ...this.frameInputs, forms: value }
+    this.frameInputsChanged()
   }
   set serveFrame(value: ServeFrame | undefined) {
     this.frameInputs = { ...this.frameInputs, serveFrame: value }

@@ -10,6 +10,7 @@ export class PageElementAttributes extends HTMLElement {
   }
   declare css: string
   declare cspExtra: string
+  declare forms: 'refuse' | undefined
   declare origins: Iterable<OriginApproval>
   private brandOptions: BrandsOptions | undefined
 

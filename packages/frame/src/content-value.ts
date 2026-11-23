@@ -6,6 +6,7 @@ export interface ContentValue {
   scripts: Scripts
   css: string
   cspExtra: string
+  forms: 'refuse' | undefined
   origins: string
 }
 
@@ -16,11 +17,12 @@ export function comparableContent(
   css: string,
   cspExtra: string,
   origins: Iterable<OriginApproval> | undefined = undefined,
+  forms?: 'refuse',
 ): ContentValue {
   const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
   const approvals = origins === undefined ? undefined : [...origins]
   const policy = FETCH_KINDS.map((kind) => `${kind}:${[...approvedSources(approvals, kind, scripts === 'sandboxed')].sort().join(',')}`).join(';')
-  return { content: resolved, scripts, css, cspExtra, origins: policy }
+  return { content: resolved, scripts, css, cspExtra, forms, origins: policy }
 }
 
 export function sameContent(left: ContentValue, right: ContentValue): boolean {

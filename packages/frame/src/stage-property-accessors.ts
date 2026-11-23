@@ -9,6 +9,7 @@ export interface StagePropertyValues {
   // Styles applied inside every slide, such as a host's house style.
   css: string
   cspExtra: string
+  forms: 'refuse' | undefined
   origins: Iterable<OriginApproval>
   bridgeReadyTimeoutMs: number
   frameTitle: FrameTitle

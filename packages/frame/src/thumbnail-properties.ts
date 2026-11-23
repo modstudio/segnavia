@@ -17,6 +17,7 @@ export class ThumbnailProperties extends AsOfElement {
   protected widthOptions: PageWidths | undefined
   protected fontOptions: FontsOptions | undefined
   protected serveFrameValue: ServeFrame | undefined
+  protected formsValue: 'refuse' | undefined
   private ratioValue: ThumbnailRatio = 'natural'
 
   get ratio(): ThumbnailRatio {
@@ -112,6 +113,13 @@ export class ThumbnailProperties extends AsOfElement {
   }
   set serveFrame(value: ServeFrame | undefined) {
     this.serveFrameValue = value
+    this.thumbnailPropertiesChanged()
+  }
+  get forms(): 'refuse' | undefined {
+    return this.formsValue
+  }
+  set forms(value: 'refuse' | undefined) {
+    this.formsValue = value
     this.thumbnailPropertiesChanged()
   }
 

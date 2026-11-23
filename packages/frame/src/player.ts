@@ -2,7 +2,7 @@
 // the components itself; a host that wants none of it uses the headless stage and controller.
 // Attributes: src, theme, notes, hash, prefetch, transition,
 // transition-duration, playback, captions, presentation and fit. Properties:
-// controller, resolveSlide, css, cspExtra, labels and transition. The actions
+// controller, resolveSlide, css, cspExtra, forms, labels and transition. The actions
 // and below slots add host chrome. Parts expose the player, stage, notes,
 // caption, bar, controls, track segments and caption words. Data attributes mirror the state for styling: data-slide,
 // data-playing, data-word, data-shown, data-direction and data-actions.
@@ -133,6 +133,10 @@ export class SegnaviaPlayer extends DeckSourcesElement {
 
   set resolveSlide(resolve: DeckController['resolveSlide']) {
     this.controller.resolveSlide = resolve
+  }
+  set forms(value: DeckController['forms']) {
+    this.controller.forms = value
+    this.stage.forms = value
   }
   set serveFrame(value: DeckController['serveFrame']) {
     this.controller.serveFrame = value

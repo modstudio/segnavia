@@ -42,6 +42,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
   private stylesheet = ''
   private extraCsp = ''
+  private formsValue: 'refuse' | undefined
   declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []
@@ -169,6 +170,15 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   set cspExtra(value: string) {
     this.extraCsp = value
+    this.paint()
+  }
+
+  get forms(): 'refuse' | undefined {
+    return this.formsValue
+  }
+
+  set forms(value: 'refuse' | undefined) {
+    this.formsValue = value
     this.paint()
   }
 
@@ -373,6 +383,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       brands: this.brandOptions,
       css: this.stylesheet,
       csp: this.extraCsp,
+      forms: this.formsValue,
       origins: [...this.origins],
       profile: surfacePreflightFor(this).resolvedProfile(),
       preflight: (report) => surfacePreflightFor(this).receive(index, report),

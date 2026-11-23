@@ -25,9 +25,10 @@ export function thumbnailCoverFrameInputs(
   sources: ReturnType<typeof thumbnailCoverSources>,
   pageWidths: PageWidths | undefined,
   origins: Iterable<OriginApproval>,
+  forms: 'refuse' | undefined,
   serveFrame: ServeFrame | undefined,
 ): BoardFrameInputs {
-  return { motifs: sources.motifs, fonts: sources.fonts, placements: sources.placements, pageWidths, origins: [...origins], serveFrame }
+  return { motifs: sources.motifs, fonts: sources.fonts, placements: sources.placements, pageWidths, origins: [...origins], forms, serveFrame }
 }
 
 export function mountThumbnailDesignedCover(

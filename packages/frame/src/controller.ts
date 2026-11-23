@@ -93,6 +93,14 @@ export class DeckController extends ControllerFrameServing {
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
+  get forms(): ControllerOptions['forms'] {
+    return this.options.forms
+  }
+  set forms(value: ControllerOptions['forms']) {
+    if (value === this.options.forms) return
+    this.options.forms = value
+    if (this.current.deck) this.emit()
+  }
   addNavigationGuard(guard: (reason: NavigationGuardReason) => void | Promise<void>): () => void {
     return addNavigationGuard(this, guard)
   }
