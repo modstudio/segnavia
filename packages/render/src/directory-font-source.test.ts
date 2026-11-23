@@ -32,7 +32,7 @@ describe('directoryFontSource', () => {
     const first = await source.font('body', { signal })
     const second = await source.font('body', { signal })
     expect(first).toBe(second)
-    expect(first?.faces[0]?.data).toEqual(new Uint8Array(Buffer.from('wOF2')))
+    expect(first?.faces[0]).toMatchObject({ data: new Uint8Array(Buffer.from('wOF2')) })
   })
 
   test('uses the same catalog face description as a host URL source', async () => {

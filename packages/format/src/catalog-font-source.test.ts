@@ -106,7 +106,7 @@ describe('catalogFontSource', () => {
       },
     }
     const source = catalogFontSource(collection, async () => new Uint8Array(Buffer.from('ttcf')))
-    expect((await source.font('body', { signal }))?.faces[0]?.postscriptName).toBe('Body-Regular')
+    expect((await source.font('body', { signal }))?.faces[0]).toMatchObject({ postscriptName: 'Body-Regular' })
   })
 })
 

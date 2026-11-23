@@ -28,11 +28,12 @@ function htmlThumbnail(
   reportsAnimation = false,
   origins?: Parameters<typeof thumbnailCanvas>[7],
   host: DeckController = controller,
+  fonts: Parameters<typeof thumbnailCanvas>[9] = { css: '', failures: [] },
 ) {
   const deck = Deck.parse({ title: 'Thumbnail', slides: [{ id: 'one', content: { kind: 'html', html } }] })
   const slide = deck.slides[0]
   if (!slide) throw new Error('Expected a slide.')
-  return thumbnailCanvas(host, deck, slide, 0, slide.content as ResolvedContent, '', slots, origins, reportsAnimation).querySelector('iframe')
+  return thumbnailCanvas(host, deck, slide, 0, slide.content as ResolvedContent, '', slots, origins, reportsAnimation, fonts).querySelector('iframe')
 }
 
 describe('thumbnail geometry and resolution identity', () => {
@@ -52,6 +53,17 @@ describe('thumbnail geometry and resolution identity', () => {
     expect(frame?.srcdoc).toContain("script-src 'none'")
     expect(frame?.getAttribute('sandbox')).toBe('')
     expect(served).toHaveLength(0)
+  })
+
+  test('a bridgeless HTML thumbnail carries resolved URL font CSS without data bytes', () => {
+    const url = 'https://fonts.gstatic.com/s/body.woff2'
+    const frame = htmlThumbnail('<p>Plain</p>', undefined, false, undefined, controller, {
+      css: `@font-face{font-family:"Body";src:url("${url}") format("woff2")}`,
+      failures: [{ font: 'body', family: 'Body', reason: 'unsupplied' }],
+    })
+    expect(frame?.srcdoc).toContain(url)
+    expect(frame?.srcdoc).not.toContain('data:font/')
+    expect(frame?.srcdoc).not.toContain('<script')
   })
 
   test('a filled shrink slot carries the nonce bridge in a served thumbnail frame', async () => {

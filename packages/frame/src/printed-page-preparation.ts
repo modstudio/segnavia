@@ -15,6 +15,7 @@ export async function preparePrintedPage(
     signal: AbortSignal
     day?: AsOfDay
     profile: PreflightProfile
+    origins?: Iterable<import('@segnavia/format').OriginApproval>
   },
 ) {
   const expanded = await expandPrintedFramePage(
@@ -28,6 +29,6 @@ export async function preparePrintedPage(
     options.profile,
   )
   expanded.page = fillPageAsOfBindings(expanded.page, options.day)
-  const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
+  const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts ? { ...options.fonts, origins: options.origins } : undefined, options.signal)
   return { expanded, fonts }
 }

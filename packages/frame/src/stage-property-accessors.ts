@@ -18,9 +18,10 @@ export interface StagePropertyValues {
   serveFrame: ServeFrame | undefined
 }
 
-export function defineStagePropertyAccessors<T extends object>(prototype: T, changed: (host: T) => void): void {
+export function defineStagePropertyAccessors<T extends object>(prototype: T, changed: (host: T) => void, originsChanged: (host: T) => void): void {
   defineEditionPropertyAccessor(prototype)
-  defineStylesheetPropertyAccessors(prototype, ['css', 'cspExtra', 'origins'])
+  defineStylesheetPropertyAccessors(prototype, ['css', 'cspExtra'])
+  defineStylesheetPropertyAccessors(prototype, ['origins'], (host) => originsChanged(host as T))
   defineStylesheetPropertyAccessors(prototype, ['forms'], (host) => changed(host as T))
   defineElementPropertyAccessors(prototype, () => ({
     bridgeReadyTimeoutMs: 10_000,

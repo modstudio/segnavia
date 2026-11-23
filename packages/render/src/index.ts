@@ -161,7 +161,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           {
             render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printBookPartWithPlacedPdf(tab, pdf, pageWidth, part, options)),
             withTab: (setup, body) => withTab({ ...setup, deadline }, body),
-            fontFaces: (options) => fontFaces(options.fonts),
+            fontFaces: (options) => fontFaces(options.fonts, options.origins),
             finish: (pdf, options) => finishWithBrowser(pdf, options, deadline, progress),
             watermark: parsedOptions.watermark
               ? async (pdf, pages) => {
@@ -186,7 +186,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return renderBrowserBookPlan(
           book,
           { ...options, fontFailures },
-          `${resolvedFontCss}${fontFaces(options.fonts)}`,
+          `${resolvedFontCss}${fontFaces(options.fonts, options.origins)}`,
           (setup, body) => withTab({ ...setup, deadline }, body),
           established.day,
           progress,
@@ -295,7 +295,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   },
                   (tab) => pdfWithBackdropRasters(tab, pdf, options.effects),
                 ),
-              fontFaces: (options) => fontFaces(options.fonts),
+              fontFaces: (options) => fontFaces(options.fonts, options.origins),
               finish: async (pdf) => pdf,
               watermark: options.watermark ? watermarkCopies.stamp : undefined,
               signal: deadline.signal,

@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { type AppFont, type FontFace, FontFaceRefusedError } from '@segnavia/format'
 import { bytesToBase64 } from './base64.ts'
-import { FontCssRefusedError, fontCss } from './font-css.ts'
+import { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 
 const data = new Uint8Array([0])
 
-function face(overrides: Partial<FontFace> & Pick<FontFace, 'family'>): FontFace {
+function face(overrides: Partial<Extract<FontFace, { data: Uint8Array }>> & Pick<FontFace, 'family'>): FontFace {
   return { data, format: 'truetype', ...overrides }
 }
 
@@ -44,6 +44,30 @@ describe('bytesToBase64', () => {
 })
 
 describe('fontCss', () => {
+  test('writes an approved URL face without embedding bytes', () => {
+    const url = 'https://assets.example/fonts/body.woff2'
+    expect(fontFaceCss({ family: 'Remote Face', url, format: 'woff2' }, [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }])).toBe(
+      '@font-face{font-family:"Remote Face";src:url("https://assets.example/fonts/body.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}',
+    )
+  })
+
+  test('refuses a URL face outside the approved font paths', () => {
+    expect(() =>
+      fontFaceCss({ family: 'Remote Face', url: 'https://assets.example/private/body.woff2', format: 'woff2' }, [
+        { origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' },
+      ]),
+    ).toThrow('add { origin: "https://assets.example", kinds: ["font"], pathname: "/private/body.woff2" } to origins to clear this refusal')
+  })
+
+  test('canonicalizes an approved URL before writing it into style text', () => {
+    const css = fontFaceCss({ family: 'Remote Face', url: 'https://assets.example/fonts/body.woff2?</style><script>alert(1)</script>', format: 'woff2' }, [
+      { origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' },
+    ])
+    expect(css).not.toContain('</style')
+    expect(css).not.toContain('<script')
+    expect(css).toContain('%3C/style%3E%3Cscript%3Ealert(1)%3C/script%3E')
+  })
+
   test('extracts a named collection face before writing CSS', () => {
     const css = fontCss({
       app: new Map(),

@@ -76,6 +76,25 @@ test('paper refuses distinct page days when slots.resolve must supply one render
   await expect(promise).rejects.toThrow('2026-11-15')
 })
 
+test('paper resolves a URL face under the element approved font origin', async () => {
+  const page = datedPage()
+  page.style = { fonts: { body: { faces: [{}] } } }
+  const prepared = await preparePaperDays(
+    [page],
+    { moment: Date.now() },
+    {
+      fonts: {
+        origins: [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }],
+        source: {
+          font: async () => ({ family: 'Body', faces: [{ family: 'Body', url: 'https://assets.example/fonts/body.woff2', format: 'woff2' }] }),
+        },
+      },
+      signal: new AbortController().signal,
+    },
+  )
+  expect(prepared.css).toContain('https://assets.example/fonts/body.woff2')
+})
+
 test('paper dispatches its established day', async () => {
   const paper = await paperHarness([datedPage()])
   paper.paint()

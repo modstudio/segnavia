@@ -1,5 +1,4 @@
-// <segnavia-player>: the finished player, for a host that wants the whole layout. A host that wants only some of it places
-// the components itself; a host that wants none of it uses the headless stage and controller.
+// <segnavia-player>: the finished player; hosts wanting less use its components or the headless stage and controller.
 // Attributes: src, theme, notes, hash, prefetch, transition,
 // transition-duration, playback, captions, presentation and fit. Properties:
 // controller, resolveSlide, watched, css, cspExtra, forms, labels and transition. The actions
@@ -68,6 +67,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   declare css: PlayerForwardedProperties['css']
   declare cspExtra: PlayerForwardedProperties['cspExtra']
   declare forms: PlayerForwardedProperties['forms']
+  declare fonts: PlayerForwardedProperties['fonts']
   declare origins: PlayerForwardedProperties['origins']
   declare slots: PlayerForwardedProperties['slots']
   declare transition: PlayerForwardedProperties['transition']

@@ -6,6 +6,7 @@ import type { FormsOption } from './bridge.ts'
 import type { Clock } from './clock.ts'
 import type { ServeFrame } from './frame-write.ts'
 import type { SeekPolicy } from './navigation-limit.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import type { WatchedState } from './watched.ts'
 
 export type { SeekPolicy, WatchedState }
@@ -61,6 +62,7 @@ export interface ControllerOptions {
   completeAt?: number
   forms?: FormsOption
   serveFrame?: ServeFrame
+  fonts?: FontsOptions
 }
 
 export function initialDeckState(): DeckState {

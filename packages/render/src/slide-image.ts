@@ -59,7 +59,7 @@ export async function renderSlideImage(
   const preflight = surfacePreflight(opts.preflight, 1)
   const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
   const resolvedLayoutScripts = await services.layoutScripts(slideHtml)
-  const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
+  const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts, opts.origins)}${opts.css ?? ''}`
   const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, layoutScripts: resolvedLayoutScripts })
   const progress = renderProgressReporter(opts.progress, renderProgressStages({ set: true, finish: true }))
   const output = await services.withTab(

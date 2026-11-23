@@ -12,6 +12,7 @@ export interface PoolOptions extends FrameReadinessOptions {
   csp: string
   forms?: FormsOption
   origins?: Iterable<OriginApproval>
+  fontCss?: string
   frameTitle: FrameTitle
   transition?: HostTransition
   reducedMotion: boolean

@@ -51,7 +51,7 @@ export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptio
           ...(options.watermark?.lang ? { lang: options.watermark.lang } : {}),
           fontFamily,
         })),
-        fontFaces(options.fonts),
+        fontFaces(options.fonts, options.origins),
       ),
       readiness: { author: false },
       deadline,

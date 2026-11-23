@@ -5,7 +5,7 @@ import type { Font } from './options.ts'
 
 const data = new Uint8Array([0])
 
-function face(overrides: Partial<Font> & Pick<Font, 'family'>): Font {
+function face(overrides: Partial<Extract<Font, { data: Uint8Array }>> & Pick<Font, 'family'>): Font {
   return { data, format: 'truetype', ...overrides }
 }
 
@@ -13,6 +13,16 @@ test('fontFaces without unicodeRange is the @font-face rule it emits today', () 
   expect(fontFaces([face({ family: 'Face' })])).toBe(
     '@font-face{font-family:"Face";src:url(data:font/ttf;base64,AA==) format("truetype");font-weight:normal;font-style:normal;font-display:block}',
   )
+})
+
+test('fontFaces refuses a URL outside the approved offline asset routes', () => {
+  const work = () =>
+    fontFaces(
+      [{ family: 'Face', url: 'https://assets.example/private/face.woff2', format: 'woff2' }],
+      [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }],
+    )
+  expect(work).toThrow(RenderRefusedError)
+  expect(work).toThrow('could not establish an approved font URL')
 })
 
 test('fontFaces leaves a sibling without unicodeRange byte-identical and still emits the other face', () => {

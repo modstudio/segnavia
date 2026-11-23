@@ -6,6 +6,8 @@ import {
   FontFaceRefusedError,
   type FontFormat,
   fontWeightRange,
+  type OriginApproval,
+  originDecision,
   Refusal,
   type RefusalOptions,
   type ResolvedFontFace,
@@ -65,7 +67,7 @@ function quotedFamily(family: string): string {
   })
 }
 
-function validatedFace(font: FontFace): FontFace {
+function validatedFace(font: FontFace, origins?: Iterable<OriginApproval>): FontFace {
   if (!isFontFormat(font.format)) {
     throw faceRefusal(font, `a font format that is one of ${FONT_FORMATS.join(', ')}`, `supply one of ${FONT_FORMATS.join(', ')}`)
   }
@@ -75,11 +77,23 @@ function validatedFace(font: FontFace): FontFace {
   if (font.style !== undefined && font.style !== 'normal' && font.style !== 'italic') {
     throw faceRefusal(font, "a font-style of 'normal' or 'italic'", "supply 'normal' or 'italic'")
   }
+  if ('url' in font) {
+    const decision = originDecision(font.url, 'font', origins, true)
+    if (!decision.allowed) {
+      throw new FontCssRefusedError(
+        `The face ${JSON.stringify(font.family)} could not establish an approved font URL: ${decision.refusal.message}; ${decision.refusal.advice}.`,
+      )
+    }
+  }
   return font
 }
 
-export function fontFaceCss(font: FontFace): string {
-  const validated = validatedFace(font)
+export function fontFaceCss(font: FontFace, origins?: Iterable<OriginApproval>): string {
+  const validated = validatedFace(font, origins)
+  if ('url' in validated) {
+    const canonicalUrl = JSON.stringify(new URL(validated.url).href).replaceAll('<', '\\3c ')
+    return `@font-face{font-family:${quotedFamily(validated.family)};src:url(${canonicalUrl}) format(${JSON.stringify(validated.format)});font-weight:${validated.weight ?? 'normal'};font-style:${validated.style ?? 'normal'};${unicodeRangeDeclaration(validated)}font-display:block}`
+  }
   let resolved: ResolvedFontFace
   try {
     resolved = resolveFontFace(validated.data, validated.format, validated.postscriptName)
@@ -106,7 +120,7 @@ function customProperty(name: string, font: AppFont): string {
   return `--segnavia-font-${name}:${quotedFamily(font.family)}${generic}`
 }
 
-export function fontCss(options: { app: Map<string, AppFont>; local?: readonly FontFace[] }): string {
+export function fontCss(options: { app: Map<string, AppFont>; local?: readonly FontFace[]; origins?: Iterable<OriginApproval> }): string {
   const faces: FontFace[] = []
   const properties: string[] = []
   for (const [name, font] of options.app) {
@@ -114,7 +128,7 @@ export function fontCss(options: { app: Map<string, AppFont>; local?: readonly F
     properties.push(customProperty(name, font))
   }
   for (const font of options.local ?? []) faces.push(font)
-  const rules = faces.map(fontFaceCss).join('')
+  const rules = faces.map((face) => fontFaceCss(face, options.origins)).join('')
   if (properties.length === 0) return rules
   return `${rules}:root{${properties.join(';')}}`
 }

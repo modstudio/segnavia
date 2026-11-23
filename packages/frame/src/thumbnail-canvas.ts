@@ -4,6 +4,7 @@ import type { DeckController, ResolvedContent } from './controller.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { dispatchElementError } from './element-error.ts'
 import { defaultFrameTitle } from './frame-title.ts'
+import { EMPTY_RESOLVED_FONTS, type ResolvedFonts } from './page-fonts.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
 
@@ -22,6 +23,7 @@ export function thumbnailCanvas(
   origins?: Iterable<OriginApproval>,
   // A caller that inspects the slide's animation through its frame needs the bridge to answer.
   reportsAnimation = false,
+  fonts: ResolvedFonts = EMPTY_RESOLVED_FONTS,
 ): HTMLElement {
   const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots)))
   const folio = deckFolioAt(deckFolios(deck), index)
@@ -30,6 +32,8 @@ export function thumbnailCanvas(
     css,
     csp: '',
     origins,
+    fontCss: fonts.css,
+    fontFailures: fonts.failures,
     frameTitle: defaultFrameTitle,
     loaded: () => {},
     failed: (error) => dispatchElementError(canvas, error),

@@ -323,7 +323,7 @@ export class SegnaviaBook extends BookSourcesElement {
     this.loadController = controller
     startBookViewLoad(view, captureAsOfLoad(this), {
       motifs: this.motifOptions,
-      fonts: this.fontOptions,
+      fonts: this.fontOptions ? { ...this.fontOptions, origins: this.origins } : undefined,
       placements: this.placementOptions,
       pageWidths: this.widthOptions,
       profile: resolvePreflightProfile(this.profileInput),

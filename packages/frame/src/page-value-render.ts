@@ -145,7 +145,8 @@ export function renderPageValue(
     renderUnexpandedPage(page, resolvedPage, effectiveSlots, signal, options, handlers)
     return
   }
-  void prepareShownPage(resolvedPage, options.motifs, slots, options.fonts, signal, options.placements, options.widths, day)
+  const fonts = options.fonts ? { ...options.fonts, origins: options.origins } : undefined
+  void prepareShownPage(resolvedPage, options.motifs, slots, fonts, signal, options.placements, options.widths, day)
     .then(({ page: shownPage, resolved, css, failures, sounds }) => handlers.show(shownPage, resolved, css, failures, sounds))
     .catch(handlers.report)
 }

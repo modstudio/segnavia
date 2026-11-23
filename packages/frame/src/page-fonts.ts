@@ -14,6 +14,7 @@ import {
   fontManifestWithReferences,
   type LimitExceeded,
   matchFaces,
+  type OriginApproval,
   type Page,
   Refusal,
   type RefusalOptions,
@@ -28,6 +29,7 @@ export interface FontsOptions {
 
 export interface ResolveFontsOptions extends FontsOptions {
   signal?: AbortSignal
+  origins?: Iterable<OriginApproval>
 }
 
 export { fontManifestReferences, fontManifestWithReferences }
@@ -36,6 +38,8 @@ export interface ResolvedFonts {
   css: string
   failures: FontFailure[]
 }
+
+export const EMPTY_RESOLVED_FONTS: ResolvedFonts = { css: '', failures: [] }
 
 export class FontRefusedError extends Refusal {
   readonly exceeded?: readonly LimitExceeded[]
@@ -115,7 +119,7 @@ function unusablePresentFailures(
 export async function resolveFontReferences(
   declarations: FontManifest,
   undeclared: readonly string[],
-  fonts: FontsOptions,
+  fonts: ResolveFontsOptions,
   signal: AbortSignal,
   place: string,
   targetDocumentCanUsePresentFaces = true,
@@ -143,7 +147,7 @@ export async function resolveFontReferences(
     if (declaration) failures.push(...unsupplied(name, font.family, matched.unsupplied))
     app.set(name, { ...font, faces: matched.faces, generic: declaration?.generic ?? font.generic })
   }
-  return { css: fontCss({ app, local: fonts.local ?? [] }), failures: failures.slice(0, FONT_FAILURE_LIMIT) }
+  return { css: fontCss({ app, local: fonts.local ?? [], origins: fonts.origins }), failures: failures.slice(0, FONT_FAILURE_LIMIT) }
 }
 
 export function resolveFonts(fonts: FontManifest | undefined, options: ResolveFontsOptions): Promise<ResolvedFonts> {
@@ -154,7 +158,7 @@ export function resolveFonts(fonts: FontManifest | undefined, options: ResolveFo
 export async function resolvePageFonts(
   page: Pick<Page, 'id' | 'style'>,
   motifFonts: FontReference[],
-  fonts: FontsOptions,
+  fonts: ResolveFontsOptions,
   signal: AbortSignal,
 ): Promise<ResolvedFonts> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
@@ -165,21 +169,21 @@ export async function resolvePageFonts(
 export async function pageFontCss(
   page: Pick<Page, 'id' | 'style'>,
   motifFonts: FontReference[],
-  fonts: FontsOptions | undefined,
+  fonts: ResolveFontsOptions | undefined,
   signal: AbortSignal,
 ): Promise<ResolvedFonts> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
   const { manifest, undeclared } = fontManifestWithReferences(page.style?.fonts, motifFonts)
   if (!fonts) {
     refuseMissingFontSource(manifest, undeclared, place)
-    return { css: '', failures: [] }
+    return EMPTY_RESOLVED_FONTS
   }
   return resolveFontReferences(manifest, undeclared, fonts, signal, place)
 }
 
 export async function expandedPagesFontCss(
   expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
-  fonts: FontsOptions | undefined,
+  fonts: ResolveFontsOptions | undefined,
   signal: AbortSignal,
   place = 'page',
 ): Promise<ResolvedFonts> {
@@ -193,21 +197,21 @@ export async function expandedPagesFontCss(
   for (const name of Object.keys(declarations)) undeclared.delete(name)
   if (!fonts) {
     refuseMissingFontSource(declarations, [...undeclared], place)
-    return { css: '', failures: [] }
+    return EMPTY_RESOLVED_FONTS
   }
   return resolveFontReferences(declarations, [...undeclared], fonts, signal, place)
 }
 
 export async function expandedBookFontCss(
   expanded: { book: BookView; fonts: FontReference[] },
-  fonts: FontsOptions | undefined,
+  fonts: ResolveFontsOptions | undefined,
   signal: AbortSignal,
 ): Promise<ResolvedFonts> {
   const place = expanded.book.title ? `book ${JSON.stringify(expanded.book.title)}` : 'book'
   const { manifest, undeclared } = fontManifestWithReferences(expanded.book.style?.fonts, expanded.fonts)
   if (!fonts) {
     refuseMissingFontSource(manifest, undeclared, place)
-    return { css: '', failures: [] }
+    return EMPTY_RESOLVED_FONTS
   }
   return resolveFontReferences(manifest, undeclared, fonts, signal, place)
 }

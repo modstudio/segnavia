@@ -29,6 +29,20 @@ describe('book motifs', () => {
     expect(detail).toEqual({ failures: [{ font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' }] })
   })
 
+  test('resolves a book URL face under the element approved font origin', async () => {
+    const { book, frames } = reflectedBookElement()
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    book.origins = [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }]
+    book.fonts = {
+      source: {
+        font: async () => ({ family: 'Body', faces: [{ family: 'Body', url: 'https://assets.example/fonts/body.woff2', format: 'woff2' }] }),
+      },
+    }
+    book.view = { html: '<main>Book</main>', style: { fonts: { body: { faces: [{}] } } } }
+    for (let i = 0; i < 40; i += 1) await Promise.resolve()
+    expect(frames.at(-1)?.srcdoc).toContain('https://assets.example/fonts/body.woff2')
+  })
+
   test('a later flow frame uses the motif-expanded prepared view', async () => {
     const { book, frames } = reflectedBookElement()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
