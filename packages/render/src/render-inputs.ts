@@ -32,8 +32,11 @@ export async function settleRenderInputs<Input, Value>(
       }
     }),
   )
-  return {
-    accepted: settled.flatMap((entry) => ('value' in entry ? [{ index: entry.index, value: entry.value }] : [])),
-    refused: settled.flatMap((entry) => ('refusal' in entry ? [entry.refusal] : [])),
+  const accepted: Array<SettledRenderInput<Value>> = []
+  const refused: InputRefusal[] = []
+  for (const entry of settled) {
+    if ('value' in entry) accepted.push({ index: entry.index, value: entry.value as Value })
+    else refused.push(entry.refusal)
   }
+  return { accepted, refused }
 }

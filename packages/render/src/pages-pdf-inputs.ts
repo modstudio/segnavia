@@ -33,7 +33,13 @@ export async function preparePagesPdfInputs(
 export function captureInputRefusals(option: ParsedPagesPdfOptions['skipRefused'], initial: readonly InputRefusal[]) {
   const entries = new Map(initial.map((entry) => [entry.index, entry]))
   return {
-    option: option && { report: (refused: readonly InputRefusal[]) => refused.forEach((entry) => entries.set(entry.index, entry)) },
+    option:
+      option &&
+      ({
+        report(refused: readonly InputRefusal[]) {
+          for (const entry of refused) entries.set(entry.index, entry)
+        },
+      } as const),
     report: () => option?.report([...entries.values()].sort((left, right) => left.index - right.index)),
   }
 }
@@ -55,6 +61,7 @@ async function prepareInput(
   const prepared = await prepareExpandedRenderedPage({ ...expanded, page: fillPageAsOfBindings(expanded.page, established.day) }, options, signal, established)
   return {
     ...prepared,
+    preflight: expanded.preflight,
     index: input.index,
     id: input.id,
     outlineSource: input.document.kind === 'printed' ? documentOutlineSource(input.document) : undefined,

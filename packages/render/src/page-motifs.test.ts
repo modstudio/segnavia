@@ -192,6 +192,32 @@ test('pagesPdf refuses a named brand without a source before opening a tab', asy
   await renderer.close()
 })
 
+test('pagesPdf settles invalid documents and preserves their original indices', async () => {
+  documents.length = 0
+  const { openRenderer, RenderInputsRefusedError } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const good = {
+    type: 'document',
+    kind: 'page',
+    id: 'good',
+    size: { width: 200, height: 100 },
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  }
+  try {
+    await renderer.pagesPdf([{ ...good, id: 'bad-one', kind: 'unknown' } as never, good as never, { ...good, id: 'bad-three', kind: 'unknown' } as never])
+    throw new Error('expected refused inputs')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderInputsRefusedError)
+    expect((error as InstanceType<typeof RenderInputsRefusedError>).entries.map(({ index, id }) => ({ index, id }))).toEqual([
+      { index: 0, id: 'bad-one' },
+      { index: 2, id: 'bad-three' },
+    ])
+  } finally {
+    await renderer.close()
+  }
+  expect(documents).toHaveLength(1)
+})
+
 test('deckPdf reports an unsupplied declared face', async () => {
   documents.length = 0
   const { openRenderer } = await import('./index.ts')

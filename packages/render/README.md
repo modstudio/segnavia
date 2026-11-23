@@ -14,7 +14,7 @@ env -i PATH="$PATH" SEGNAVIA_CHROMIUM=/path/to/chromium /path/to/node_modules/.b
 
 The request is `{ "render": "page" | "pages" | "book" | "deck", "document": ..., "options": ..., "fonts"?: ... }`; `pages` takes an array document. The host itself writes this trusted request: its `options`, including `limits`, carry host authority and must not be accepted directly from an untrusted caller. `options` are the corresponding renderer method's JSON-safe options. A `fonts` catalog also requires `SEGNAVIA_FONTS` to name the directory beneath which its face paths resolve. `SEGNAVIA_CHROMIUM_CONTAINER=1` adds `--no-sandbox`, `--disable-setuid-sandbox`, `--disable-dev-shm-usage` and `--disable-gpu`; use it only when rendering inside a container.
 
-Success exits 0 with an empty standard error. A refusal exits 2 with one JSON line on standard error under `refusal`; another failure exits 1 with one line under `failure`. The command accepts at most 100 MiB on standard input. Function seams such as assets, brands, reports and hooks are unavailable, and rendering remains offline.
+Success normally exits 0 with an empty standard error. A refusal exits 2 with one JSON line on standard error under `refusal`; another failure exits 1 with one line under `failure`. The command accepts at most 100 MiB on standard input. Function seams such as assets, brands, reports and hooks are unavailable, and rendering remains offline.
 
 `pagesPdf` refuses with `RenderInputsRefusedError` after settling every input, so `entries` identifies each failed document by its zero-based input index and id. A host may explicitly omit those inputs while keeping the `Uint8Array` return type by supplying a required report:
 

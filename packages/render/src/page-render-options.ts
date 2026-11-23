@@ -12,7 +12,8 @@ export function parsePagePdfOptions(options: PagePdfOptions, call: 'pagePdf'): P
 export function parsePagePdfOptions(options: PagesPdfOptions, call: 'pagesPdf'): ParsedPagesPdfOptions
 export function parsePagePdfOptions(options: PagePdfOptions | PagesPdfOptions, call: PagePdfCall): ParsedPagePdfOptions | ParsedPagesPdfOptions {
   refuseUnknownOptions(call, options)
-  if (call === 'pagesPdf' && options.skipRefused !== undefined && typeof options.skipRefused?.report !== 'function') {
+  const skipRefused = (options as PagesPdfOptions).skipRefused
+  if (call === 'pagesPdf' && skipRefused !== undefined && typeof skipRefused?.report !== 'function') {
     throw new RenderRefusedError(
       'pagesPdf options.skipRefused needs a report function; pass skipRefused: { report(refused) {} }, or omit it to clear this refusal.',
     )

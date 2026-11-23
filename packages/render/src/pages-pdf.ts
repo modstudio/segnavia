@@ -189,7 +189,10 @@ async function renderUnimposedPagesPdf(
       }
     }),
   )
-  const refused = [...priorRefusals, ...settled.flatMap((entry) => ('refusal' in entry ? [entry.refusal] : []))]
+  const refused = [
+    ...priorRefusals,
+    ...settled.map((entry) => ('refusal' in entry ? entry.refusal : undefined)).filter((entry): entry is InputRefusal => entry !== undefined),
+  ]
   const accepted = settled.filter((entry): entry is Extract<(typeof settled)[number], { rendered: PrintResult }> => 'rendered' in entry)
   if (refused.length > 0 && (!opts.skipRefused || accepted.length === 0)) throw new RenderInputsRefusedError(refused)
   const rendered = accepted.map((entry) => entry.rendered)
@@ -209,6 +212,23 @@ async function renderUnimposedPagesPdf(
   return output
 }
 
+function parsePagesImposition(pages: Array<HtmlPage | PrintedHtmlPage>, opts: PagesPdfOptions): Imposition {
+  const imposition = Imposition.parse(opts.imposition)
+  for (const page of pages) {
+    if (!isPrintedHtmlPage(page)) continue
+    const refusal = mixedImpositionGeometryRefusal(printedSectionPapers(page))
+    if (refusal) throw new RenderRefusedError(refusal)
+  }
+  const geometryRefusal = mixedImpositionGeometryRefusal(pages)
+  if (geometryRefusal) throw new RenderRefusedError(geometryRefusal)
+  if (opts.preferCssPageSize) {
+    throw new RenderRefusedError(
+      'Pages in an imposition take their size from its paper. Remove preferCssPageSize, or remove the imposition, to clear this refusal.',
+    )
+  }
+  return imposition
+}
+
 // Pages arrive parsed and filled with the slot preparation that measures their overflow.
 export async function renderPagesPdf(
   pages: Array<HtmlPage | PrintedHtmlPage>,
@@ -224,20 +244,7 @@ export async function renderPagesPdf(
   if (pages.length === 0 && priorRefusals.length > 0) throw new RenderInputsRefusedError(priorRefusals)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) return renderUnimposedPagesPdf(pages, slots, opts, services, frameGroups, outlineSources, inputFacts, priorRefusals)
-  const imposition = Imposition.parse(opts.imposition)
-  for (const page of pages) {
-    if (!isPrintedHtmlPage(page)) continue
-    const pieces = printedSectionPapers(page)
-    const refusal = mixedImpositionGeometryRefusal(pieces)
-    if (refusal) throw new RenderRefusedError(refusal)
-  }
-  const geometryRefusal = mixedImpositionGeometryRefusal(pages)
-  if (geometryRefusal) throw new RenderRefusedError(geometryRefusal)
-  if (opts.preferCssPageSize) {
-    throw new RenderRefusedError(
-      'Pages in an imposition take their size from its paper. Remove preferCssPageSize, or remove the imposition, to clear this refusal.',
-    )
-  }
+  const imposition = parsePagesImposition(pages, opts)
   const printed = pages.filter((page) => page.printedPages)
   if (printed.length > 0) {
     if (printed.some((page) => !page.print || !isPrintedPageIdentityImposition(page.print, imposition))) {

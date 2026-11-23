@@ -61,3 +61,15 @@ test('pagesPdf skips refused inputs only with a required report', async () => {
   expect(reports).toHaveLength(1)
   expect(reports[0]).toMatchObject([{ index: 1, id: 'bad', error: { code: 'render' } }])
 })
+
+test('pagesPdf refuses when skipping would leave no output', async () => {
+  const rendering = renderPagesPdf(
+    [page({ id: 'bad', html: '<p>Bad</p>' })],
+    slots,
+    { skipRefused: { report: () => {} } },
+    services(async () => {
+      throw new RenderRefusedError('bad page')
+    }),
+  )
+  await expect(rendering).rejects.toBeInstanceOf(RenderInputsRefusedError)
+})
