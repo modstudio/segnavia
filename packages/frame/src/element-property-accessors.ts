@@ -1,4 +1,5 @@
 import type { OriginApproval } from '@segnavia/format'
+import type { FormsOption } from './bridge.ts'
 
 export type ElementPropertyChanged = (element: object, property: string) => void
 
@@ -29,18 +30,19 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
 interface StylesheetPropertyValues {
   css: string
   cspExtra: string
+  forms: FormsOption | undefined
   origins: Iterable<OriginApproval>
 }
 
 export function defineStylesheetPropertyAccessors(
   prototype: object,
-  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'origins'],
+  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'forms', 'origins'],
   changed?: ElementPropertyChanged,
 ): void {
   defineElementPropertyAccessors(
     prototype,
     () => {
-      const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', origins: [] }
+      const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', forms: undefined, origins: [] }
       return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
     },
     changed,

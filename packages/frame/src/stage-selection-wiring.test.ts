@@ -216,7 +216,7 @@ test("a frame's ready window message clears its bridge timeout refusal", () => {
   const content = { kind: 'url' as const, src: 'one.html', bridge: true as const }
   const deck = Deck.parse({ title: 'Ready', scripts: 'refuse', slides: [{ id: 'one', content: { kind: 'url', src: 'one.html' } }] })
   const state = { ...initialDeckState(), deck, slide: deck.slides[0] ?? null, content }
-  const entry = new FrameEntry('one', { content, scripts: 'refuse', css: '', cspExtra: '', origins: '' }, content)
+  const entry = new FrameEntry('one', { content, scripts: 'refuse', css: '', cspExtra: '', forms: undefined, origins: '' }, content)
   const failure = new SlideFrameError('one', 0, new BridgeReadyTimeoutError('one', 2))
   entry.markFailed(failure)
   const contentWindow = {}

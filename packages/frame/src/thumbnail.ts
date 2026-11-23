@@ -227,7 +227,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
         mountDesignedCover(
           selected,
           (error) => this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true })),
-          thumbnailCoverFrameInputs(sources, this.widthOptions, this.origins, this.serveFrameValue) satisfies BoardFrameInputs,
+          thumbnailCoverFrameInputs(sources, this.widthOptions, this.origins, this.formsValue, this.serveFrameValue) satisfies BoardFrameInputs,
           sources.slots,
           this.ratio,
         ),
@@ -271,6 +271,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       placements: this.placementOptions,
       hash: null,
       persist: false,
+      forms: this.formsValue,
       serveFrame: this.serveFrameValue,
     })
     this.controller = controller
@@ -386,6 +387,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
         slots: this.slotOptions,
         origins: this.origins,
         css: this.css,
+        forms: this.formsValue,
         serveFrame: this.serveFrameValue,
       },
       established,

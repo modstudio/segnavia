@@ -1,6 +1,7 @@
 import type { OriginApproval, Page, PageWidths, Print, SlotsOptions } from '@segnavia/format'
 import type { EstablishedPageDay } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import type { FormsOption } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -16,6 +17,7 @@ interface ThumbnailPageOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   css: string
+  forms?: FormsOption
   serveFrame?: ServeFrame
 }
 
@@ -46,6 +48,7 @@ export function mountThumbnailPage(
   page.origins = options.origins ?? []
   page.css = options.css
   page.cspExtra = ''
+  page.forms = options.forms
   page.serveFrame = options.serveFrame
   page.toggleAttribute('bounded', true)
   page.part.add('canvas')

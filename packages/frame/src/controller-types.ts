@@ -2,6 +2,7 @@ import type { Deck, NarrationPacing, PlaybackMode, Slide, SlideContent, TextDire
 import type { SoundPlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
+import type { FormsOption } from './bridge.ts'
 import type { Clock } from './clock.ts'
 import type { ServeFrame } from './frame-write.ts'
 import type { SeekPolicy } from './navigation-limit.ts'
@@ -58,6 +59,7 @@ export interface ControllerOptions {
   schedule?: (tick: () => void) => () => void
   seek?: SeekPolicy
   completeAt?: number
+  forms?: FormsOption
   serveFrame?: ServeFrame
 }
 

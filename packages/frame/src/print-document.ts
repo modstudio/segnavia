@@ -37,7 +37,7 @@ import {
   resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
-import { buildFrameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -87,6 +87,7 @@ export interface PrintOptions {
   inline?: (src: string) => string
   baseCss?: string
   css?: string
+  forms?: FormsOption
   nonce?: string
   // Keeps every HTML slide's layout box but leaves its frame out.
   omitHtmlSlideFrames?: boolean
@@ -138,7 +139,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   }
   const frame = (html: string) => {
     const layoutScripts = layoutsForHtml(html, options.layoutScripts ?? [])
-    return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    return `<iframe sandbox="${frameSandbox(deck.scripts, options.forms)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   }
   switch (content.kind) {
     case 'html':
@@ -201,6 +202,7 @@ export interface PrintablePagesOptions {
   css?: string
   nonce?: string
   cspExtra?: string
+  forms?: FormsOption
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths
@@ -276,7 +278,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
   })
   const markup = placementBox(
     (dimensions) =>
-      `<iframe sandbox="${frameSandbox(page.scripts)}" srcdoc="${escapeHtml(document.html)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
+      `<iframe sandbox="${frameSandbox(page.scripts, options.forms)}" srcdoc="${escapeHtml(document.html)}" style="position:absolute;${dimensions};border:0;display:block"></iframe>`,
     placement,
     layout,
     fit.scale,

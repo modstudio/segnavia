@@ -99,7 +99,7 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
 ## Security invariants
 
 - Author HTML is always shown in a frame sandboxed without same-origin. A
-  scripted frame adds `allow-forms` under `form-action 'none'`; a refused-script
+  scripted frame adds `allow-forms` under `form-action 'none'` unless the host refuses forms; a refused-script
   frame does not. Under `scripts: 'refuse'` a nonce CSP keeps author scripts
   from running while the bridge still runs. A standalone thumbnail without a
   `shrink`, `truncate` or `refuse` slot omits the bridge, uses an empty sandbox and sets

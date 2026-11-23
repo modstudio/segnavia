@@ -331,7 +331,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
     this.frameHeight.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     this.frameHeight.hasReport = false
     delete this.dataset.measured
-    return mountPageFrame(this, page, this.widthOptions, this.label)
+    return mountPageFrame(this, page, this.widthOptions, this.label, this.forms)
   }
 
   /** Drops what belongs to the current frame and returns the generation of the next one. */

@@ -5,7 +5,7 @@ import { SlideFrameError } from './slide-frame-error.ts'
 const content = { kind: 'url' as const, src: 'slide.html', bridge: true as const }
 
 function entry(id: string) {
-  return new FrameEntry(id, { content, scripts: 'refuse', css: '', cspExtra: '', origins: '' }, content)
+  return new FrameEntry(id, { content, scripts: 'refuse', css: '', cspExtra: '', forms: undefined, origins: '' }, content)
 }
 
 test("a neighbor's ready does not clear the shown timeout failure", () => {

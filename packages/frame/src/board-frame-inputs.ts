@@ -2,6 +2,7 @@ import type { OriginApproval, PageWidths } from '@segnavia/format'
 import { type AsOfElementProperties, defineAsOfPropertyAccessors } from './as-of-element.ts'
 import { BoardDocumentElement } from './board-document-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { FormsOption } from './bridge.ts'
 import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -16,6 +17,7 @@ export interface BoardFrameInputs {
   anchors?: AsOfElementProperties['anchors']
   asOf?: AsOfElementProperties['asOf']
   moment?: AsOfElementProperties['moment']
+  forms?: FormsOption
   serveFrame?: ServeFrame
 }
 
@@ -28,6 +30,7 @@ export interface FrameInputsTarget {
   anchors: AsOfElementProperties['anchors']
   asOf: AsOfElementProperties['asOf']
   moment: AsOfElementProperties['moment']
+  forms?: FormsOption
   serveFrame?: ServeFrame
 }
 
@@ -40,6 +43,7 @@ export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameIn
   target.anchors = inputs.anchors
   target.asOf = inputs.asOf
   target.moment = inputs.moment
+  target.forms = inputs.forms
   target.serveFrame = inputs.serveFrame
 }
 
@@ -84,6 +88,13 @@ export abstract class BoardFrameInputsElement extends BoardDocumentElement {
   }
   get serveFrame(): ServeFrame | undefined {
     return this.frameInputs.serveFrame
+  }
+  get forms(): FormsOption | undefined {
+    return this.frameInputs.forms
+  }
+  set forms(value: FormsOption | undefined) {
+    this.frameInputs = { ...this.frameInputs, forms: value }
+    this.frameInputsChanged()
   }
   set serveFrame(value: ServeFrame | undefined) {
     this.frameInputs = { ...this.frameInputs, serveFrame: value }

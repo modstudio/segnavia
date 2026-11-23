@@ -41,6 +41,8 @@ test('rebuilds frame inputs when origins change and clears them with undefined',
 
     element.origins = undefined
     expect(element.origins).toEqual([])
+    element.forms = 'refuse'
+    expect(element.inputs.forms).toBe('refuse')
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

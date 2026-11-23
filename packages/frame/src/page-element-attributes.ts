@@ -1,5 +1,6 @@
 import type { OriginApproval } from '@segnavia/format'
 import type { BrandsOptions } from './brands.ts'
+import type { FormsOption } from './bridge.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 
 export class PageElementAttributes extends HTMLElement {
@@ -10,6 +11,7 @@ export class PageElementAttributes extends HTMLElement {
   }
   declare css: string
   declare cspExtra: string
+  declare forms: FormsOption | undefined
   declare origins: Iterable<OriginApproval>
   private brandOptions: BrandsOptions | undefined
 

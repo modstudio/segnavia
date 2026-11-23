@@ -1,5 +1,5 @@
 import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
-import { type BuiltFrameDocument, buildFrameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { type ServedFrameKind, type ServeFrame, writeFrameDocument } from './frame-write.ts'
@@ -13,6 +13,7 @@ const canvasLayouts = new WeakMap<HTMLElement, (size: PixelSize) => void>()
 interface StageCanvasOptions {
   css: string
   csp: string
+  forms?: FormsOption
   origins?: Iterable<OriginApproval>
   frameTitle: FrameTitle
   loaded: () => void
@@ -101,7 +102,7 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
     const iframe = document.createElement('iframe')
     iframe.className = 'segnavia-stage__frame'
     // A URL slide's host-served document is outside the frame policy that blocks form submission.
-    iframe.setAttribute('sandbox', options.bridge === false ? '' : frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
+    iframe.setAttribute('sandbox', options.bridge === false ? '' : frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts, options.forms))
     iframe.title = options.frameTitle(deck.title, options.folio.number)
     if (content.kind === 'html') {
       if (!writeHtmlFrame(iframe, deck, content.html, options)) {

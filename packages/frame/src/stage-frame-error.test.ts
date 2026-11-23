@@ -135,7 +135,11 @@ test('a bridge-ready timeout reports its slide id and marks the shown frame refu
       update(shown: DeckState, _controller: DeckController, options: PoolOptions) {
         expect(shown.index).toBe(2)
         expect(options.neighbors).toBeTrue()
-        entry = new FrameEntry('failed-neighbor', { content: failedContent, scripts: 'refuse', css: '', cspExtra: '', origins: '' }, failedContent)
+        entry = new FrameEntry(
+          'failed-neighbor',
+          { content: failedContent, scripts: 'refuse', css: '', cspExtra: '', forms: undefined, origins: '' },
+          failedContent,
+        )
         entry.markLoaded(options)
       },
       failureFor: (shown: DeckState) => (entry?.content === shown.content ? entry.failure : null),

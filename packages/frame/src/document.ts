@@ -16,6 +16,7 @@ import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
+import type { FormsOption } from './bridge.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
 import { DocumentBrandLoader } from './document-brand-resolution.ts'
 import { parseDocumentEditions, resolveDocumentEditions } from './document-edition.ts'
@@ -39,9 +40,11 @@ const MOUNT_MARGIN = 600
 export class SegnaviaDocument extends DocumentAsOfElement {
   static {
     defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['origins'])
+    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['forms'], (document) => (document as SegnaviaDocument).paint())
   }
   private stylesheet = ''
   private extraCsp = ''
+  declare forms: FormsOption | undefined
   declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []
@@ -373,6 +376,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       brands: this.brandOptions,
       css: this.stylesheet,
       csp: this.extraCsp,
+      forms: this.forms,
       origins: [...this.origins],
       profile: surfacePreflightFor(this).resolvedProfile(),
       preflight: (report) => surfacePreflightFor(this).receive(index, report),

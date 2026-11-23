@@ -238,7 +238,7 @@ export class SegnaviaBook extends BookSourcesElement {
 
   private mountFrame(rendered: { title: string; srcdoc: string; policy: string; scripts: Scripts }, layout: BookLayout | null = null): HTMLIFrameElement {
     const iframe = document.createElement('iframe')
-    iframe.setAttribute('sandbox', frameSandbox(rendered.scripts))
+    iframe.setAttribute('sandbox', frameSandbox(rendered.scripts, this.forms))
     if (layout) iframe.dataset.segnaviaBookLayout = layout
     iframe.dataset.segnaviaBookGeneration = String(this.loadGeneration)
     iframe.title = rendered.title

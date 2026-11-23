@@ -1,6 +1,7 @@
 import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
 import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import type { FormsOption } from './bridge.ts'
 import type { CoverPresentation } from './designed-cover-policy.ts'
 import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -25,9 +26,10 @@ export function thumbnailCoverFrameInputs(
   sources: ReturnType<typeof thumbnailCoverSources>,
   pageWidths: PageWidths | undefined,
   origins: Iterable<OriginApproval>,
+  forms: FormsOption | undefined,
   serveFrame: ServeFrame | undefined,
 ): BoardFrameInputs {
-  return { motifs: sources.motifs, fonts: sources.fonts, placements: sources.placements, pageWidths, origins: [...origins], serveFrame }
+  return { motifs: sources.motifs, fonts: sources.fonts, placements: sources.placements, pageWidths, origins: [...origins], forms, serveFrame }
 }
 
 export function mountThumbnailDesignedCover(
