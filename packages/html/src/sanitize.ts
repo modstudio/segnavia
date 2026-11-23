@@ -196,18 +196,22 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, keepScri
   return name === 'meta' && Object.keys(element.attribs).some((attribute) => attribute.toLowerCase() === 'http-equiv')
 }
 
+function svgImageFetch(tag: string, attribute: string, value: string): 'allowed' | 'image' | undefined {
+  if ((tag !== 'image' && tag !== 'feimage') || (attribute !== 'href' && attribute !== 'xlink:href')) return undefined
+  return hrefAllowed(tag, value, undefined) ? 'allowed' : 'image'
+}
+
 function assetAttribute(element: Element, attribute: string, value: string, options: SanitizeOptions): AssetRefusal | '' | undefined {
   const tag = element.name.toLowerCase()
+  const svgImage = svgImageFetch(tag, attribute, value)
+  if (svgImage === 'allowed') return ''
   let kind: FetchKind | undefined
   if (tag === 'script' && attribute === 'src') {
     if (!options.keepScripts) return scriptsOffRefusal(value)
     kind = 'script'
   } else if (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href') kind = 'style'
   else if (tag === 'img' && attribute === 'src') kind = 'image'
-  else if ((tag === 'image' || tag === 'feimage') && (attribute === 'href' || attribute === 'xlink:href')) {
-    if (hrefAllowed(tag, value, undefined)) return ''
-    kind = 'image'
-  }
+  else if (svgImage === 'image') kind = 'image'
   else if ((tag === 'img' || (tag === 'source' && insidePicture(element))) && attribute === 'srcset')
     return srcsetAssetRefusal(value, srcsetCandidates(value), DATA_IMAGE_SRCSET.test(normalizeUrl(value)), options, safeImageSource)
   if (!kind) return undefined

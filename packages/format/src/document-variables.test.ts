@@ -90,12 +90,8 @@ test('refuses retired slot paths while leaving host-declared paths for the merge
     mode: 'continuous' as const,
     children: [{ type: 'flow' as const, title: 'Section', html: '<p>Body</p>' }],
   }
-  expect(() =>
-    Document.parse({ ...base, children: [{ type: 'flow', title: 'Section', html: '<p data-slot-value="host.path">Body</p>' }] }),
-  ).not.toThrow()
-  expect(() =>
-    Document.parse({ ...base, children: [{ type: 'flow', title: 'Section', html: '<p data-slot-value="printedPage.number">Body</p>' }] }),
-  ).toThrow(
+  expect(() => Document.parse({ ...base, children: [{ type: 'flow', title: 'Section', html: '<p data-slot-value="host.path">Body</p>' }] })).not.toThrow()
+  expect(() => Document.parse({ ...base, children: [{ type: 'flow', title: 'Section', html: '<p data-slot-value="printedPage.number">Body</p>' }] })).toThrow(
     /retired slot path.*printedPage\.number.*printed-page paths were replaced by folio and pages variables placed through head templates; declare a variable and place it to clear this refusal/,
   )
   expect(() =>
@@ -129,9 +125,7 @@ test('checks variables and exact motif forms in parent-page regions', () => {
     print: { paper: 'a4' as const },
     children: [{ type: 'page' as const, body: { html: '<p>Body</p>' } }],
   }
-  const region = (html: string) => [
-    { type: 'parentPage' as const, name: 'body', regions: { head: { edge: 'blockStart' as const, html } } },
-  ]
+  const region = (html: string) => [{ type: 'parentPage' as const, name: 'body', regions: { head: { edge: 'blockStart' as const, html } } }]
   expect(() => Document.parse({ ...base, parentPages: region('<span data-variable="missing"></span>') })).toThrow(
     /parentPages\[0\]\.regions\.head: data-variable names undeclared variable .*missing/,
   )

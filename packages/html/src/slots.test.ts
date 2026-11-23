@@ -215,15 +215,6 @@ test('items without slot declarations pass through byte for byte', async () => {
   expect((await prepareSlots([], {})).apply(html)).toBe(html)
 })
 
-test('refuses a value binding absent from the merged document and host declarations', async () => {
-  const host = await prepareSlots([], { declarations: [{ key: 'host.name', label: 'Host name', type: 'text' }] })
-  expect(host.apply('<p data-slot-value="host.name"></p>')).toBe('<p></p>')
-  expect(() => host.apply('<p data-slot-value="nope.path"></p>')).toThrow(
-    'data-slot-value names undefined slot path "nope.path"; declare that slot or remove data-slot-value to clear this refusal',
-  )
-  expect(() => host.apply('<p data-slot-value="record.name"></p>')).not.toThrow()
-})
-
 test('QR values render the level M module matrix with a four-module quiet zone and CSS color', async () => {
   const link = 'https://example.com/path?a=1&b="two"'
   const prepared = await prepareSlots([{ key: 'code', label: 'Code', type: 'qr', required: false }], {

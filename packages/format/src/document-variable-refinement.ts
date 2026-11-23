@@ -136,6 +136,66 @@ const RETIRED_SLOT_PATHS = new Map(
   ]),
 )
 
+function refineHtmlReferences(location: { html: string; path: PropertyKey[] }, declared: ReadonlySet<string>, ctx: z.RefinementCtx): void {
+  const renderedPath = renderIssuePath(location.path)
+  for (const name of dataVariableNames(location.html)) {
+    if (declared.has(name)) continue
+    ctx.addIssue({
+      code: 'custom',
+      path: location.path,
+      message: `${renderedPath}: data-variable names undeclared variable ${JSON.stringify(name)}; declare that variable or remove data-variable to clear this refusal`,
+    })
+  }
+  for (const path of dataAttributeValues(location.html, 'data-slot-value')) {
+    const remedy = RETIRED_SLOT_PATHS.get(path)
+    if (remedy) {
+      ctx.addIssue({
+        code: 'custom',
+        path: location.path,
+        message: `${renderedPath}: data-slot-value names retired slot path ${JSON.stringify(path)}; ${remedy}`,
+      })
+    }
+  }
+  for (const issue of motifFormIssues(location.html)) {
+    const element = `<${issue.element}>`
+    const message =
+      issue.kind === 'element'
+        ? `${element} is not a document HTML element; place a motif with data-motif or remove ${element} to clear this refusal`
+        : issue.kind === 'malformed-attribute'
+          ? `${element} has malformed motif attribute ${issue.attribute}; use data-motif="<key>" and data-motif-<field>, or remove ${issue.attribute} to clear this refusal`
+          : `${element} ${issue.attribute} needs data-motif on the same element; add data-motif or remove ${issue.attribute} to clear this refusal`
+    ctx.addIssue({ code: 'custom', path: location.path, message: `${renderedPath}: ${message}` })
+  }
+}
+
+function refineHeadTemplatePlacements(locations: Array<{ html: string; path: PropertyKey[] }>, heads: ReadonlySet<string>, ctx: z.RefinementCtx): void {
+  for (const location of locations) {
+    const renderedPath = renderIssuePath(location.path)
+    for (const placement of headTemplatePlacements(location.html)) {
+      if (!placement.name) {
+        ctx.addIssue({
+          code: 'custom',
+          path: location.path,
+          message: `${renderedPath}: segnavia:head-template placement has no data-motif-name; add data-motif-name or remove the placement to clear this refusal`,
+        })
+      } else if (!heads.has(placement.name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: location.path,
+          message: `${renderedPath}: segnavia:head-template placement names undeclared template ${JSON.stringify(placement.name)}; declare that head template or remove the placement to clear this refusal`,
+        })
+      }
+      if (!placement.bounded) {
+        ctx.addIssue({
+          code: 'custom',
+          path: location.path,
+          message: `${renderedPath}: segnavia:head-template placement for ${JSON.stringify(placement.name)} is unclosed; close the element to clear this refusal`,
+        })
+      }
+    }
+  }
+}
+
 export function refineDocumentVariables(
   document: {
     variables: Array<Variable | VariableNode>
@@ -204,31 +264,7 @@ export function refineDocumentVariables(
     ...templates.flatMap((template, index) => htmlValues({ ...template, type: 'template' }).map((value) => ({ html: value, path: ['templates', index] }))),
     ...regionHtml,
   ]
-  for (const location of html) {
-    const renderedPath = renderIssuePath(location.path)
-    for (const name of dataVariableNames(location.html)) {
-      if (declared.has(name)) continue
-      ctx.addIssue({
-        code: 'custom',
-        path: location.path,
-        message: `${renderedPath}: data-variable names undeclared variable ${JSON.stringify(name)}; declare that variable or remove data-variable to clear this refusal`,
-      })
-    }
-    for (const path of dataAttributeValues(location.html, 'data-slot-value')) {
-      const remedy = RETIRED_SLOT_PATHS.get(path)
-      if (remedy) ctx.addIssue({ code: 'custom', path: location.path, message: `${renderedPath}: data-slot-value names retired slot path ${JSON.stringify(path)}; ${remedy}` })
-    }
-    for (const issue of motifFormIssues(location.html)) {
-      const element = `<${issue.element}>`
-      const message =
-        issue.kind === 'element'
-          ? `${element} is not a document HTML element; place a motif with data-motif or remove ${element} to clear this refusal`
-          : issue.kind === 'malformed-attribute'
-            ? `${element} has malformed motif attribute ${issue.attribute}; use data-motif="<key>" and data-motif-<field>, or remove ${issue.attribute} to clear this refusal`
-            : `${element} ${issue.attribute} needs data-motif on the same element; add data-motif or remove ${issue.attribute} to clear this refusal`
-      ctx.addIssue({ code: 'custom', path: location.path, message: `${renderedPath}: ${message}` })
-    }
-  }
+  for (const location of html) refineHtmlReferences(location, declared, ctx)
   const slots = new Set([...templates.flatMap((template) => template.slots?.map((slot) => slot.key) ?? []), ...(document.recordSlotNames ?? [])])
   const heads = new Set(withLibraryEntries(LIBRARY_HEAD_TEMPLATES, document.headTemplates).map((template) => template.name))
   document.headTemplates.forEach((template, index) => {
@@ -247,27 +283,5 @@ export function refineDocumentVariables(
         })
     })
   })
-  for (const location of regionHtml) {
-    const renderedPath = renderIssuePath(location.path)
-    for (const placement of headTemplatePlacements(location.html)) {
-      if (!placement.name)
-        ctx.addIssue({
-          code: 'custom',
-          path: location.path,
-          message: `${renderedPath}: segnavia:head-template placement has no data-motif-name; add data-motif-name or remove the placement to clear this refusal`,
-        })
-      else if (!heads.has(placement.name))
-      ctx.addIssue({
-        code: 'custom',
-        path: location.path,
-        message: `${renderedPath}: segnavia:head-template placement names undeclared template ${JSON.stringify(placement.name)}; declare that head template or remove the placement to clear this refusal`,
-      })
-      if (!placement.bounded)
-        ctx.addIssue({
-          code: 'custom',
-          path: location.path,
-          message: `${renderedPath}: segnavia:head-template placement for ${JSON.stringify(placement.name)} is unclosed; close the element to clear this refusal`,
-        })
-    }
-  }
+  refineHeadTemplatePlacements(regionHtml, heads, ctx)
 }

@@ -3,7 +3,7 @@ import type { AsOfDay } from './as-of.ts'
 import { closedObject } from './closed-object.ts'
 import { TextDirection } from './direction.ts'
 import { FontReference, FontReferenceInput } from './fonts.ts'
-import { SlotKey, type SlotDeclarationInput } from './slots.ts'
+import { type SlotDeclarationInput, SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
 export const RECORD_CONTEXT = 'record'
