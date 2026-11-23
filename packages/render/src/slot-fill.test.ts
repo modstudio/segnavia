@@ -9,6 +9,11 @@ const slots = {
   fill: { id: 'host', values: { 'host.name': 'Filled by host' } },
 }
 
+test('filledPage refuses an undefined value binding with no declarations or host options', async () => {
+  const page = Page.parse({ html: '<p data-slot-value="nope"></p>' })
+  await expect(filledPage(page, undefined)).rejects.toThrow('data-slot-value names undefined slot path "nope"')
+})
+
 test('filledBook applies host values to chapters, designed pages, templates and regions', async () => {
   const book = parseBookFixture({
     title: 'Workbook',

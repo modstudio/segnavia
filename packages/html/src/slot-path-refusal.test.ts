@@ -1,5 +1,13 @@
 import { expect, test } from 'bun:test'
+import { refuseUndefinedSlotPaths } from './slot-path-refusal.ts'
 import { prepareSlots } from './slots.ts'
+
+test('refuses an undefined value binding when there is no slot work', () => {
+  expect(() => refuseUndefinedSlotPaths('<p data-slot-value="nope"></p>', [])).toThrow(
+    'data-slot-value names undefined slot path "nope"; declare that slot or remove data-slot-value to clear this refusal',
+  )
+  expect(refuseUndefinedSlotPaths('<p data-slot-value="record.name"></p><time data-slot-value="asOf.date"></time>', ['asOf.date'])).toContain('record.name')
+})
 
 test('refuses a value binding absent from the merged document and host declarations', async () => {
   const host = await prepareSlots([], { declarations: [{ key: 'host.name', label: 'Host name', type: 'text' }] })

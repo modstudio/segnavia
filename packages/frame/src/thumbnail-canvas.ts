@@ -23,7 +23,7 @@ export function thumbnailCanvas(
   // A caller that inspects the slide's animation through its frame needs the bridge to answer.
   reportsAnimation = false,
 ): HTMLElement {
-  const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots)))
+  const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots, deck.slots)))
   const folio = deckFolioAt(deckFolios(deck), index)
   let canvas: HTMLElement
   canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, content, {

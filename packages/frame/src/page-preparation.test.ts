@@ -60,3 +60,15 @@ test('a scripted motif page refuses the effective slots that include its day', a
     }),
   ).rejects.toBeInstanceOf(SlotFillRefusedError)
 })
+
+test('a page with no slot work refuses an undefined value binding', async () => {
+  const page: HtmlPage = {
+    html: '<p data-slot-value="nope"></p>',
+    size: { width: 'full', height: 'auto' },
+    scripts: 'refuse',
+    style: { fonts: {} },
+  }
+  await expect(prepareShownPage(page, undefined, undefined, undefined, new AbortController().signal)).rejects.toThrow(
+    'data-slot-value names undefined slot path "nope"',
+  )
+})

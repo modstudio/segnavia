@@ -1,4 +1,4 @@
-import type { SlotDeclaration, SlotsOptions } from '@segnavia/format'
+import { AS_OF_SLOT_DECLARATIONS, type SlotDeclaration, type SlotsOptions } from '@segnavia/format'
 import {
   classifyMediaAnswer,
   collectSlotPrintCopies,
@@ -9,6 +9,7 @@ import {
   prepareSlots as prepareHtmlSlots,
   RequiredSlotsRefusedError,
   type ResolvePlacement,
+  refuseUndefinedSlotPaths,
   requiredSlotRefusal,
   SlotFillRefusedError,
   SlotFillsConflictError,
@@ -54,7 +55,11 @@ export const EMPTY_SLOTS: PreparedSlots = {
   report: { fill: null, slots: {}, origins: {} },
   marked: new Map(),
   frames: [],
-  apply: (html) => html,
+  apply: (html) =>
+    refuseUndefinedSlotPaths(
+      html,
+      AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key),
+    ),
   mergeFit: () => EMPTY_SLOTS.report,
 }
 
@@ -70,6 +75,8 @@ export function prepareSlotCollection(
   return prepareHtmlSlotCollection(items, options, signal)
 }
 
-export function slotHtml(html: string, prepared: PreparedSlots | undefined): string {
-  return prepared ? prepared.apply(html) : html
+export function slotHtml(html: string, prepared: PreparedSlots | undefined, declarations: readonly SlotDeclaration[] = []): string {
+  return prepared && prepared !== EMPTY_SLOTS
+    ? prepared.apply(html)
+    : refuseUndefinedSlotPaths(html, [...declarations.map((slot) => slot.key), ...AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)])
 }

@@ -1,4 +1,4 @@
-import { type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
+import { AS_OF_SLOT_DECLARATIONS, type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
   bindBookRecordValues,
@@ -14,12 +14,19 @@ import {
   prepareSlotCollection,
   prepareSlots,
   printedSectionBodies,
+  refuseUndefinedSlotPaths,
   requiredSlotRefusal,
   resolvePageHtml,
   type SlotPrintOptions,
   slotFillRefusal,
   withPrintedSectionBodies,
 } from '@segnavia/html'
+
+const RESERVED_SLOT_KEYS = AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)
+
+function validateRawSlotHtml(html: string): string {
+  return refuseUndefinedSlotPaths(html, RESERVED_SLOT_KEYS)
+}
 
 export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions | undefined, signal?: AbortSignal) {
   return filledDeck(fillDeckAsOfBindings(deck, day), slots, signal)
@@ -56,7 +63,8 @@ export async function filledPage(
     if (refusal) throw refusal
     const prepared = await prepareSlots(input.slots, slots, signal)
     refuseRequired(prepared)
-    const sections = hasSlotWork(input.slots, slots)
+    const work = hasSlotWork(input.slots, slots)
+    const sections = work
       ? input.printedPages.sections.map((section) => {
           const bound = 'pages' in section ? section : bindRecordValues(section)
           return withPrintedSectionBodies(
@@ -65,6 +73,7 @@ export async function filledPage(
           )
         })
       : input.printedPages.sections
+    if (!work) for (const section of sections) printedSectionBodies(section).forEach(validateRawSlotHtml)
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
   }
   const page = 'html' in input ? input : resolvePageHtml(input)
@@ -73,7 +82,9 @@ export async function filledPage(
   if (refusal) throw refusal
   const prepared = await prepareSlots(page.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(page.slots, slots) ? { ...page, html: prepared.apply(page.html) } : page
+  const work = hasSlotWork(page.slots, slots)
+  if (!work) validateRawSlotHtml(page.html)
+  const value = work ? { ...page, html: prepared.apply(page.html) } : page
   return { value, slots: prepared }
 }
 
@@ -105,7 +116,8 @@ export async function filledPages(
   )
   refuseRequired(prepared)
   const frameGroups: number[][] = []
-  const value = pages.some((page) => hasSlotWork(page.slots, slots))
+  const work = pages.some((page) => hasSlotWork(page.slots, slots))
+  const value = work
     ? pages.map((page) => {
         const firstFrame = prepared.frames.length
         const filled = isPrintedHtmlPage(page)
@@ -127,6 +139,12 @@ export async function filledPages(
         return filled
       })
     : pages
+  if (!work) {
+    for (const page of pages) {
+      if (isPrintedHtmlPage(page)) for (const section of page.printedPages.sections) printedSectionBodies(section).forEach(validateRawSlotHtml)
+      else validateRawSlotHtml(page.html)
+    }
+  }
   if (frameGroups.length === 0) pages.forEach(() => void frameGroups.push([]))
   return { value, slots: prepared, frameGroups }
 }
@@ -137,7 +155,8 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
   if (refusal) throw refusal
   const prepared = await prepareSlots(deck.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(deck.slots, slots)
+  const work = hasSlotWork(deck.slots, slots)
+  const value = work
     ? {
         ...deck,
         slides: deck.slides.map((slide) => {
@@ -151,6 +170,9 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
         }),
       }
     : deck
+  if (!work) {
+    for (const slide of deck.slides) if ('kind' in slide.content && slide.content.kind === 'html') validateRawSlotHtml(slide.content.html)
+  }
   return { value, slots: prepared }
 }
 
@@ -160,7 +182,9 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   if (refusal) throw refusal
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(book.slots, slots) ? mapBookHtml(bindBookRecordValues(book), prepared.apply) : book
+  const work = hasSlotWork(book.slots, slots)
+  const value = work ? mapBookHtml(bindBookRecordValues(book), prepared.apply) : book
+  if (!work) mapBookHtml(book, validateRawSlotHtml)
   return { value, slots: prepared }
 }
 

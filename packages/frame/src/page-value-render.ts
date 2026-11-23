@@ -17,7 +17,7 @@ import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { prepareShownPage, slotsForShownPage } from './page-preparation.ts'
 import { loadPrintedPageFrame } from './page-printed.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
 export interface PageValueRenderOptions {
   motifs?: MotifsOptions
@@ -86,6 +86,7 @@ export function renderPageValue(
     }
     let sheets: string[]
     try {
+      slotHtml(resolvedPage.html, undefined, [...(resolvedPage.slots ?? []), ...(effectiveSlots.declarations ?? [])])
       sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
     } catch (error) {
       handlers.report(error)

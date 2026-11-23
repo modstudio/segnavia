@@ -25,7 +25,7 @@ interface StageCanvasOptions {
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
   try {
-    return frameDocument(slotHtml(html, options.slots), {
+    return frameDocument(slotHtml(html, options.slots, deck.slots), {
       scripts: deck.scripts,
       nonce: newNonce(),
       dir: deck.dir,

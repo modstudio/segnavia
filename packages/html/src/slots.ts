@@ -1,7 +1,6 @@
 import {
   AS_OF_SLOT_DECLARATIONS,
   mergeSlotDeclarations,
-  RECORD_CONTEXT,
   Refusal,
   resolveSlotValue,
   type Scripts,
@@ -21,6 +20,7 @@ import type { PreparedSlots } from './prepared-slots.ts'
 import { qrPayload, qrSvg } from './qr.ts'
 import { elements, parse, serialize } from './sanitize.ts'
 import { clearSlotOverflow, markSlotOverflow } from './slot-overflow.ts'
+import { refuseUndefinedSlotPaths } from './slot-path-refusal.ts'
 
 export const MAX_SLOT_DECLARATIONS = SLOT_KEYS_LIMIT
 const ASSET_RESOLUTION_CONCURRENCY = 4
@@ -318,16 +318,8 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
     return html
   }
   const names = bindingNames('slot')
+  refuseUndefinedSlotPaths(html, [...resolved.declarations.keys(), ...AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)])
   const document = parse(html)
-  const defined = new Set([...resolved.declarations.keys(), ...AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)])
-  for (const element of elements(document.children)) {
-    const path = element.attribs[names.value]
-    if (path !== undefined && !defined.has(path) && !path.startsWith(`${RECORD_CONTEXT}.`)) {
-      throw new RangeError(
-        `data-slot-value names undefined slot path ${JSON.stringify(path)}; declare that slot or remove data-slot-value to clear this refusal`,
-      )
-    }
-  }
   const bound = elements(document.children).filter(
     (element) => element.attribs['data-slot-overflow'] !== undefined || Object.values(names).some((name) => element.attribs[name] !== undefined),
   )

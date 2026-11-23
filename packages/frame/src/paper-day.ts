@@ -4,7 +4,7 @@ import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal, slotHtml } from './slot-render.ts'
 
 export async function preparePaperDays(
   pages: HtmlPage[],
@@ -39,5 +39,6 @@ export async function preparePaperDays(
   const slots = declarations.some((item) => hasSlotWork(item, options.slots))
     ? await prepareSlotCollection(declarations, contexts.pages[0]?.slots, options.signal)
     : undefined
+  if (!slots) for (const page of shown) slotHtml(page.html, slots, page.slots)
   return { pages: shown, days: contexts.days, css, slots }
 }

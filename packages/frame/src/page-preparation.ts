@@ -2,7 +2,7 @@ import type { AsOfDay, FontFailure, PageWidths, SlotsOptions } from '@segnavia/f
 import { type HtmlPage, hasAsOfBinding, type SoundPlacements, slotsWithDay } from '@segnavia/html'
 import { type ExpandedFramePage, expandFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
 
 export async function prepareExpandedPage(
   page: HtmlPage,
@@ -46,6 +46,7 @@ export async function prepareShownPage(
     day,
   )
   const resolved = hasSlotWork(expanded.page.slots, effectiveSlots) ? await prepareSlots(expanded.page.slots, effectiveSlots, signal) : undefined
+  if (!resolved) slotHtml(expanded.page.html, resolved, expanded.page.slots)
   return { ...expanded, resolved }
 }
 

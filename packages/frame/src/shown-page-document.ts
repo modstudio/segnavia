@@ -16,7 +16,7 @@ export interface ShownPageDocumentOptions {
 }
 
 export function shownPageDocument(page: HtmlPage, resolved: PreparedSlots | undefined, options: ShownPageDocumentOptions & { nonce: string }): string {
-  const html = slotHtml(page.html, resolved)
+  const html = slotHtml(page.html, resolved, page.slots)
   return frameDocument(html, {
     scripts: page.scripts,
     nonce: options.nonce,
