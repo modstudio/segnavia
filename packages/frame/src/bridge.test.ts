@@ -189,13 +189,7 @@ describe('frame document', () => {
         if (name === 'message') onMessage = listener
       },
     }
-    Function('document', 'parent', 'window', 'Map', 'MutationObserver', bridgeForHost({ reportHeight: false }))(
-      document,
-      parent,
-      window,
-      Map,
-      undefined,
-    )
+    Function('document', 'parent', 'window', 'Map', 'MutationObserver', bridgeForHost({ reportHeight: false }))(document, parent, window, Map, undefined)
     onMessage?.({ source: {}, data: { type: MESSAGE.cue, annotations: [0] } })
     expect(rootAttributes.size).toBe(0)
     onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations: [1, 1] } })

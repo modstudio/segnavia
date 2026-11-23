@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { MESSAGE } from './bridge.ts'
+import { type DeckState, initialDeckState } from './controller-types.ts'
 import { postFrameCue, postStageCue } from './stage-cue.ts'
-import { initialDeckState } from './controller-types.ts'
 
 test('cue messages are posted only to bridged url frames', () => {
   const messages: unknown[] = []
@@ -17,7 +17,7 @@ test('stage cue delivery deduplicates changes and can repeat at readiness', () =
   const frame = { contentWindow: { postMessage: (message: unknown) => messages.push(message) } } as unknown as HTMLIFrameElement
   const pool = { frameForSlide: () => frame }
   const sent = new WeakMap<HTMLIFrameElement, string>()
-  const state = {
+  const state: DeckState = {
     ...initialDeckState(),
     slide: { id: 'served', content: { kind: 'url', src: 'served.html', annotationCount: 2 } },
     content: { kind: 'url', src: 'served.html', annotationCount: 2, bridge: true as const },

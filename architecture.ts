@@ -125,6 +125,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/svg.ts',
       'src/timeline.ts',
       'src/bridge.ts',
+      'src/bridge-cue.ts',
       'src/frame-message-types.ts',
       'src/layout.ts',
       'src/layout-markers.ts',

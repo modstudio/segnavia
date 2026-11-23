@@ -223,19 +223,27 @@ function textDurationIssue(narration: Narration, deck: NarrationPacing, duration
   }
 }
 
+function slideAnnotationCount(content: SlideContent): number | null {
+  if (!('kind' in content)) return null
+  if (content.kind === 'shot') return content.shot.annotations.length
+  if (content.kind === 'url') return content.annotationCount ?? null
+  return null
+}
+
+function annotationCarrierIssue(content: SlideContent): string | null {
+  if ('kind' in content && content.kind === 'url' && content.annotationCount === undefined)
+    return 'a cue names an annotation, but the url slide does not declare annotationCount; declare annotationCount on the url slide to clear this refusal'
+  if ('kind' in content && (content.kind === 'shot' || content.kind === 'shot-ref' || content.kind === 'url')) return null
+  return 'a cue names an annotation, but only a shot or url slide with annotationCount carries annotations'
+}
+
 function narrationIssues(slide: Slide, deck: NarrationPacing): NarrationIssue[] {
   const narration = slide.narration
   if (!narration) return []
   // A shot named by reference has its annotations only once resolved, and a
   // live narration learns its words while it speaks, so neither is checked here.
-  const annotations =
-    'kind' in slide.content
-      ? slide.content.kind === 'shot'
-        ? slide.content.shot.annotations.length
-        : slide.content.kind === 'url'
-          ? (slide.content.annotationCount ?? null)
-          : null
-      : null
+  const annotations = slideAnnotationCount(slide.content)
+  const carrierIssue = annotationCarrierIssue(slide.content)
   const timing = narration.kind !== 'text' && narration.live ? null : narrationTiming(narration, deck)
   const words = timing?.words.length ?? null
   const issues: NarrationIssue[] = []
@@ -244,10 +252,7 @@ function narrationIssues(slide: Slide, deck: NarrationPacing): NarrationIssue[] 
       if (word !== undefined && words !== null && word >= words)
         issues.push({ field: 'cues', message: `a cue names word ${word}, but the narration has ${words} words` })
     }
-    if ('kind' in slide.content && slide.content.kind === 'url' && slide.content.annotationCount === undefined)
-      issues.push({ field: 'cues', message: 'a cue names an annotation, but the url slide does not declare annotationCount; declare annotationCount on the url slide to clear this refusal' })
-    else if (!('kind' in slide.content) || (slide.content.kind !== 'shot' && slide.content.kind !== 'shot-ref' && slide.content.kind !== 'url'))
-      issues.push({ field: 'cues', message: 'a cue names an annotation, but only a shot or url slide with annotationCount carries annotations' })
+    if (carrierIssue) issues.push({ field: 'cues', message: carrierIssue })
   }
   if (annotations !== null) issues.push(...annotationCueIssues(narration, annotations).map((message) => ({ field: 'cues' as const, message })))
   const durationIssue = textDurationIssue(narration, deck, timing?.durationMs)

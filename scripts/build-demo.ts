@@ -33,7 +33,7 @@ import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
-import { urlSlideFonts, urlSlideHtml, urlSlidePlayer } from './demo-url-slide.ts'
+import { URL_SLIDE_NARRATION, urlSlideCues, urlSlideFonts, urlSlideHtml, urlSlidePlayer } from './demo-url-slide.ts'
 import { sineWav } from './sine-wav.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -190,15 +190,11 @@ const hebrew = Document.parse({
   ],
 })
 writeFileSync(path.join(SITE, 'deck-he.json'), JSON.stringify(hebrew, null, 2))
-
 // Recorded and live narration beside the other media slide kinds.
 mkdirSync(path.join(SITE, 'audio'), { recursive: true })
 writeFileSync(path.join(SITE, 'audio/tone.wav'), sineWav(2.4))
 const recorded = await narration('Recorded narration drives this slide, then it moves on.', (n) => [{ word: wordIndex(n, 'drives'), annotation: 0 }])
-const hosted = await narration('Hosted marks show first and then second.', (n) => [
-  { word: wordIndex(n, 'first'), annotation: 0 },
-  { word: wordIndex(n, 'second'), annotation: 1 },
-])
+const hosted = await narration(URL_SLIDE_NARRATION, urlSlideCues)
 writeFileSync(
   path.join(SITE, 'deck-media.json'),
   JSON.stringify(

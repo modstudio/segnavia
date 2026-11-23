@@ -83,10 +83,16 @@ export async function verifyMedia(h: Harness) {
   )
   await h.waitFor(PLAYER, (d) => d.slide === '3', { timeout: 10000 })
   await h.waitFor(PLAYER, (d) => d.shown === '0', { timeout: 10000 })
-  const firstCue = await page.frameLocator(`${PLAYER} iframe`).locator('[data-annotation]').evaluateAll((marks) => marks.map((mark) => mark.hasAttribute('data-shown')))
+  const firstCue = await page
+    .frameLocator(`${PLAYER} iframe`)
+    .locator('[data-annotation]')
+    .evaluateAll((marks) => marks.map((mark) => mark.hasAttribute('data-shown')))
   check('a hosted url slide receives its first cue', firstCue[0] === true && firstCue[1] === false, JSON.stringify(firstCue))
   await h.waitFor(PLAYER, (d) => d.shown === '0,1', { timeout: 10000 })
-  const secondCue = await page.frameLocator(`${PLAYER} iframe`).locator('[data-annotation]').evaluateAll((marks) => marks.map((mark) => mark.hasAttribute('data-shown')))
+  const secondCue = await page
+    .frameLocator(`${PLAYER} iframe`)
+    .locator('[data-annotation]')
+    .evaluateAll((marks) => marks.map((mark) => mark.hasAttribute('data-shown')))
   check('a hosted url slide receives its second cue', secondCue[0] === true && secondCue[1] === true, JSON.stringify(secondCue))
   await page.locator(`${PLAYER} .bar segnavia-play button`).click()
   const served = await page

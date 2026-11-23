@@ -242,24 +242,6 @@ describe('deck controller', () => {
     )
   })
 
-  test('a hosted url slide with cues requires a bridged resolution', async () => {
-    const { controller } = harness()
-    controller.resolveSlide = (slide) => slide.content
-    const input = {
-      title: 'T',
-      slides: [
-        {
-          id: 'served',
-          content: { kind: 'url', src: 'served.html', annotationCount: 1 },
-          narration: narration('choose it', [{ word: 0, annotation: 0 }]),
-        },
-      ],
-    }
-    await expect(controller.loadDeckValue(input)).rejects.toThrow('Resolve it with bridge: true')
-    controller.resolveSlide = (slide) => ('kind' in slide.content && slide.content.kind === 'url' ? { ...slide.content, bridge: true } : slide.content)
-    await expect(controller.loadDeckValue(input)).resolves.toBeUndefined()
-  })
-
   test('failed navigation keeps the shown slide and reports the refusal once', async () => {
     const realFetch = globalThis.fetch
     globalThis.fetch = (async () => Response.json({ src: 'shot.png', shot })) as unknown as typeof fetch

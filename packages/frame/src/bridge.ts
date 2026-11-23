@@ -23,10 +23,8 @@ import {
 import { baseLayerCss } from '@segnavia/html'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
+import { cueBridgeScript, cueMessageBranch } from './bridge-cue.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
-
-export type { FrameMessage } from './bridge-message.ts'
-
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
@@ -40,6 +38,7 @@ import { layoutReadyBridgeScript, withLayoutScripts } from './layout-runtime.ts'
 import { escapeHtml } from './svg.ts'
 
 export type { SlotFitState } from '@segnavia/format'
+export type { FrameMessage } from './bridge-message.ts'
 export { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
 export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
 export { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
@@ -241,9 +240,8 @@ var current=calculateAnimationReport(timings,canvasSeen);if(animations.length){s
 post({type:'${MESSAGE.animation}',animated:sawAnimations||canvasSeen,lengthMs:sawAnimations&&!animationUnreadable?animationLength:null});};
 var dispatchAt=function(at){var detail={atMs:at,waitUntil:function(){}};var event;if(typeof CustomEvent==='function'){event=new CustomEvent('segnavia:print',{detail:detail});}else{event=document.createEvent('CustomEvent');event.initCustomEvent('segnavia:print',false,false,detail);}window.dispatchEvent(event);};
 var freezeLive=function(){if(liveAt===null||!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var f=0;f<animations.length;f++){try{animations[f].pause();animations[f].currentTime=liveAt;}catch(error){}}};
-var showCue=function(annotations){var root=document.documentElement;root.setAttribute('data-segnavia-cues','');var marked=document.querySelectorAll('[data-annotation]');for(var c=0;c<marked.length;c++){var index=Number(marked[c].getAttribute('data-annotation'));marked[c].toggleAttribute('data-shown',annotations===null||annotations.indexOf(index)!==-1);}};
-var cueAnnotations=function(value){if(value===null)return null;if(!Array.isArray(value)||value.length>256)return false;for(var c=0;c<value.length;c++){var index=value[c];if(typeof index!=='number'||!isFinite(index)||Math.floor(index)!==index||index<0||index>255||(c>0&&value[c-1]>=index))return false;}return value;};
-window.addEventListener('message',function(e){var data=e.data;if(e.source!==parent||!data)return;if(data.type==='${MESSAGE.freeze}'&&typeof data.atMs==='number'&&isFinite(data.atMs)){liveAt=data.atMs;freezeLive();dispatchAt(liveAt);}else if(data.type==='${MESSAGE.release}'){liveAt=null;if(document.getAnimations){var animations=document.getAnimations();for(var r=0;r<animations.length;r++){try{animations[r].play();}catch(error){}}}}else if(data.type==='${MESSAGE.inspect}'){animationReport();}else if(data.type==='${MESSAGE.cue}'){var annotations=cueAnnotations(data.annotations);if(annotations!==false)showCue(annotations);}});
+${cueBridgeScript()}
+window.addEventListener('message',function(e){var data=e.data;if(e.source!==parent||!data)return;if(data.type==='${MESSAGE.freeze}'&&typeof data.atMs==='number'&&isFinite(data.atMs)){liveAt=data.atMs;freezeLive();dispatchAt(liveAt);}else if(data.type==='${MESSAGE.release}'){liveAt=null;if(document.getAnimations){var animations=document.getAnimations();for(var r=0;r<animations.length;r++){try{animations[r].play();}catch(error){}}}}else if(data.type==='${MESSAGE.inspect}'){animationReport();}${cueMessageBranch()}});
 document.addEventListener('animationstart',function(){animationReport();freezeLive();},true);document.addEventListener('transitionrun',function(){animationReport();freezeLive();},true);
 if(window.MutationObserver){new MutationObserver(function(){animationReport();freezeLive();}).observe(document.documentElement,{childList:true,subtree:true});}
 var editable=function(t){return t&&(t.isContentEditable||t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT')};

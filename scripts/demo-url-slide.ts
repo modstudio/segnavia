@@ -1,10 +1,16 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { FontManifest, type FontSource } from '@segnavia/format'
+import { FontManifest, type FontSource, type Narration, type VoicedNarration } from '@segnavia/format'
 import { bridgeForHost, resolveFonts } from '@segnavia/frame/bridge'
+import { wordIndex } from '@segnavia/frame/timeline'
 
 export const urlSlideFonts = FontManifest.parse({ host: { faces: [{}], generic: 'sans-serif' } })
 export const URL_SLIDE_FONT_FAMILY = 'Demo Alef'
+export const URL_SLIDE_NARRATION = 'Hosted marks show first and then second.'
+export const urlSlideCues = (narration: Pick<VoicedNarration, 'words'>): Narration['cues'] => [
+  { word: wordIndex(narration, 'first'), annotation: 0 },
+  { word: wordIndex(narration, 'second'), annotation: 1 },
+]
 export const urlSlidePlayer = `<segnavia-player id="player" hash="off" presentation="native"></segnavia-player>
   <script type="module">
     await customElements.whenDefined('segnavia-player')

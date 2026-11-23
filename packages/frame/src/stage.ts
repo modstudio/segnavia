@@ -24,7 +24,7 @@ import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
-import { postStageCue } from './stage-cue.ts'
+import { postReadyStageCue, postStageCue } from './stage-cue.ts'
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { defineStageFitProperty } from './stage-fit-property.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
@@ -349,11 +349,7 @@ export class SegnaviaStage extends AsOfElement {
     this.refused.update(this.attached?.state)
     dispatchElementError(this, error)
   }
-  private onFrameReady = (slideId: string) => {
-    const state = this.attached?.state
-    if (state?.slide?.id === slideId) postStageCue(this.pool, this.cueMessages, state, true)
-    this.refused.update(state)
-  }
+  private onFrameReady = (slideId: string) => this.refused.update(postReadyStageCue(this.pool, this.cueMessages, this.attached?.state, slideId))
   private onResize = () => this.measure()
 
   private poolChanged() {

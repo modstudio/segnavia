@@ -21,3 +21,13 @@ export function postStageCue(
   if (!force && sent.get(frame) === key) return
   if (postFrameCue(frame, state.content, state.shown)) sent.set(frame, key)
 }
+
+export function postReadyStageCue(
+  pool: { frameForSlide?(slideId: string): HTMLIFrameElement | null },
+  sent: WeakMap<HTMLIFrameElement, string> | undefined,
+  state: DeckState | undefined,
+  slideId: string,
+): DeckState | undefined {
+  if (state?.slide?.id === slideId) postStageCue(pool, sent, state, true)
+  return state
+}
