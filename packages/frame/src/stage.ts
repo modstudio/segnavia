@@ -24,6 +24,7 @@ import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
+import { postStageCue } from './stage-cue.ts'
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { defineStageFitProperty } from './stage-fit-property.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
@@ -79,6 +80,7 @@ export class SegnaviaStage extends AsOfElement {
     (state) => this.update(state),
   )
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
+  private cueMessages = new WeakMap<HTMLIFrameElement, string>()
   private refused = new StageRefusalState(this, (state) => shownFrameRefusal(this.pool, state))
   constructor() {
     super()
@@ -307,6 +309,7 @@ export class SegnaviaStage extends AsOfElement {
       reportSlideError: this.reportFrameRefusal,
       serveFrame: this.serveFrame ?? this.attached?.serveFrame,
     })
+    postStageCue(this.pool, this.cueMessages, state)
     this.refused?.update(state)
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
@@ -346,7 +349,11 @@ export class SegnaviaStage extends AsOfElement {
     this.refused.update(this.attached?.state)
     dispatchElementError(this, error)
   }
-  private onFrameReady = () => this.refused.update(this.attached?.state)
+  private onFrameReady = (slideId: string) => {
+    const state = this.attached?.state
+    if (state?.slide?.id === slideId) postStageCue(this.pool, this.cueMessages, state, true)
+    this.refused.update(state)
+  }
   private onResize = () => this.measure()
 
   private poolChanged() {

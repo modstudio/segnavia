@@ -7,6 +7,7 @@ export const MESSAGE = {
   freeze: 'segnavia:freeze',
   release: 'segnavia:release',
   inspect: 'segnavia:inspect',
+  cue: 'segnavia:cue',
   selectionRequest: 'segnavia:selection-request',
   selection: 'segnavia:selection',
   headingRequest: 'segnavia:heading-request',

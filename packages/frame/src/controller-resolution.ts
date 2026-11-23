@@ -43,6 +43,8 @@ export async function resolveFreshContent(
     if (!('kind' in slide.content) || slide.content.kind !== 'shot-ref') return content
     return referenceOverrides(content, slide.content)
   }
+  if (content.kind === 'url' && slide.narration?.cues.length && content.bridge !== true)
+    throw new Error(`Slide "${slide.id}" has cues but its resolved url has no bridge. Resolve it with bridge: true to show its annotations.`)
   if (content.kind !== 'shot-ref') return content
   const href = resolveUrl(content.href)
   let published = shots.get(href)

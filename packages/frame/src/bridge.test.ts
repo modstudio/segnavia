@@ -159,6 +159,54 @@ describe('frame document', () => {
     expect(messages[0]).toEqual({ type: MESSAGE.animation, animated: true, lengthMs: 3200 })
   })
 
+  test('the host bridge applies only bounded cue messages from its parent', () => {
+    let onMessage: ((event: { source: unknown; data: unknown }) => void) | undefined
+    const rootAttributes = new Set<string>()
+    const marks = [0, 1].map((annotation) => {
+      const attributes = new Set<string>()
+      return {
+        getAttribute: (name: string) => (name === 'data-annotation' ? String(annotation) : null),
+        toggleAttribute: (name: string, shown: boolean) => (shown ? attributes.add(name) : attributes.delete(name)),
+        shown: () => attributes.has('data-shown'),
+      }
+    })
+    const document = {
+      addEventListener: () => {},
+      fonts: null,
+      images: [],
+      readyState: 'loading',
+      documentElement: {
+        getBoundingClientRect: () => ({ height: 0 }),
+        setAttribute: (name: string) => rootAttributes.add(name),
+      },
+      getAnimations: () => [],
+      querySelector: () => null,
+      querySelectorAll: (selector: string) => (selector === '[data-annotation]' ? marks : []),
+    }
+    const parent = { postMessage: () => {} }
+    const window = {
+      addEventListener: (name: string, listener: typeof onMessage) => {
+        if (name === 'message') onMessage = listener
+      },
+    }
+    Function('document', 'parent', 'window', 'Map', 'MutationObserver', bridgeForHost({ reportHeight: false }))(
+      document,
+      parent,
+      window,
+      Map,
+      undefined,
+    )
+    onMessage?.({ source: {}, data: { type: MESSAGE.cue, annotations: [0] } })
+    expect(rootAttributes.size).toBe(0)
+    onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations: [1, 1] } })
+    expect(rootAttributes.size).toBe(0)
+    onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations: [1] } })
+    expect(rootAttributes.has('data-segnavia-cues')).toBe(true)
+    expect(marks.map((mark) => mark.shown())).toEqual([false, true])
+    onMessage?.({ source: parent, data: { type: MESSAGE.cue, annotations: null } })
+    expect(marks.map((mark) => mark.shown())).toEqual([true, true])
+  })
+
   test('the bridge handles in-page links within its declared message surface and policy', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
     expect(html).toContain("window.addEventListener('click'")

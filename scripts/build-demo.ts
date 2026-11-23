@@ -195,6 +195,10 @@ writeFileSync(path.join(SITE, 'deck-he.json'), JSON.stringify(hebrew, null, 2))
 mkdirSync(path.join(SITE, 'audio'), { recursive: true })
 writeFileSync(path.join(SITE, 'audio/tone.wav'), sineWav(2.4))
 const recorded = await narration('Recorded narration drives this slide, then it moves on.', (n) => [{ word: wordIndex(n, 'drives'), annotation: 0 }])
+const hosted = await narration('Hosted marks show first and then second.', (n) => [
+  { word: wordIndex(n, 'first'), annotation: 0 },
+  { word: wordIndex(n, 'second'), annotation: 1 },
+])
 writeFileSync(
   path.join(SITE, 'deck-media.json'),
   JSON.stringify(
@@ -224,7 +228,7 @@ writeFileSync(
             cues: [{ word: 6, annotation: 0 }],
           },
         },
-        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html' } },
+        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html', annotationCount: 2 }, narration: hosted },
         { type: 'slide', id: 'image', content: { kind: 'image', src: `shots/${formShot.file}`, alt: 'The new class form' } },
         { type: 'slide', id: 'placed-sound', content: { kind: 'html', html: '<img data-segnavia-media="demo-sound">' } },
       ],

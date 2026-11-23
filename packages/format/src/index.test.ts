@@ -117,6 +117,24 @@ describe('deck', () => {
     expect(annotationCueIssues(narration([{ word: 20, annotation: 0 }]), 1)).toEqual([])
   })
 
+  test('url slide cues are checked against their declared annotation count', () => {
+    const slide = (annotationCount?: number, annotation = 1) => ({
+      id: 'served',
+      content: { kind: 'url' as const, src: 'served.html', ...(annotationCount === undefined ? {} : { annotationCount }) },
+      narration: narration([{ word: 0, annotation }]),
+    })
+    expect(Deck.safeParse({ title: 'T', slides: [slide(2)] }).success).toBe(true)
+    expect(Deck.safeParse({ title: 'T', slides: [slide(1)] }).error?.issues[0]?.message).toContain('names annotation 1, but the slide has 1')
+    expect(Deck.safeParse({ title: 'T', slides: [slide()] }).error?.issues[0]?.message).toContain('declare annotationCount on the url slide')
+  })
+
+  test('a url slide annotation count is an integer from zero through 256', () => {
+    const deck = (annotationCount: number) => ({ title: 'T', slides: [{ id: 'served', content: { kind: 'url', src: 'served.html', annotationCount } }] })
+    expect(Deck.safeParse(deck(0)).success).toBe(true)
+    expect(Deck.safeParse(deck(256)).success).toBe(true)
+    for (const annotationCount of [-1, 1.5, 257]) expect(Deck.safeParse(deck(annotationCount)).success).toBe(false)
+  })
+
   test('a cue past the last word is refused', () => {
     const result = Deck.safeParse({
       title: 'T',

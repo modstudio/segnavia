@@ -133,6 +133,16 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   trusts the message only by `event.source`, and drops handles absent from the
   current resolved document. A scripted frame can start its own placed sounds
   without a click.
+  A frame built with `bridgeForHost` accepts exactly four inbound message types
+  from its parent: `segnavia:freeze`, `segnavia:release`, `segnavia:inspect` and
+  `segnavia:cue`. The `annotations` of a `segnavia:cue` is null, or at most 256
+  sorted unique integers from 0 to 255, and the message only toggles
+  `data-shown` on `[data-annotation]` elements.
+  A frame built with `bridgeForHost` accepts exactly four inbound message types
+  from its parent: `segnavia:freeze`, `segnavia:release`, `segnavia:inspect` and
+  `segnavia:cue`. The `annotations` of a `segnavia:cue` is null, or at most 256
+  sorted unique integers from 0 to 255, and the message only toggles
+  `data-shown` on `[data-annotation]` elements.
 - Rendering is offline: Chromium never reaches the network. In every author document, a request under an approved origin and path is answered by the host's `assets` seam within the host-only `limits.assets` caps. An unapproved or unanswered request refuses the render. Service workers are blocked. The render tab's own document is served once from the reserved origin `http://segnavia.invalid/` under a CSP `sandbox` without `allow-same-origin`, so its origin stays opaque; every other request to that origin is refused.
 - No secret is stored. A provider reads its key from the host at the moment
   of use (`elevenLabsProvider({ apiKey: () => ... })`), never at import.

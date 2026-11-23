@@ -69,6 +69,10 @@ export class FramePool {
     return canvas.querySelector('iframe')
   }
 
+  frameForSlide(slideId: string): HTMLIFrameElement | null {
+    return this.entries.get(slideId)?.canvas.querySelector('iframe') ?? null
+  }
+
   hasMountedFrame(slideId: string): boolean {
     return this.entries.get(slideId)?.canvas.isConnected === true
   }

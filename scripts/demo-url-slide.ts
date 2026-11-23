@@ -34,5 +34,5 @@ export async function urlSlideHtml(root: string): Promise<string> {
   }
   const resolved = await resolveFonts(urlSlideFonts, { source })
   if (resolved.failures.length > 0) throw new Error(`The media deck fonts are unavailable: ${JSON.stringify(resolved.failures)}`)
-  return `<!doctype html><html><head><style>${resolved.css}</style></head><body style="margin:0;display:grid;place-content:center;height:100vh;font-size:48px;font-family:var(--segnavia-font-host)"><h1 id="served">Served by the host</h1><script>${bridgeForHost({ fonts: urlSlideFonts })}</script></body></html>`
+  return `<!doctype html><html><head><style>${resolved.css}[data-segnavia-cues] [data-annotation]:not([data-shown]){visibility:hidden}</style></head><body style="margin:0;display:grid;place-content:center;height:100vh;font-size:48px;font-family:var(--segnavia-font-host)"><h1 id="served">Served by the host</h1><p data-annotation="0">First hosted mark</p><p data-annotation="1">Second hosted mark</p><script>${bridgeForHost({ fonts: urlSlideFonts })}</script></body></html>`
 }
