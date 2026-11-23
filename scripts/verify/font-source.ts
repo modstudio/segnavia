@@ -48,17 +48,14 @@ export async function verifyFontSource(renderer: Renderer, work: string, check: 
 
   const fontUrl = 'https://assets.example/fonts/alef.ttf'
   const urlPdf = await renderer.deckPdf(
-    screenDeck(
-      [{ type: 'slide', id: 'url-font', content: { kind: 'html', html: '<p style="font-family:var(--segnavia-font-serif)">URL face</p>' } }],
-      {
-        title: 'URL font asset',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        size: { width: 400, height: 200 },
-        style: { fonts: { serif: { faces: [{}] } } },
-      },
-    ),
+    screenDeck([{ type: 'slide', id: 'url-font', content: { kind: 'html', html: '<p style="font-family:var(--segnavia-font-serif)">URL face</p>' } }], {
+      title: 'URL font asset',
+      layout: 'fixed',
+      fit: 'contain',
+      frame: false,
+      size: { width: 400, height: 200 },
+      style: { fonts: { serif: { faces: [{}] } } },
+    }),
     {
       fontSource: {
         font: async (name) =>
