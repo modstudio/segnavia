@@ -76,6 +76,7 @@ export const PAGE_PDF_OPTION_KEYS = {
 export const PAGES_PDF_OPTION_KEYS = {
   ...PAGE_PDF_OPTION_KEYS,
   imposition: true,
+  skipRefused: true,
 } as const satisfies Record<keyof PagesPdfInputOptions, true>
 
 export const PAGE_IMAGE_OPTION_KEYS = {

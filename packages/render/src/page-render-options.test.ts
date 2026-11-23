@@ -19,3 +19,10 @@ test('accepts imposition for pagesPdf and refuses it for pagePdf', () => {
     'pagePdf options.imposition: unknown option "imposition"; remove it to clear this refusal',
   )
 })
+
+test('pagesPdf skipping requires a refusal report', () => {
+  const report = () => {}
+  expect(parsePagePdfOptions({ skipRefused: { report } }, 'pagesPdf').skipRefused?.report).toBe(report)
+  expect(parsePagePdfOptions({ skipRefused: false } as never, 'pagesPdf').skipRefused).toBeUndefined()
+  expect(() => parsePagePdfOptions({ skipRefused: true } as never, 'pagesPdf')).toThrow('options.skipRefused needs a report function')
+})

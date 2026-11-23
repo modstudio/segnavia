@@ -1,4 +1,12 @@
-import { type LimitExceeded, LimitExceededError, type LimitMeasure, type LimitRefusalOptions, Refusal, type RefusalOptions } from '@segnavia/format'
+import {
+  isLimitExceeded,
+  type LimitExceeded,
+  LimitExceededError,
+  type LimitMeasure,
+  type LimitRefusalOptions,
+  Refusal,
+  type RefusalOptions,
+} from '@segnavia/format'
 import { ProfileUnsupportedError } from './color/types.ts'
 
 export class RendererUnavailableError extends Error {
@@ -29,6 +37,53 @@ export class RenderRefusedError extends Refusal {
 
   constructor(message: string, options: RefusalOptions & { code?: string } = {}) {
     super(options.code ?? 'render', message, options)
+  }
+}
+
+export interface RenderInputRef {
+  index: number
+  id?: string
+}
+
+export interface InputRefusal extends RenderInputRef {
+  error: Refusal | (Error & { readonly exceeded: readonly LimitExceeded[] })
+}
+
+function inputName(entry: Pick<InputRefusal, 'index' | 'id'>): string {
+  return `input ${entry.index + 1}${entry.id === undefined ? '' : ` (${entry.id})`}`
+}
+
+export function inputRefusalJson(entry: InputRefusal) {
+  const { error } = entry
+  return {
+    index: entry.index,
+    ...(entry.id === undefined ? {} : { id: entry.id }),
+    refusal: {
+      code: error instanceof Refusal ? error.code : 'limit',
+      subject: `input ${entry.index + 1}`,
+      message: `${inputName(entry)}: ${error.message}`,
+      refusals: error instanceof Refusal ? error.refusals : error.exceeded.map((cause) => ({ code: 'limit', subject: cause.measure, message: cause.message })),
+    },
+  }
+}
+
+export class RenderInputsRefusedError extends RenderRefusedError {
+  override name = 'RenderInputsRefusedError'
+  readonly entries: readonly InputRefusal[]
+  readonly exceeded: readonly LimitExceeded[]
+
+  constructor(entries: readonly InputRefusal[]) {
+    super(
+      entries.length === 0
+        ? 'No render inputs were supplied; pass at least one input to clear this refusal.'
+        : `Inputs were refused: ${entries.map((entry) => `${inputName(entry)}: ${entry.error.message}`).join('; ')}`,
+      {
+        code: 'render-inputs',
+        refusals: entries.map((entry) => inputRefusalJson(entry).refusal),
+      },
+    )
+    this.entries = entries
+    this.exceeded = entries.flatMap((entry) => (isLimitExceeded(entry.error) ? entry.error.exceeded : []))
   }
 }
 

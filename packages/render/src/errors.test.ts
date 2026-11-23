@@ -1,10 +1,23 @@
 import { expect, test } from 'bun:test'
 import { isLimitExceeded, Refusal } from '@segnavia/format'
-import { RenderColorProfileError, RenderLimitError, RenderOversetError, RenderRefusedError } from './errors.ts'
+import { RenderColorProfileError, RenderInputsRefusedError, RenderLimitError, RenderOversetError, RenderRefusedError } from './errors.ts'
 
 test('the universal limit guard recognizes a render refusal', () => {
   const error = new RenderLimitError('sheets', 2, 1)
   expect(error).toBeInstanceOf(RenderRefusedError)
+  expect(isLimitExceeded(error)).toBe(true)
+})
+
+test('input refusals name original positions and preserve nested limits', () => {
+  const error = new RenderInputsRefusedError([
+    { index: 2, id: 'doc-abc', error: new RenderRefusedError('bad page') },
+    { index: 40, id: 'doc-xyz', error: new RenderLimitError('pages', 3, 2) },
+  ])
+  expect(error).toBeInstanceOf(RenderRefusedError)
+  expect(error.code).toBe('render-inputs')
+  expect(error.message).toContain('input 3 (doc-abc): bad page')
+  expect(error.message).toContain('input 41 (doc-xyz)')
+  expect(error.refusals.map(({ subject }) => subject)).toEqual(['input 3', 'input 41'])
   expect(isLimitExceeded(error)).toBe(true)
 })
 

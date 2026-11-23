@@ -3,55 +3,71 @@ import { PDFDocument } from 'pdf-lib'
 import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const documents: string[] = []
-let routeHandler: ((route: { request(): unknown; fulfill(options: { body: string }): Promise<void> }) => Promise<void>) | undefined
-const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
-const tab = {
-  async goto(url: string) {
-    await routeHandler?.({
-      request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
-      fulfill: async ({ body }) => {
-        documents.push(body)
-      },
-    })
-  },
-  evaluate(callback: (...args: never[]) => unknown) {
-    if (String(callback).includes('document.fonts')) return Promise.resolve(true)
-    return Promise.resolve({ extent: 200, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })
-  },
-  emulateMedia() {
-    return Promise.resolve()
-  },
-  async pdf() {
-    const document = await PDFDocument.create({ updateMetadata: false })
-    document.addPage()
-    document.setTitle(RENDER_PLACEHOLDER_TITLE)
-    return document.save()
-  },
-  screenshot() {
-    return Promise.resolve(new Uint8Array([4, 5, 6]))
-  },
-  locator() {
-    return { evaluateAll: () => Promise.resolve([]), contentFrame: () => tab }
-  },
-  on() {
-    return tab
-  },
+type RouteHandler = (route: {
+  request(): unknown
+  fulfill(options: { body: string }): Promise<void>
+  abort(): Promise<void>
+  continue(): Promise<void>
+}) => Promise<void>
+
+function fakeTab(routeHandler: () => RouteHandler | undefined) {
+  const tab = {
+    async goto(url: string) {
+      const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
+      await routeHandler()?.({
+        request: () => ({ url: () => url, resourceType: () => 'document', isNavigationRequest: () => true, frame: () => mainFrame }),
+        fulfill: async ({ body }) => {
+          documents.push(body)
+        },
+        abort: async () => {},
+        continue: async () => {},
+      })
+    },
+    evaluate(callback: (...args: never[]) => unknown) {
+      if (String(callback).includes('document.fonts')) return Promise.resolve(true)
+      return Promise.resolve({ extent: 200, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })
+    },
+    emulateMedia() {
+      return Promise.resolve()
+    },
+    async pdf() {
+      const document = await PDFDocument.create({ updateMetadata: false })
+      document.addPage()
+      document.setTitle(RENDER_PLACEHOLDER_TITLE)
+      return document.save()
+    },
+    screenshot() {
+      return Promise.resolve(new Uint8Array([4, 5, 6]))
+    },
+    locator() {
+      return { evaluateAll: () => Promise.resolve([]), contentFrame: () => tab }
+    },
+    on() {
+      return tab
+    },
+  }
+  return tab
 }
-const context = {
-  route(_pattern: string, handler: typeof routeHandler) {
-    routeHandler = handler
-    return Promise.resolve()
-  },
-  routeWebSocket() {
-    return Promise.resolve()
-  },
-  newPage: () => Promise.resolve(tab),
-  close() {
-    return Promise.resolve()
-  },
+
+function fakeContext() {
+  let routeHandler: RouteHandler | undefined
+  const tab = fakeTab(() => routeHandler)
+  return {
+    route(_pattern: string, handler: RouteHandler) {
+      routeHandler = handler
+      return Promise.resolve()
+    },
+    routeWebSocket() {
+      return Promise.resolve()
+    },
+    newPage: () => Promise.resolve(tab),
+    close() {
+      return Promise.resolve()
+    },
+  }
 }
 const browser = {
-  newContext: () => Promise.resolve(context),
+  newContext: () => Promise.resolve(fakeContext()),
   close() {
     return Promise.resolve()
   },
@@ -189,6 +205,97 @@ test('pagesPdf refuses a named brand without a source before opening a tab', asy
   ])
   await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
   expect(documents).toHaveLength(0)
+  await renderer.close()
+})
+
+test('pagesPdf settles invalid documents and preserves their original indices', async () => {
+  documents.length = 0
+  const { openRenderer, RenderInputsRefusedError } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const good = {
+    type: 'document',
+    kind: 'page',
+    id: 'good',
+    size: { width: 200, height: 100 },
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  }
+  try {
+    await renderer.pagesPdf([{ ...good, id: 'bad-one', kind: 'unknown' } as never, good as never, { ...good, id: 'bad-three', kind: 'unknown' } as never])
+    throw new Error('expected refused inputs')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderInputsRefusedError)
+    expect((error as InstanceType<typeof RenderInputsRefusedError>).entries.map(({ index, id }) => ({ index, id }))).toEqual([
+      { index: 0, id: 'bad-one' },
+      { index: 2, id: 'bad-three' },
+    ])
+    expect((error as Error).message).toContain('could not be read as a document at kind')
+    expect((error as Error).message).toContain('correct the document, or remove it from the request')
+  } finally {
+    await renderer.close()
+  }
+  expect(documents).toHaveLength(1)
+})
+
+test('pagesPdf skips a parse-refused input through the public renderer and reports it once', async () => {
+  documents.length = 0
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const good = {
+    type: 'document',
+    kind: 'page',
+    id: 'good',
+    size: { width: 200, height: 100 },
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  }
+  const reports: unknown[] = []
+  const pdf = await renderer.pagesPdf([{ ...good, id: 'bad-one', kind: 'unknown' } as never, good as never], {
+    skipRefused: { report: (entries) => reports.push(entries) },
+  })
+  expect((await PDFDocument.load(pdf)).getPageCount()).toBe(1)
+  expect(reports).toMatchObject([[{ index: 0, id: 'bad-one', error: { code: 'render' } }]])
+  expect(documents).toHaveLength(1)
+  await renderer.close()
+})
+
+test('pagesPdf keeps dates for two inputs with the same as-of day', async () => {
+  documents.length = 0
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const page = {
+    type: 'document',
+    kind: 'page',
+    asOf: { kind: 'fixed', date: '2026-11-14', zone: 'UTC' },
+    size: { width: 200, height: 100 },
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  }
+  const pdf = await renderer.pagesPdf([page as never, page as never])
+  const loaded = await PDFDocument.load(pdf, { updateMetadata: false })
+  expect(loaded.getCreationDate()).toBeDefined()
+  expect(loaded.getModificationDate()).toBeDefined()
+  await renderer.close()
+})
+
+test('pagesPdf treats one page slot-fill refusal as an input refusal', async () => {
+  documents.length = 0
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const page = {
+    type: 'document',
+    kind: 'page',
+    size: { width: 200, height: 100 },
+    data: { slots: [{ key: 'name', label: 'Name', type: 'text' }] },
+    children: [{ type: 'page', body: { html: '<p data-slot-value="name">Body</p>' } }],
+  }
+  const reports: unknown[] = []
+  const pdf = await renderer.pagesPdf(
+    [{ ...page, id: 'bad', settings: { scripts: 'sandboxed' } } as never, { ...page, id: 'good', settings: { scripts: 'refuse' } } as never],
+    {
+      slots: { fill: { id: 'host', values: { name: 'Ada' } } },
+      skipRefused: { report: (entries) => reports.push(entries) },
+    },
+  )
+  expect((await PDFDocument.load(pdf)).getPageCount()).toBe(1)
+  expect(reports).toMatchObject([[{ index: 0, id: 'bad' }]])
   await renderer.close()
 })
 

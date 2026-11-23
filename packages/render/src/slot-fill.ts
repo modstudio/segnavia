@@ -20,6 +20,10 @@ import {
   withPrintedSectionBodies,
 } from '@segnavia/html'
 
+export function pageSlotFillRefusal(page: HtmlPage | PrintedHtmlPage, slots: SlotPrintOptions | undefined) {
+  return slotFillRefusal(page.scripts, page.slots, slots)
+}
+
 export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions | undefined, signal?: AbortSignal) {
   return filledDeck(fillDeckAsOfBindings(deck, day), slots, signal)
 }

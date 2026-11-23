@@ -128,6 +128,19 @@ describe('prepareRenderedPageValue', () => {
 })
 
 describe('prepareRenderedPages', () => {
+  test('shares declarations across inputs while keeping failures attributed per input', async () => {
+    const prepared = await prepareRenderedPages(
+      [
+        { page: Page.parse({ html: '', style: { fonts: { heading: { faces: [{}], generic: 'serif' } } } }), fonts: [] },
+        { page: Page.parse({ html: '' }), fonts: [{ app: 'heading' }] },
+      ],
+      { fontSource: source },
+      signal,
+    )
+    expect(prepared.fontCss).toContain('--segnavia-font-heading:"Heading Sans",serif')
+    expect(prepared.fontFailuresByInput).toEqual([[], []])
+  })
+
   test('retains distinct motif locals and a page declaration colliding with a motif app reference', async () => {
     const prepared = await prepareRenderedPages(
       [
