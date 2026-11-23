@@ -53,13 +53,14 @@ export interface NumberingRuns {
 }
 
 export function computeNumberingRuns(pages: readonly NumberedPage[]): NumberingRuns {
-  let next: number | undefined
+  let next = 0
   let runIndex = -1
   const runIndexes: number[] = []
   const totals: string[] = []
   const folios = pages.map(({ numbering }, pageIndex) => {
-    if (next === undefined || numbering.restart) next = numbering.start
-    if (pageIndex === 0 || numbering.restart) {
+    const startsRun = pageIndex === 0 || numbering.restart
+    if (startsRun) next = numbering.start
+    if (startsRun) {
       runIndex += 1
       totals.push('')
     }

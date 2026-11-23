@@ -76,7 +76,7 @@ describe('planBook', () => {
       flows: [
         flow('front', 'front', [block('text', 'p', 1, 1, 1, 0)]),
         flow('introduction', 'chapter', [block('text', 'p', 2, 1, 1, 0)]),
-        { ...flow('record', 'chapter', [block('text', 'p', 3, 1, 6, 0)]), record: { index: 1, count: 1 } },
+        { ...flow('record', 'chapter', [block('text', 'p', 3, 1, 6, 0)]), numbering: { restart: 1 }, record: { index: 1, count: 1 } },
       ],
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
@@ -179,7 +179,7 @@ describe('planBook', () => {
       ],
       flows: [
         flow('first', 'chapter', [block('text', 'p', 1, 1, 1, 0)]),
-        { ...flow('record', 'chapter', [block('text', 'p', 2, 1, 1, 0)]), record: { index: 1, count: 1 } },
+        { ...flow('record', 'chapter', [block('text', 'p', 2, 1, 1, 0)]), numbering: { restart: 1 }, record: { index: 1, count: 1 } },
       ],
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })

@@ -104,18 +104,16 @@ export function marginFactsFor(
   contentValues: readonly Record<string, string>[] = [],
 ): BookPageFacts[] {
   const owners = marginPageOwners(sections, destinations, pages, blanks)
+  // Each call covers one division, and continuous books refuse section and record restarts.
   const runs = computeNumberingRuns(
-    owners.map((owner, index) => ({
-      numbering: (() => {
-        const start = owner?.section.numbering?.restart ?? (owner?.section.record === undefined ? undefined : 1)
-        return {
-          system: numbering.system,
-          printed: numbering.printed,
-          start: start ?? 1,
-          restart: index === 0 || (start !== undefined && owner?.page === index + 1),
-          counted: owner?.section.numbering?.counted !== false,
-        }
-      })(),
+    Array.from({ length: pages }, (_, index) => ({
+      numbering: {
+        system: numbering.system,
+        printed: numbering.printed,
+        start: 1,
+        restart: index === 0,
+        counted: true,
+      },
     })),
   )
   const numbers = bookVariablePageNumbers(document.pages, document.system)

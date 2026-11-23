@@ -27,7 +27,6 @@ export interface BookPlanFolioResult {
 
 export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPlanNumbering, sections: readonly BookPlanSection[] = []): BookPlanFolioResult {
   const sectionNumbering = new Map(sections.map((section) => [section.id, section.numbering]))
-  const recordFlows = new Set(sections.filter((section) => section.record !== undefined).map((section) => section.id))
   const firstNonBlankPage = new Map<string, number>()
   pages.forEach((page, index) => {
     if (!page.blank && !firstNonBlankPage.has(page.flow)) firstNonBlankPage.set(page.flow, index)
@@ -36,7 +35,7 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
     pages.map((page, index) => {
       const section = sectionNumbering.get(page.flow)
       const division = page.sequence === 'front' ? 'frontMatter' : 'body'
-      const start = section?.restart ?? (recordFlows.has(page.flow) ? 1 : undefined)
+      const start = section?.restart
       return {
         numbering: {
           system: numbering[division],
