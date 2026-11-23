@@ -7,6 +7,7 @@ import type { FontsOptions } from './page-fonts.ts'
 import { SLIDES_READY_DEADLINE_MS } from './print-document.ts'
 import { measurePrintedPageCount } from './printed-page-count.ts'
 import { preparePrintedPage } from './printed-page-preparation.ts'
+import type { ServeFrame } from './frame-write.ts'
 
 export interface PreparedPrintedPages {
   page: PrintedHtmlPage
@@ -29,6 +30,7 @@ export interface PreparePrintedPagesOptions {
   profile: PreflightProfile
   report(report: import('@segnavia/format').PreflightReport): void
   day: AsOfDay
+  serveFrame?: ServeFrame
 }
 
 export async function preparePrintedPages(source: Page, options: PreparePrintedPagesOptions): Promise<PreparedPrintedPages> {
@@ -48,6 +50,7 @@ export async function preparePrintedPages(source: Page, options: PreparePrintedP
       preflightSeed: expanded.preflight,
       report: options.report,
       signal: options.signal,
+      serveFrame: options.serveFrame,
     },
     Date.now() + SLIDES_READY_DEADLINE_MS,
   )

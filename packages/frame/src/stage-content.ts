@@ -2,6 +2,7 @@ import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type 
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
+import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
 import { LAYOUT_FRAME_ATTRIBUTE, type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
@@ -21,6 +22,8 @@ interface StageCanvasOptions {
   failed?: (error: Error) => void
   preflight?: PreflightProfile
   layoutScripts?: readonly LoadedLayoutScript[]
+  serveFrame?: ServeFrame
+  kind?: 'slide' | 'thumbnail'
 }
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
@@ -46,9 +49,15 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
   }
 }
 
-function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, loaded: () => void): void {
-  iframe.addEventListener('load', loaded, { once: true })
-  iframe.srcdoc = srcdoc
+function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, options: StageCanvasOptions): void {
+  iframe.addEventListener('load', options.loaded, { once: true })
+  void writeFrameDocument(
+    iframe,
+    { html: srcdoc, policy: options.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: options.kind ?? 'slide' },
+    options.serveFrame,
+  ).catch((reason) =>
+    options.failed?.(reason instanceof Error ? reason : new Error(String(reason))),
+  )
 }
 
 function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript {
@@ -60,7 +69,7 @@ function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript 
 function writeHtmlFrame(iframe: HTMLIFrameElement, deck: Deck, html: string, options: StageCanvasOptions): boolean {
   if (layoutsUsed(html).length === 0) {
     const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [] })
-    if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+    if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options)
     return srcdoc !== undefined
   }
   if (htmlFrameDocument(deck, html, { ...options, layoutScripts: [] }) === undefined) return false
@@ -68,13 +77,13 @@ function writeHtmlFrame(iframe: HTMLIFrameElement, deck: Deck, html: string, opt
   void loadLayoutScripts(html).then(
     (layoutScripts) => {
       const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts })
-      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options)
     },
     (error) => {
       const failure = error instanceof Error ? error : new Error(String(error))
       options.failed?.(failure)
       const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [refusalLayoutScript(html, failure)] })
-      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options)
     },
   )
   return true

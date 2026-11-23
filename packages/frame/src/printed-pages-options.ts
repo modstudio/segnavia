@@ -3,6 +3,7 @@ import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { PageParseOptionsElement } from './page-parse-options-element.ts'
 import { PRINTED_PAGES_FITS, PRINTED_PAGES_LAYOUTS, type PrintedPagesFit, type PrintedPagesLayout, printedPagesOption } from './printed-pages-policy.ts'
+import type { ServeFrame } from './frame-write.ts'
 
 const positive = (value: number, name: string) => {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${name} must be a positive number.`)
@@ -26,6 +27,7 @@ export abstract class PrintedPagesOptionsElement extends PageParseOptionsElement
   protected widthsValue: PageWidths | undefined
   protected fontsValue: FontsOptions | undefined
   protected profileValue: PreflightProfileInput = 'default'
+  protected serveFrameValue: ServeFrame | undefined
 
   get layout(): PrintedPagesLayout {
     return this.layoutValue
@@ -109,6 +111,13 @@ export abstract class PrintedPagesOptionsElement extends PageParseOptionsElement
   set profile(value: PreflightProfileInput) {
     resolvePreflightProfile(value)
     this.profileValue = value
+    this.printedPagesReload()
+  }
+  get serveFrame(): ServeFrame | undefined {
+    return this.serveFrameValue
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.serveFrameValue = value
     this.printedPagesReload()
   }
 

@@ -5,6 +5,7 @@ import type { BrandsOptions } from './brands.ts'
 import type { Clock } from './clock.ts'
 import type { SeekPolicy } from './navigation-limit.ts'
 import type { WatchedState } from './watched.ts'
+import type { ServeFrame } from './frame-write.ts'
 
 export type { SeekPolicy, WatchedState }
 
@@ -57,6 +58,7 @@ export interface ControllerOptions {
   schedule?: (tick: () => void) => () => void
   seek?: SeekPolicy
   completeAt?: number
+  serveFrame?: ServeFrame
 }
 
 export function initialDeckState(): DeckState {

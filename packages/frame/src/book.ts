@@ -9,6 +9,7 @@ import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from '
 import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
@@ -32,6 +33,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private loadController: AbortController | null = null
   private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
+  private serveFrameValue: ServeFrame | undefined
   constructor() {
     super()
     upgradeProperties(this)
@@ -226,13 +228,25 @@ export class SegnaviaBook extends BookSourcesElement {
     return layout
   }
 
+  get serveFrame(): ServeFrame | undefined {
+    return this.serveFrameValue
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.serveFrameValue = value
+    if (this.currentView) this.mount()
+  }
+
   private mountFrame(rendered: { title: string; srcdoc: string; scripts: Scripts }, layout: BookLayout | null = null): HTMLIFrameElement {
     const iframe = document.createElement('iframe')
     iframe.setAttribute('sandbox', frameSandbox(rendered.scripts))
     if (layout) iframe.dataset.segnaviaBookLayout = layout
     iframe.dataset.segnaviaBookGeneration = String(this.loadGeneration)
     iframe.title = rendered.title
-    iframe.srcdoc = rendered.srcdoc
+    void writeFrameDocument(
+      iframe,
+      { html: rendered.srcdoc, policy: this.serveFrameValue ? frameDocumentPolicy(rendered.srcdoc) : '', kind: 'book' },
+      this.serveFrameValue,
+    ).catch((error) => bookElement.reportBookError(this, error))
     return iframe
   }
 

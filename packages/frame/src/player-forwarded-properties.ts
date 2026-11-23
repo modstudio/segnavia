@@ -1,7 +1,7 @@
 import type { SegnaviaStage } from './stage.ts'
 
 const READABLE_PROPERTIES = ['anchors', 'asOf', 'moment', 'transition'] as const
-const WRITE_ONLY_PROPERTIES = ['css', 'cspExtra', 'origins', 'slots'] as const
+const WRITE_ONLY_PROPERTIES = ['css', 'cspExtra', 'origins', 'slots', 'serveFrame'] as const
 
 type ForwardedProperty = (typeof READABLE_PROPERTIES)[number] | (typeof WRITE_ONLY_PROPERTIES)[number]
 

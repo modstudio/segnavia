@@ -3,6 +3,7 @@ import type { FrameReadinessOptions } from './frame-entry.ts'
 import type { FrameTitle } from './frame-title.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import type { HostTransition } from './transition.ts'
+import type { ServeFrame } from './frame-write.ts'
 
 export interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean
@@ -14,4 +15,5 @@ export interface PoolOptions extends FrameReadinessOptions {
   reducedMotion: boolean
   slots?: PreparedSlots
   preflight?: PreflightProfile
+  serveFrame?: ServeFrame
 }

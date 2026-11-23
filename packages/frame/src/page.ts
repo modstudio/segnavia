@@ -26,6 +26,7 @@ import { reloadPageEdition } from './page-edition-reload.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { handlePageElementMessage } from './page-message-handler.ts'
@@ -70,6 +71,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
+  private serveFrameValue: ServeFrame | undefined
   constructor() {
     super()
     upgradeProperties(this)
@@ -124,6 +126,13 @@ export class SegnaviaPage extends PageParseOptionsElement {
   set profile(value: PreflightProfileInput) {
     resolvePreflightProfile(value)
     this.profileInput = value
+    if (this.pageValue) this.loadValue(this.pageValue)
+  }
+  get serveFrame(): ServeFrame | undefined {
+    return this.serveFrameValue
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.serveFrameValue = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
@@ -370,7 +379,13 @@ export class SegnaviaPage extends PageParseOptionsElement {
       },
       { once: true },
     )
-    iframe.srcdoc = srcdoc
+    void writeFrameDocument(
+      iframe,
+      { html: srcdoc, policy: this.serveFrameValue ? frameDocumentPolicy(srcdoc) : '', kind: 'page' },
+      this.serveFrameValue,
+    ).catch((error) => {
+      if (written === this.documentWrites) dispatchPageFailure(this, error, true)
+    })
   }
   private fit() {
     const page = this.pageValue

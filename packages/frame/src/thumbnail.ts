@@ -277,6 +277,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       placements: this.placementOptions,
       hash: null,
       persist: false,
+      serveFrame: this.serveFrameValue,
     })
     this.controller = controller
     try {

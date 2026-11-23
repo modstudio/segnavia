@@ -58,6 +58,7 @@ export type { MotifsOptions, PlacementsOptions, ResolvedPlacement, ResolvePlacem
 export { SELECTION_REPLY_MS, SegnaviaPage } from './page.ts'
 export { createPageElement } from './page-element.ts'
 export { FontRefusedError, type FontsOptions, type ResolvedFonts, type ResolveFontsOptions, resolveFonts } from './page-fonts.ts'
+export { type ServedFrameDocument, type ServedFrameKind, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 export { SegnaviaPaper } from './paper.ts'
 export type { Playback, PlaybackState } from './playback.ts'
 export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'

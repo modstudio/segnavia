@@ -92,6 +92,13 @@ export class DeckController extends EventTarget {
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
+  get serveFrame(): ControllerOptions['serveFrame'] {
+    return this.options.serveFrame
+  }
+  set serveFrame(value: ControllerOptions['serveFrame']) {
+    this.options.serveFrame = value
+    this.emit()
+  }
   addNavigationGuard(guard: (reason: NavigationGuardReason) => void | Promise<void>): () => void {
     return addNavigationGuard(this, guard)
   }

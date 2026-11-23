@@ -5,6 +5,7 @@ import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
+import type { ServeFrame } from './frame-write.ts'
 
 export interface BoardFrameInputs {
   motifs?: MotifsOptions
@@ -15,6 +16,7 @@ export interface BoardFrameInputs {
   anchors?: AsOfElementProperties['anchors']
   asOf?: AsOfElementProperties['asOf']
   moment?: AsOfElementProperties['moment']
+  serveFrame?: ServeFrame
 }
 
 export interface FrameInputsTarget {
@@ -26,6 +28,7 @@ export interface FrameInputsTarget {
   anchors: AsOfElementProperties['anchors']
   asOf: AsOfElementProperties['asOf']
   moment: AsOfElementProperties['moment']
+  serveFrame?: ServeFrame
 }
 
 export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameInputs): void {
@@ -37,6 +40,7 @@ export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameIn
   target.anchors = inputs.anchors
   target.asOf = inputs.asOf
   target.moment = inputs.moment
+  target.serveFrame = inputs.serveFrame
 }
 
 export abstract class BoardFrameInputsElement extends BoardDocumentElement {
@@ -76,6 +80,13 @@ export abstract class BoardFrameInputsElement extends BoardDocumentElement {
   }
   set origins(value: Iterable<OriginApproval> | undefined) {
     this.frameInputs = { ...this.frameInputs, origins: value === undefined ? [] : [...value] }
+    this.frameInputsChanged()
+  }
+  get serveFrame(): ServeFrame | undefined {
+    return this.frameInputs.serveFrame
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.frameInputs = { ...this.frameInputs, serveFrame: value }
     this.frameInputsChanged()
   }
 

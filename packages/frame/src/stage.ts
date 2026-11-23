@@ -40,6 +40,7 @@ import { cancelStageSelectionRequests, shownScripts, stageSelectionRefusal } fro
 import { createSourceController } from './stage-source-controller.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
+import type { ServeFrame } from './frame-write.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'edition', 'neighbors', 'fit', 'transition', 'transition-duration']
@@ -63,6 +64,7 @@ export class SegnaviaStage extends AsOfElement {
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
+  private serveFrameValue: ServeFrame | undefined
   private slotOptions: SlotsOptions | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotDeck: DeckState['deck'] = null
@@ -89,6 +91,13 @@ export class SegnaviaStage extends AsOfElement {
     this.slotGeneration++
     this.slotOptions = value
     this.slotDeck = null
+    this.rebuildFrames()
+  }
+  get serveFrame(): ServeFrame | undefined {
+    return this.serveFrameValue
+  }
+  set serveFrame(value: ServeFrame | undefined) {
+    this.serveFrameValue = value
     this.rebuildFrames()
   }
 
@@ -309,6 +318,7 @@ export class SegnaviaStage extends AsOfElement {
       bridgeReadyTimeoutMs: this.bridgeReadyTimeoutMs,
       preflight: surfacePreflightFor(this).resolvedProfile(),
       reportSlideError: this.reportFrameRefusal,
+      serveFrame: this.serveFrameValue ?? this.attached?.serveFrame,
     })
     this.refused?.update(state)
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
