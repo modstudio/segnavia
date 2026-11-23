@@ -194,6 +194,45 @@ test('complete fires once for each loaded deck', async () => {
   expect(completes).toBe(2)
 })
 
+test('a seed sets the first state, opens the furthest reached slide, and drops absent ids', async () => {
+  const { controller } = harness({ seek: 'furthest' })
+  const changes: Array<{ index: number; watchedMs: number }> = []
+  controller.addEventListener('change', () => changes.push({ index: controller.state.index, watchedMs: controller.state.watched.ms }))
+  await controller.loadDeckValue(timedDeck(5), {
+    watched: [
+      ...Array.from({ length: 4 }, (_, index) => ({ slideId: String(index), reached: true, watchedThrough: true })),
+      { slideId: '4', reached: true, watchedThrough: false },
+      { slideId: 'absent', reached: true, watchedThrough: true },
+    ],
+  })
+
+  expect(controller.state.index).toBe(4)
+  expect(controller.state.slideElapsedMs).toBe(0)
+  expect(controller.state.watched).toMatchObject({ ms: 4000, reach: { index: 4, ms: 0 }, complete: false })
+  expect(changes[0]).toEqual({ index: 4, watchedMs: 4000 })
+})
+
+test('a complete seed fires complete once after its first change', async () => {
+  const { controller } = harness()
+  const events: string[] = []
+  controller.addEventListener('change', () => events.push('change'))
+  controller.addEventListener('complete', () => events.push('complete'))
+
+  await controller.loadDeckValue(timedDeck(), { watched: [{ slideId: '0', reached: true, watchedThrough: true }] })
+
+  expect(events).toEqual(['change', 'complete'])
+  expect(controller.state.watched.complete).toBe(true)
+})
+
+test('load methods keep the string base overload and validate watched options', async () => {
+  const { controller } = harness()
+  await controller.loadDeckValue(timedDeck(), 'https://example.test/decks/')
+  expect(controller.url('audio.mp3')).toBe('https://example.test/decks/audio.mp3')
+  await expect(controller.loadDeckValue(timedDeck(), { watched: [{ slideId: '0', reached: true, watchedThrough: 1 }] as never })).rejects.toThrow(
+    'watched[0].watchedThrough must be a boolean',
+  )
+})
+
 test('autoplay observes the final tick before furthest navigation ends', async () => {
   const { controller, clocks, tick } = harness({ seek: 'furthest' })
   let ends = 0

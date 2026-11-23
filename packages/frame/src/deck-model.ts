@@ -3,3 +3,4 @@ export type { ControllerOptions, DeckState, ResolvedContent } from './controller
 export { HEADLESS_ELEMENTS } from './headless-elements.ts'
 export type { SeekPolicy } from './navigation-limit.ts'
 export type { WatchedState } from './watched.ts'
+export type { DeckLoadOptions, WatchedSeed, WatchedSeedEntry } from './watched-seed.ts'

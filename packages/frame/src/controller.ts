@@ -13,6 +13,7 @@ import { ControllerPlayback } from './controller-playback.ts'
 import { type ContentRefreshResult, refreshControllerContent } from './controller-refresh.ts'
 import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
+import { resetControllerWatched, seededStartIndex } from './controller-watched-seed.ts'
 import { internalDeckLoad, resolveDeckLoad } from './deck-load-origin.ts'
 import { DeckPlaybackState } from './deck-playback-state.ts'
 import { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
@@ -25,8 +26,10 @@ import type { PlaybackState } from './playback.ts'
 import { hasWindow } from './schedule.ts'
 import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
+import { type DeckLoadOptions, type DeckLoadOptionsInput, deckLoadOptions } from './watched-seed.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent, SeekPolicy, WatchedState } from './controller-types.ts'
+export type { DeckLoadOptions, WatchedSeed, WatchedSeedEntry } from './watched-seed.ts'
 export class DeckController extends ControllerFrameServing {
   declare edition: string | undefined
   private options: ControllerOptions
@@ -51,7 +54,7 @@ export class DeckController extends ControllerFrameServing {
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
     this.options = { hash: null, keys: 'stage', seek: 'free', completeAt: 1, ...options }
-    this.editions = new ControllerEdition(this.options, (load) => void this.loadDeck(load.input, load.base, false).catch(() => {}))
+    this.editions = new ControllerEdition(this.options, (load) => void this.loadDeck(load.input, load.options, false).catch(() => {}))
     this.editions.attach(this)
     this.playback = new ControllerPlayback({
       state: () => this.current,
@@ -118,20 +121,22 @@ export class DeckController extends ControllerFrameServing {
     window.removeEventListener('keydown', this.onPageKey)
     this.listening = false
   }
-  async loadUrl(src: string): Promise<void> {
-    await loadControllerUrl(this, src, (input, base) => this.load(input, base))
+  async loadUrl(src: string, options?: DeckLoadOptionsInput): Promise<void> {
+    const parsed = deckLoadOptions(options)
+    await loadControllerUrl(this, src, (input, base) => this.loadDeck(input, { ...parsed, base: parsed.base ?? base }, false))
   }
-  async load(input: unknown, base?: string): Promise<void> {
-    await this.loadDeck(input, base, false)
+  async load(input: unknown, options?: DeckLoadOptionsInput): Promise<void> {
+    await this.loadDeck(input, deckLoadOptions(options), false)
   }
-  async loadDeckValue(input: unknown, base?: string): Promise<void> {
-    await this.loadDeck(input, base, true)
+  async loadDeckValue(input: unknown, options?: DeckLoadOptionsInput): Promise<void> {
+    await this.loadDeck(input, deckLoadOptions(options), true)
   }
   async [internalDeckLoad](input: Deck): Promise<void> {
-    await this.loadDeck(input, undefined, true)
+    await this.loadDeck(input, {}, true)
   }
-  private async loadDeck(input: unknown, base: string | undefined, internal: boolean): Promise<void> {
-    this.editions.record(input, base, internal)
+  private async loadDeck(input: unknown, loadOptions: DeckLoadOptions, internal: boolean): Promise<void> {
+    this.editions.record(input, loadOptions, internal)
+    const { base, watched } = loadOptions
     const lifetime = replacePlacementLifetime(this.placementLifetime)
     this.placementLifetime = lifetime
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
@@ -149,18 +154,19 @@ export class DeckController extends ControllerFrameServing {
     if (lifetime.signal.aborted) return
     this.prefetched.clear()
     this.shots.clear()
-    const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, controllerHashIndex(deck, this.options.hash))
+    const wasOpen = this.current.deck !== null
+    const hashIndex = controllerHashIndex(deck, this.options.hash)
+    const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, hashIndex)
     this.current = { ...this.current, ...loaded }
     this.completeEmitted = false
-    this.playback.resetWatched(
-      deck.slides.map((slide) => slideDurationMs(slide, deck)),
-      { index: loaded.index, ms: 0 },
-    )
+    const seeded = resetControllerWatched(this.playback, deck, loaded.index, watched)
+    const resumeIndex = seededStartIndex(loaded.index, deck.slides.length, wasOpen, hashIndex, loaded.seek, seeded.reach.index, watched)
+    if (resumeIndex !== loaded.index) this.current = { ...this.current, index: resumeIndex, slide: deck.slides[resumeIndex] ?? null }
     try {
-      await this.show(loaded.index)
+      await this.show(resumeIndex)
     } catch (error) {
       if (lifetime.signal.aborted || this.current.deck !== deck) throw error
-      const refusal = new SlideRefusedError(loaded.index, slideIdAt(deck, loaded.index), error)
+      const refusal = new SlideRefusedError(resumeIndex, slideIdAt(deck, resumeIndex), error)
       dispatchElementError(this, refusal)
       throw error
     }
@@ -246,7 +252,6 @@ export class DeckController extends ControllerFrameServing {
   async previous(): Promise<void> {
     if (this.current.index > 0) await this.navigate(this.current.index - 1)
   }
-
   async play(): Promise<void> {
     const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
@@ -258,7 +263,6 @@ export class DeckController extends ControllerFrameServing {
     } else this.playback.startClock(this.current.slideElapsedMs)
     this.emit()
   }
-
   pause() {
     this.playback.cancelTick()
     this.playback.clock?.pause()
@@ -266,7 +270,6 @@ export class DeckController extends ControllerFrameServing {
     this.current = { ...this.current, playing: false }
     this.emit()
   }
-
   async seek(deckMs: number): Promise<void> {
     const deck = this.current.deck
     if (!deck) return
@@ -314,7 +317,6 @@ export class DeckController extends ControllerFrameServing {
     writeViewerSettings(this.options.persist !== false, this.settings)
     this.emit()
   }
-
   setCaptionsVisible(visible: boolean) {
     if (this.captionsPolicy !== 'viewer') return
     this.settings.captionsVisible = visible
@@ -325,7 +327,6 @@ export class DeckController extends ControllerFrameServing {
   toggle(): Promise<void> | void {
     return this.current.playing ? this.pause() : this.play()
   }
-
   // Returns what the key did, so a caller knows whether to prevent its default.
   key(key: string): DeckAction | null {
     const action = handleControllerKey(this, key)

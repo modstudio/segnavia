@@ -71,8 +71,22 @@ Hosts read watched progress from `DeckController.state.watched` and the
 controller's `change` and `complete` events; this works directly from custom
 elements and does not require React. `seek: 'furthest'` is an optional client
 navigation policy, and ordered host navigation guards can refuse an allowed
-target. `watched`, `complete`, and `share` are client reports, not proof: a
+target. A load may start from a saved `WatchedSeed`, keyed by slide id. For a
+timed slide, `watchedThrough` supplies its full duration, otherwise supplied
+spans are clamped and merged; `reached` alone restarts that slide at zero. For
+an untimed slide, either `reached` or `watchedThrough` marks it shown, and spans
+have no meaning. `watchedThrough` takes precedence over spans. Entries whose
+slide ids are absent from the loaded edition are dropped rather than applied by
+position. The seed carries watched facts only, never a completion threshold:
+the loaded deck's `completeAt` computes completion and reach is derived from the
+facts. A seed already meeting that threshold emits `complete` once, after the
+first `change` for the load. `watched`, `complete`, and `share` are client reports, not proof: a
 host that gates anything on them verifies the report on its server.
+
+Seed identity depends on stored slide ids. Parsing content without stored ids
+mints new random ids, so a later seed cannot match and its entries are dropped.
+Hosts persist parsed ids with the content or parse with `deterministicNewId`
+when they need reproducible ids.
 
 Slide HTML remains in a sandbox without same-origin authority. By default, a
 host content security policy must allow the inline nonce-bearing bridge script
@@ -926,8 +940,8 @@ this adds no inbound frame message.
 | `transition`, `transition-duration` | `<segnavia-stage>`, `<segnavia-player>` | A host override for deck turns. Kind is `none`, `fade` or `slide`; duration is an integer from 0 to 2000 milliseconds. The object property takes precedence over the two independently read attributes. Invalid attribute values are ignored. Reduced-motion readers always receive an instant turn. |
 | `refusal`, `data-refused`, `refusalchange` | `<segnavia-stage>` | The refusal that still applies to the attached controller's current deck and shown content, its code mirrored for host styling, and a non-bubbling event whenever its identity changes or clears. Replacing or detaching the controller clears it. A deck refusal clears when another deck loads. A controller slide refusal applies only while that slide and the same resolved content remain current. A frame refusal belongs to that slide's pooled frame and appears whenever the slide is shown with the same content; a late bridge ready signal clears one caused by `BridgeReadyTimeoutError`, while a frame refused for another reason stays refused. The headless stage adds no refused-state appearance; `<segnavia-refusal>` supplies the styled panel used by the player. |
 | `keys` | `DeckController` option | `'stage'` for stage-local keys or `'page'` for bounded page-wide arrows and page keys. In page mode, form fields retain arrows and page keys, while Escape still ends an in-window presentation. Arrows follow reading direction. |
-| `playback`, `captions`, `seek`, `completeAt`, `setMuted`, `setCaptionsVisible` | `DeckController` options and methods | A host may override the deck's segmented or continuous playback mode and caption policy, position the pure deck timeline, and expose viewer sound and caption choices. The `seek` policy is `'free'` by default; `'furthest'` clamps position seeks to the fully watched reach and silently refuses forward slide navigation beyond it. `completeAt` is in `(0, 1]` and defaults to `1`. `setPlayerOptions` can change `playback`, `captions` and `seek`. Viewer choices share one guarded local-storage record and can be disabled with `persist: false`. |
-| `watched`, `seek` | `DeckState` | `watched` reports `{ ms, share, reach, complete }`: merged played time, its weighted deck share, the furthest position preceded entirely by watched content, and whether `completeAt` has been reached. `seek` reports the active seek policy. Loading a deck resets watched state. |
+| `playback`, `captions`, `seek`, `completeAt`, `setMuted`, `setCaptionsVisible` | `DeckController` options and methods | A host may override the deck's segmented or continuous playback mode and caption policy, position the pure deck timeline, and expose viewer sound and caption choices. The `seek` policy is `'free'` by default; `'furthest'` clamps position seeks to the fully watched reach and silently refuses forward slide navigation beyond it. `completeAt` is in `(0, 1]` and defaults to `1`. `setPlayerOptions` can change `playback`, `captions` and `seek`. Viewer choices share one guarded local-storage record and can be disabled with `persist: false`. `load`, `loadUrl` and `loadDeckValue` accept a base string or `DeckLoadOptions { base?, watched? }`; edition reloads replay those recorded options. |
+| `watched`, `seek` | `DeckState`; `<segnavia-player>` property | `DeckState.watched` reports `{ ms, share, reach, complete }`: merged played time, its weighted deck share, the furthest position preceded entirely by watched content, and whether `completeAt` has been reached. `seek` reports the active seek policy. Loading resets watched state before installing that load's optional seed. The player's `watched` property supplies a seed to its next `src` load and is then cleared, including when that load refuses. |
 | `complete` | `DeckController` event | Fires once per loaded deck, after the `change` that first reports `watched.complete`, with detail `{ watchedMs, share }`. Skipping under the free policy does not count as watched time. |
 | `actions`, `below` slots | `<segnavia-player>` | Host chrome beside the built-in actions or below the control bar. Presentation hides the rail, the `below` slot and the host `actions`; it keeps the built-in controls. |
 | `connectWindow`, `disconnectWindow` | `DeckController` | Resume or suspend the controller's hash and page-key listeners. A disconnected player stops presentation, pauses playback and suspends its controller's listeners; reconnecting resumes the listeners but not playback. A disconnected stage does the same for a host-owned controller, while a stage-created controller is destroyed. Moving either element in the DOM therefore preserves its usable controller in a paused state. |

@@ -235,6 +235,7 @@ export const ELEMENT_PROPERTIES = {
       'forms',
       'origins',
       'resolveSlide',
+      'watched',
       'placements',
       'transition',
       'slots',

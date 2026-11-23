@@ -2,7 +2,17 @@ import { type Clock, speechClock, timedClock } from './clock.ts'
 import type { ControllerOptions, DeckState } from './controller-types.ts'
 import { defaultSchedule } from './schedule.ts'
 import { annotationsAt, deckTimeline, slideDurationMs, slideStateAt } from './timeline.ts'
-import { addWatchedSpan, createWatchedModel, type Position, showWatchedSlide, type WatchedModel, type WatchedState, watchedState } from './watched.ts'
+import {
+  addWatchedSpan,
+  createWatchedModel,
+  type Position,
+  showWatchedSlide,
+  type WatchedModel,
+  type WatchedSlideSource,
+  type WatchedState,
+  watchedState,
+} from './watched.ts'
+import type { WatchedSeed } from './watched-seed.ts'
 
 interface PlaybackHost {
   state(): DeckState
@@ -23,10 +33,11 @@ export class ControllerPlayback {
 
   constructor(private host: PlaybackHost) {}
 
-  resetWatched(durations: readonly (number | null)[], position: Position) {
-    this.watched = createWatchedModel(durations)
+  resetWatched(sources: readonly WatchedSlideSource[], position: Position, seed: WatchedSeed = []): WatchedState {
+    this.watched = createWatchedModel(sources, seed)
     this.jump(position)
     this.updateWatched()
+    return this.currentWatched()
   }
 
   show(index: number) {
