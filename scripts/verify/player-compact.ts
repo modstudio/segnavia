@@ -1,5 +1,6 @@
 import { compactBarHeight, measuredBarHeight } from '../../packages/frame/src/player-layout.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
+import { readPlayerFocusKind, verifyStepTrackRtl, verifyStepTrackTabAndLtr } from './player-track.ts'
 
 const PLAYER = 'segnavia-player'
 const MEASURED_BAR_HEIGHT_SRC = `${compactBarHeight.toString()}; return (${measuredBarHeight.toString()})`
@@ -155,35 +156,6 @@ async function actionBarGeometry(h: Harness): Promise<ActionBarGeometry> {
   }
 }
 
-function focusKindSrc() {
-  return `function focusKind() {
-    let node = document.activeElement
-    while (node && node.shadowRoot && node.shadowRoot.activeElement) node = node.shadowRoot.activeElement
-    if (!node) return 'none'
-    if (node.closest && node.closest('[slot="actions"]')) return 'action'
-    if (node.classList && node.classList.contains('notes-toggle')) return 'notes'
-    const root = node.getRootNode()
-    const host = root instanceof ShadowRoot ? root.host : node
-    const tag = host.tagName ? host.tagName.toLowerCase() : ''
-    if (tag === 'segnavia-step' && host.getAttribute('to') === 'next') return 'next'
-    if (tag === 'segnavia-step') return 'previous'
-    if (tag === 'segnavia-play') return 'play'
-    if (tag === 'segnavia-mute') return 'mute'
-    if (tag === 'segnavia-captions') return 'captions'
-    if (tag === 'segnavia-fullscreen') return 'present'
-    if (tag === 'segnavia-rail') return 'rail'
-    if (tag === 'segnavia-track') return 'track'
-    return tag || node.tagName.toLowerCase()
-  }`
-}
-
-async function readFocusKind(h: Harness): Promise<string> {
-  return h.page.evaluate((src) => {
-    const focusKind = new Function(`return (${src})`)()
-    return focusKind() as string
-  }, focusKindSrc())
-}
-
 async function tabKindsFromNext(h: Harness): Promise<string[]> {
   await h.page.locator(PLAYER).evaluate((player) => {
     const next = player.shadowRoot?.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLButtonElement | null
@@ -191,7 +163,7 @@ async function tabKindsFromNext(h: Harness): Promise<string[]> {
   })
   const kinds: string[] = []
   for (let step = 0; step < 16; step++) {
-    const kind = await readFocusKind(h)
+    const kind = await readPlayerFocusKind(h)
     kinds.push(kind)
     if (step > 0 && (kind === 'next' || kind === 'none' || kind === 'body' || kind === 'html')) break
     await h.page.keyboard.press('Tab')
@@ -252,6 +224,7 @@ export async function verifyCompactPlayerActions(h: Harness) {
     bars.railTop >= bars.transportBottom - 0.5 && bars.actionsTop !== null && bars.railBottom <= (bars.actionsTop ?? 0) + 0.5,
     JSON.stringify(bars),
   )
+  await verifyStepTrackTabAndLtr(h)
   const tabs = await tabKindsFromNext(h)
   const groups = tabGroupsAfterNext(tabs)
   // Every host action must be reachable by keyboard. Moving .actions after the
@@ -313,6 +286,7 @@ export async function verifyCompactPlayerActions(h: Harness) {
 
   await mountRailAndActions(h, 2, { dir: 'rtl' })
   await page.waitForTimeout(200)
+  await verifyStepTrackRtl(h)
   const rtl = await page.locator(PLAYER).evaluate((player) => {
     const root = player.shadowRoot as ShadowRoot
     const board = root.querySelector('.player') as HTMLElement
