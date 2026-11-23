@@ -290,17 +290,17 @@ test('a segmented deck track slider labels titled and untitled current slides', 
   const state = { ...initialDeckState(), deck: { slides }, slide: slides[0], index: 0 } as unknown as DeckState
 
   renderer.configureAccessibility.call({ labels }, list, playback.read(state), false)
-  expect({ ...attributes, tabIndex: list.tabIndex }).toEqual({
+  expect(attributes).toEqual({
     'aria-label': 'Slides',
     role: 'slider',
     'aria-valuemin': '1',
     'aria-valuemax': '2',
     'aria-valuenow': '1',
     'aria-valuetext': 'Intro, 1/2',
-    tabIndex: 0,
   })
+  expect(list.tabIndex).toBe(0)
 
-  renderer.configureAccessibility.call({ labels }, list, playback.read({ ...state, slide: slides[1], index: 1 }), false)
+  renderer.configureAccessibility.call({ labels }, list, playback.read({ ...state, slide: slides[1] ?? null, index: 1 }), false)
   expect(attributes['aria-valuetext']).toBe('2/2')
 })
 

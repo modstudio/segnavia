@@ -353,7 +353,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (state.playback !== 'continuous') {
       const controller = this.deckController
       const deckState = controller?.state
-      if (!controller || !deckState.deck) return
+      if (!controller || !deckState?.deck) return
       const lastIndex = deckState.deck.slides.length - 1
       const furthestAllowed = deckState.seek === 'free' ? lastIndex : deckState.watched.reach.index
       const target = stepTrackKeyTarget(event.key, deckState.index, deckState.deck.slides.length, deckState.direction, furthestAllowed)
