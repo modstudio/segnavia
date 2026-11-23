@@ -11,6 +11,5 @@ export class ControllerFrameServing extends EventTarget {
   }
   set serveFrame(value: ServeFrame | undefined) {
     this.servedBy = value
-    this.dispatchEvent(new Event('change'))
   }
 }

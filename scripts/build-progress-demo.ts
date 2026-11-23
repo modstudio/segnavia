@@ -56,6 +56,6 @@ export function buildProgressDemo(site: string, shell: (body: string) => string)
     `await Promise.all([customElements.whenDefined('segnavia-player'),customElements.whenDefined('segnavia-page')]);
 const serveFrame=async document=>{const response=await fetch('/served-frame',{method:'POST',headers:{'content-type':'text/html','x-segnavia-policy':document.policy},body:document.html});if(!response.ok)throw new Error('The demo frame store refused the document.');return response.text()};
 const player=document.getElementById('strict-player');player.serveFrame=serveFrame;
-const page=document.getElementById('strict-page');page.serveFrame=serveFrame;page.page={type:'document',kind:'page',children:[{type:'block',kind:'html',html:'<main id="strict-page-content" style="height:240px">served page</main>'}]};`,
+const page=document.getElementById('strict-page');page.serveFrame=serveFrame;page.page={type:'document',kind:'page',children:[{type:'page',body:{html:'<main id="strict-page-content" style="height:240px">served page</main>'}}]};`,
   )
 }

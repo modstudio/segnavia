@@ -239,7 +239,10 @@ async function verifyStrictCsp(h: Harness) {
   check("a strict host CSP with media-src 'self' loads same-origin narration audio", audioLoaded)
   check(
     'serveFrame lets page and slide bridges run under a strict parent CSP',
-    ready && pageHeight > 150 && servedSlideUrl?.startsWith('/served-frame/') === true && servedPageUrl?.startsWith('/served-frame/') === true,
+    ready &&
+      pageHeight > 150 &&
+      new URL(servedSlideUrl ?? '', page.url()).pathname.startsWith('/served-frame/') &&
+      new URL(servedPageUrl ?? '', page.url()).pathname.startsWith('/served-frame/'),
     JSON.stringify({ ready, pageHeight, servedSlideUrl, servedPageUrl }),
   )
   check(
