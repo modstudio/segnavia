@@ -7,6 +7,7 @@ import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
 import { awaitBookComposition, continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
 import { RenderRefusedError } from './errors.ts'
+import { renderProgressReporter, renderProgressStages } from './progress.ts'
 
 const currentDay = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
 
@@ -272,6 +273,7 @@ test('bookPlan reports only its completed composition stage', async () => {
       throw new Error('stop after progress')
     },
     currentDay,
+    renderProgressReporter({ report: (progress) => reports.push(progress) }, renderProgressStages({ compose: true })),
   ).catch(() => undefined)
   expect(reports).toEqual([{ stage: 'compose', stages: ['compose'], done: 2, total: 2 }])
 })

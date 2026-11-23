@@ -22,6 +22,28 @@ test('bounds reports and holds a high-water per stage and input', () => {
   ])
 })
 
+test('reports growing totals without stepping done backward', () => {
+  const reports: RenderProgress[] = []
+  const reporter = renderProgressReporter({ report: (progress) => reports.push(progress) }, ['compose'])
+  reporter.report('compose', 1, 1, 0)
+  reporter.report('compose', 2, 3, 0)
+  reporter.report('compose', 1, 4, 0)
+  reporter.report('compose', 4, 4, 0)
+  expect(reports.map(({ done, total }) => [done, total])).toEqual([
+    [1, 1],
+    [2, 3],
+    [4, 4],
+  ])
+})
+
+test('a progress option reused by sequential renders gets fresh high-water marks', () => {
+  const reports: RenderProgress[] = []
+  const options = { report: (progress: RenderProgress) => reports.push(progress) }
+  renderProgressReporter(options, ['set']).report('set', 1, 1)
+  renderProgressReporter(options, ['set']).report('set', 1, 1)
+  expect(reports).toHaveLength(2)
+})
+
 test('rejects malformed progress at the render boundary', () => {
   expect(boundRenderProgress({ stage: 'set', stages: ['set'], done: 2, total: 1 })).toBeUndefined()
   expect(boundRenderProgress({ stage: 'set', stages: ['set', 'set'], done: 1, total: 1 })).toBeUndefined()

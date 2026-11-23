@@ -9,22 +9,13 @@ import {
   type Limits,
   type OmittedImpositionMark,
   type OriginApproval,
-  type Page,
   PageWidths,
   parseLimits,
   placedPdfPage,
   resolveLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
-import {
-  type AsOfInputs,
-  type HtmlPage,
-  isPrintedHtmlPage,
-  PLACED_PDF_SOURCES,
-  PlacementResolutionError,
-  type PrintedHtmlPage,
-  type SlotPrintOptions,
-} from '@segnavia/html'
+import { type AsOfInputs, PLACED_PDF_SOURCES, PlacementResolutionError, type SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { ReceivedPdfError, RenderLimitError, RenderRefusedError } from './errors.ts'
@@ -220,11 +211,6 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
     ...(limits.localFonts === undefined ? {} : { localFonts: limits.localFonts }),
     ...(limits.assets === undefined ? {} : { assets: limits.assets }),
   }
-}
-
-export function pageCompositionCount(pages: readonly (Page | HtmlPage | PrintedHtmlPage)[], slots?: Pick<SlotPrintOptions, 'fills'>): number {
-  const copies = slots?.fills?.length ?? 1
-  return pages.filter((page) => isPrintedHtmlPage(page) || page.printedPages !== undefined).length * copies
 }
 
 /** Slot printing renders one copy per fill; a lone copy is the whole output, so it carries the whole output's limits. */

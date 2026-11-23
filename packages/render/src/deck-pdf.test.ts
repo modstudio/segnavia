@@ -7,6 +7,7 @@ import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { type RenderProgress, renderProgressReporter } from './progress.ts'
 
 async function onePage(width = 300, height = 150): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
@@ -33,6 +34,7 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   base.addPage([300, 150])
   const documents: string[] = []
   const limitsSeen: unknown[] = []
+  const reports: RenderProgress[] = []
   const output = await renderDeckPdf(
     deck,
     { limits: { sheets: 2 } },
@@ -46,6 +48,7 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
         limitsSeen.push(options.limits)
         return pdf
       },
+      progress: renderProgressReporter({ report: (report) => reports.push(report) }, ['set']),
     },
   )
   expect((await PDFDocument.load(output)).getPageCount()).toBe(2)
@@ -56,6 +59,10 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   expect(htmlSlide).toContain('animation-play-state:paused!important')
   expect(htmlSlide).toContain('window.requestAnimationFrame(function(){window.requestAnimationFrame')
   expect(limitsSeen).toEqual([{ sheets: 2 }])
+  expect(reports.map(({ done, total }) => [done, total])).toEqual([
+    [1, 2],
+    [2, 2],
+  ])
 })
 
 test('the print bridge and PDF waiter share one ready signal', async () => {

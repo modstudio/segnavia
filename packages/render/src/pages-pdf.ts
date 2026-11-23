@@ -106,6 +106,12 @@ async function composedPdf(
   const marks = impositionMarks(imposition, press)
   const sides = boxes.map((sideBoxes) => ({ boxes: sideBoxes, marks: marks.find((entry) => entry.side === sideBoxes.side) }))
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
+  const setTotals = new Map<number, number>()
+  for (const group of groups) {
+    const input = inputs[group.page]
+    if (input) setTotals.set(input.ref.index, (setTotals.get(input.ref.index) ?? 0) + 1)
+  }
+  const setDone = new Map<number, number>()
   const baseCss = services.fontFaces(opts)
   const settled = await settleRenderInputs(
     groups.map((group) => ({ group, ...(inputs[group.page]?.ref ?? { index: group.page }) })),
@@ -128,7 +134,9 @@ async function composedPdf(
         },
         pagesTagged([isPrintedHtmlPage(page)], true),
       )
-      services.progress?.report('set', 1, 1, input.ref.index)
+      const done = (setDone.get(input.ref.index) ?? 0) + 1
+      setDone.set(input.ref.index, done)
+      services.progress?.report('set', done, setTotals.get(input.ref.index) ?? done, input.ref.index)
       return {
         group,
         rendered: {

@@ -315,14 +315,17 @@ setting reports, so a host can average the latest per-input fractions for one
 bar.
 
 ```ts
-const latest = new Map<number, number>()
+const latest = new Map<string, Map<number, number>>()
 const pdf = await renderer.pagesPdf(pages, {
   progress: {
     report({ stage, stages, done, total, input }) {
-      if (input !== undefined) latest.set(input, total === 0 ? 1 : done / total)
       const own = total === 0 ? 1 : done / total
-      const fraction = input === undefined ? own : [...latest.values()].reduce((sum, value) => sum + value, 0) / latest.size
-      drawExportProgress({ stage, stages, fraction })
+      const inputs = latest.get(stage) ?? new Map<number, number>()
+      if (input !== undefined) inputs.set(input, own)
+      latest.set(stage, inputs)
+      const stageFraction = input === undefined ? own : [...inputs.values()].reduce((sum, value) => sum + value, 0) / inputs.size
+      const fraction = (stages.indexOf(stage) + stageFraction) / stages.length
+      drawExportProgress(fraction)
     },
   },
 })

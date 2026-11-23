@@ -13,7 +13,7 @@ import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selecte
 import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { surfacePreflight } from './preflight.ts'
-import { renderProgressReporter } from './progress.ts'
+import { renderProgressReporter, renderProgressStages } from './progress.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { readinessRefusal, recordedLayoutRefusal, renderReadiness } from './render-readiness.ts'
@@ -61,7 +61,7 @@ export async function renderSlideImage(
   const resolvedLayoutScripts = await services.layoutScripts(slideHtml)
   const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
   const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, layoutScripts: resolvedLayoutScripts })
-  const progress = renderProgressReporter(opts.progress, ['set', 'finish'])
+  const progress = renderProgressReporter(opts.progress, renderProgressStages({ set: true, finish: true }))
   const output = await services.withTab(
     {
       viewport: deck.size,

@@ -48,14 +48,9 @@ export interface RenderProgressReporter {
   report(stage: RenderStage, done: number, total: number, input?: number): void
 }
 
-const reporters = new WeakMap<RenderProgressOptions, Map<string, RenderProgressReporter>>()
-
 export function renderProgressReporter(progress: RenderProgressOptions | undefined, stages: readonly RenderStage[]): RenderProgressReporter {
-  const key = stages.join(',')
-  const existing = progress && reporters.get(progress)?.get(key)
-  if (existing) return existing
   const highWater = new Map<string, Pick<RenderProgress, 'done' | 'total'>>()
-  const reporter: RenderProgressReporter = {
+  return {
     enabled: Boolean(progress),
     stages: [...stages],
     report(stage, done, total, input) {
@@ -70,12 +65,6 @@ export function renderProgressReporter(progress: RenderProgressOptions | undefin
       progress.report(bounded)
     },
   }
-  if (progress) {
-    const byStages = reporters.get(progress) ?? new Map<string, RenderProgressReporter>()
-    byStages.set(key, reporter)
-    reporters.set(progress, byStages)
-  }
-  return reporter
 }
 
 export function composeProgressReport(reporter: RenderProgressReporter, input?: number): ((progress: ComposeProgress) => void) | undefined {

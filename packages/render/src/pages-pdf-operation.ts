@@ -8,7 +8,8 @@ import { outputDate } from './output-date.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { captureInputRefusals, preparedRenderPagesPdfInputs, preparePagesPdfInputs, preparePagesPdfSlotInputs } from './pages-pdf-inputs.ts'
-import { enforce, pdfSheetCount } from './pdf-finish.ts'
+import { pagesPdfCopyProgress } from './pages-pdf-progress.ts'
+import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { withPreflightSeed } from './preflight.ts'
 import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
@@ -38,8 +39,10 @@ export async function renderPagesPdfOperation(
     finish: true,
   })
   const progress = renderProgressReporter(parsedOptions.progress, stages)
+  const copyCount = parsedOptions.slots?.fills?.length ?? 1
   const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted[0]?.fontCss ?? '', deadline, withTab)
-  const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
+  const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots, copyIndex) => {
+    const copyReporter = pagesPdfCopyProgress(progress, copyIndex, copyCount)
     const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, preparedInputs.accepted[0]?.established.slots)
     const slotInputs = await preparePagesPdfSlotInputs(preparedInputs.accepted, effectiveSlots)
     const survivingInputs = slotInputs.accepted.map(({ value }) => value)
@@ -72,10 +75,9 @@ export async function renderPagesPdfOperation(
             resolvedLayoutScripts,
             Boolean(parsedOptions.watermark),
             tagged,
-            composeProgressReport(progress, inputIndex),
+            composeProgressReport(copyReporter, inputIndex),
           )
-          const pages = await pdfSheetCount(rendered.bytes)
-          progress.report('set', pages, pages, inputIndex)
+          copyReporter.report('set', 1, 1, inputIndex)
           return rendered
         },
         piecePdf: (page, slots, geometry, css, options, tagged) =>
@@ -83,7 +85,7 @@ export async function renderPagesPdfOperation(
         fontFaces: (options) => `${preparedInputs.accepted[0]?.fontCss ?? ''}${fontFaces(options.fonts)}`,
         finish: async (pdf) => pdf,
         watermark: watermarkCopies.stamp,
-        progress,
+        progress: copyReporter,
       },
       preparedRenderPagesPdfInputs(pages, frameGroups, survivingInputs),
       [...preparedInputs.refused, ...slotInputs.refused],

@@ -3,6 +3,7 @@ import type { PreparedSlots } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
+import type { RenderProgressReporter } from './progress.ts'
 import type { ParsedBookPdfOptions } from './renderer.ts'
 import type { WatermarkPageFacts } from './watermark-stamp.ts'
 
@@ -13,6 +14,7 @@ export interface BookPdfAdapter {
   textBaselines?: TextBaselineReader
   watermark?(pdf: Uint8Array, pages: readonly WatermarkPageFacts[]): Promise<Uint8Array>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
+  progress?: RenderProgressReporter
 }
 
 export interface PrintedPart extends Pick<PrintResult, 'fontFamily' | 'fontFaceCss'> {

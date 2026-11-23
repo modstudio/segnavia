@@ -50,7 +50,7 @@ import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
-import { type RenderProgressReporter, renderProgressReporter, renderProgressStages } from './progress.ts'
+import type { RenderProgressReporter } from './progress.ts'
 import { renderReadiness } from './render-readiness.ts'
 import type { Watermark } from './watermark-options.ts'
 
@@ -84,6 +84,7 @@ interface DeckPdfServices {
   fontFailures?: FontFailure[]
   watermark?: DeckWatermark
   progress?: RenderProgressReporter
+  setComplete?(): void
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -150,6 +151,7 @@ async function renderHtmlSlides(
           },
           [index],
         )
+        services.setComplete?.()
         return {
           index,
           bytes: press.slides && press.boxes ? await setPdfPageSize(bytes, press.boxes.bleedBox, DECK_PRESS_SIZE_REMEDY) : bytes,
@@ -203,35 +205,39 @@ async function regularDeckPdf(
   let pageOwners: number[] = []
   let printableFont: PageFontFacts = {}
   const [printable, rendered] = await Promise.all([
-    services.renderPdf(
-      {
-        viewport: deckPrintableViewport(deck.size, notesGeometry, press),
-        scripts: true,
-        html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, layoutScripts }),
-        boundMs: opts.boundMs,
-        ...assetSetup(opts),
-        ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
-        preflightReport: preflight?.capture(),
-        beforeOutput: async (tab) => {
-          await placeRenderedImages(tab)
-          if (notesGeometry) {
-            const sheetsLimit = opts.limits?.sheets
-            const pagination = await paginateRenderedNotes(tab, sheetsLimit)
-            if (sheetsLimit !== undefined && pagination.exceeded) {
-              throw new RenderLimitError('sheets', pagination.sheets, sheetsLimit, { atLeast: true })
+    services
+      .renderPdf(
+        {
+          viewport: deckPrintableViewport(deck.size, notesGeometry, press),
+          scripts: true,
+          html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, layoutScripts }),
+          boundMs: opts.boundMs,
+          ...assetSetup(opts),
+          ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
+          preflightReport: preflight?.capture(),
+          beforeOutput: async (tab) => {
+            await placeRenderedImages(tab)
+            if (notesGeometry) {
+              const sheetsLimit = opts.limits?.sheets
+              const pagination = await paginateRenderedNotes(tab, sheetsLimit)
+              if (sheetsLimit !== undefined && pagination.exceeded) {
+                throw new RenderLimitError('sheets', pagination.sheets, sheetsLimit, { atLeast: true })
+              }
+              pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
             }
-            pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
-          }
-          await opts.beforeOutput?.(tab)
-          printableFont = await captureDeckFont(tab, Boolean(opts.watermark), notesGeometry ? { textRootSelector: '.sheet' } : {})
+            await opts.beforeOutput?.(tab)
+            printableFont = await captureDeckFont(tab, Boolean(opts.watermark), notesGeometry ? { textRootSelector: '.sheet' } : {})
+          },
         },
-      },
-      deckPrintablePdfOptions(press),
-      [],
-    ),
+        deckPrintablePdfOptions(press),
+        [],
+      )
+      .then((bytes) => {
+        services.setComplete?.()
+        return bytes
+      }),
     renderHtmlSlides(deck, opts, services, press, slideBaseCss, fontFailures, layoutScripts, preflight),
   ])
-  services.progress?.report('set', deck.slides.length, deck.slides.length)
   const output = await loadPdf(printable)
   await composeRegularSlides(output, deck, rendered, notesGeometry, pageOwners, press)
   let bytes = await output.save()
@@ -302,13 +308,13 @@ async function imposedDeckPdf(
           },
           [index],
         )
+        services.setComplete?.()
         return { index, bytes, ...font }
       } catch (error) {
         nameSlideError(error, slide.id)
       }
     }),
   )
-  services.progress?.report('set', deck.slides.length, deck.slides.length)
   const placements = new Map<number, Array<{ placement: (typeof imposed.placements)[number]; layout: ReturnType<typeof pagePlacementLayout> }>>()
   for (const placement of imposed.placements) {
     const fit = fitPage({ size: deck.size }, placement, imposition.fit)
@@ -346,12 +352,15 @@ export async function renderDeckPdf(
   const signal = services.signal ?? AbortSignal.any([])
   const resolvedFonts = await resolveDeckFonts(deck, opts, signal)
   const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', signal, day)
-  const progress = renderProgressReporter(opts.progress, renderProgressStages({ set: true, impose: Boolean(opts.imposition), finish: true }))
+  const progress = services.progress
+  const setTotal = opts.imposition ? deck.slides.length : 1 + deck.slides.filter((slide) => 'kind' in slide.content && slide.content.kind === 'html').length
+  let setDone = 0
   const resolvedServices = {
     ...services,
     fontFailures: resolvedFonts.fontFailures,
     fontFaces: (options: RenderOptions) => `${resolvedFonts.fontCss}${services.fontFaces(options)}`,
     progress,
+    setComplete: () => progress?.report('set', ++setDone, setTotal),
   }
   const preflight = surfacePreflight(opts.preflight, deck.slides.length)
   opts = { ...opts, ...resolvedFonts.options }

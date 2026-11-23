@@ -32,7 +32,7 @@ import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdfOperation } from './pages-pdf-operation.ts'
-import { enforce, pdfSheetCount } from './pdf-finish.ts'
+import { enforce } from './pdf-finish.ts'
 import { createMergePdfsOperation } from './pdf-merge.ts'
 import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
@@ -161,11 +161,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printBookPartWithPlacedPdf(tab, pdf, pageWidth, part, options)),
             withTab: (setup, body) => withTab({ ...setup, deadline }, body),
             fontFaces: (options) => fontFaces(options.fonts),
-            finish: async (pdf, options) => {
-              const pages = await pdfSheetCount(pdf)
-              progress.report('set', pages, pages)
-              return finishWithBrowser(pdf, options, deadline, progress)
-            },
+            finish: (pdf, options) => finishWithBrowser(pdf, options, deadline, progress),
             watermark: parsedOptions.watermark
               ? async (pdf, pages) => {
                   const [watermarked] = await watermarkCopies.stamp([watermarkPartFromFacts(pdf, pages)])
@@ -173,6 +169,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                 }
               : undefined,
             fontFailures,
+            progress,
           },
           established.day,
         )
@@ -184,12 +181,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseBookPlanOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const { book, options, fontCss: resolvedFontCss, fontFailures, established } = await prepareRenderBook(input, opts, deadline.signal)
+        const progress = renderProgressReporter(opts.progress, renderProgressStages({ compose: true }))
         return renderBrowserBookPlan(
           book,
           { ...options, fontFailures },
           `${resolvedFontCss}${fontFaces(options.fonts)}`,
           (setup, body) => withTab({ ...setup, deadline }, body),
           established.day,
+          progress,
         )
       })
     },
@@ -221,8 +220,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             pagesTagged([isPrintedHtmlPage(page)], false),
             composeProgressReport(progress, progressInput),
           )
-          const pages = await pdfSheetCount(printed.bytes)
-          progress.report('set', pages, pages, progressInput)
+          progress.report('set', 1, 1, progressInput)
           if (printed.overflow) overflows.push(printed.overflow)
           const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])
           return watermarked as Uint8Array
@@ -270,6 +268,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal, options.edition)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
+        const progress = renderProgressReporter(options.progress, renderProgressStages({ set: true, impose: Boolean(options.imposition), finish: true }))
         const watermarkCopies = watermarkCopyStamper(options, '', deadline, withTab)
         const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
@@ -297,13 +296,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               finish: async (pdf) => pdf,
               watermark: options.watermark ? watermarkCopies.stamp : undefined,
               signal: deadline.signal,
+              progress,
             },
             established.day,
             resolvedLayoutScripts,
           )
         })
         watermarkCopies.validate()
-        const progress = renderProgressReporter(options.progress, renderProgressStages({ set: true, impose: Boolean(options.imposition), finish: true }))
         const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline, progress), undefined, outputDate([established.day]))
         return protectPdf(output, options, deadline)
       })

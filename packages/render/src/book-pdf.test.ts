@@ -4,6 +4,7 @@ import { bookDocument, parseBookFixture, planBookPages } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import { bookPageCss, marginFactsFor, marginVariablePagesFor, renderBookPdf as renderDatedBookPdf } from './book-pdf.ts'
 import type { BookPdfAdapter } from './book-pdf-types.ts'
+import { type RenderProgress, renderProgressReporter } from './progress.ts'
 
 const currentDay = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
 const renderBookPdf = (input: Parameters<typeof renderDatedBookPdf>[0], options: Parameters<typeof renderDatedBookPdf>[1], adapter: BookPdfAdapter) =>
@@ -252,10 +253,16 @@ test('refuses body destinations that never settle', async () => {
 
 test('prints a continuous body without page references as many times as before page references', async () => {
   const adapter = scriptedAdapter(() => 1)
+  const reports: RenderProgress[] = []
+  adapter.progress = renderProgressReporter({ report: (report) => reports.push(report) }, ['set'])
   await renderBookPdf(continuousBook('<p id="body-target">No body references</p>', '<p>Body is <a href="#body-target" data-ref="page"></a></p>'), {}, adapter)
   expect(adapter.html.body).toHaveLength(1)
   expect(adapter.html.front).toHaveLength(2)
   expect(adapter.html.front.at(-1)).toContain('>1</a>')
+  expect(reports.map(({ done, total }) => [done, total])).toEqual([
+    [1, 2],
+    [2, 2],
+  ])
 })
 
 test('alternates front and body until the front uses the settled body number', async () => {

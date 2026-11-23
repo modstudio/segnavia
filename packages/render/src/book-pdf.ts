@@ -262,6 +262,7 @@ async function renderPaginatedBookPdf(
   if (!book.page) throw new RenderRefusedError('Printing a paginated book needs page; set page before calling bookPdf.')
   const printed = await inspect(await adapter.print('', book, slots, options, 'body'))
   if (!printed.bytes) throw new RenderRefusedError('The paginated book print produced no bytes.')
+  adapter.progress?.report('set', 1, 1)
   const document = await loadPdf(printed.bytes)
   rewriteBookLinks(document, 0, new Map(), printed.destinations)
   const built = bookDocument(book)
@@ -287,6 +288,9 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const printedFront = converged.front
   const finalBody = converged.body
   const front = printedFront.part
+  const setTotal = sectionsFor(printedFront.document.sections, 'front').length > 0 ? 2 : 1
+  adapter.progress?.report('set', 1, setTotal)
+  if (setTotal === 2) adapter.progress?.report('set', 2, setTotal)
   const bodyBlankPages = new Set(finalBody.blankBefore.map((id) => (finalBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
   const frontSections = sectionsFor(printedFront.document.sections, 'front')
