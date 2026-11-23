@@ -13,7 +13,12 @@ const writes = new WeakMap<HTMLIFrameElement, number>()
 export function frameDocumentPolicy(html: string): string {
   const match = html.match(/<meta\s+http-equiv=["']Content-Security-Policy["']\s+content=(?:"([^"]*)"|'([^']*)')\s*>/i)
   if (!match) throw new Error('The frame document has no Content-Security-Policy meta element; build it with frameDocument to clear this refusal.')
-  return (match[1] ?? match[2] ?? '').replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>')
+  return (match[1] ?? match[2] ?? '')
+    .replaceAll('&amp;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&#39;', "'")
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
 }
 
 function serveFrameRefusal(document: ServedFrameDocument, reason: unknown): Error {

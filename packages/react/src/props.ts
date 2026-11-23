@@ -71,6 +71,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   anchors?: SegnaviaPlayer['anchors']
   asOf?: SegnaviaPlayer['asOf']
   moment?: SegnaviaPlayer['moment']
+  serveFrame?: SegnaviaPlayer['serveFrame']
   src?: string
   theme?: string
   notes?: boolean
@@ -102,6 +103,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
   moment?: SegnaviaStage['moment']
   brands?: SegnaviaStage['brands']
   profile?: SegnaviaStage['profile']
+  serveFrame?: SegnaviaStage['serveFrame']
   src?: string
   hash?: string
   prefetch?: boolean
@@ -142,6 +144,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   anchors?: SegnaviaThumbnail['anchors']
   asOf?: SegnaviaThumbnail['asOf']
   moment?: SegnaviaThumbnail['moment']
+  serveFrame?: SegnaviaThumbnail['serveFrame']
   onAsof?: CustomEventProp<AsOfDay>
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
@@ -200,6 +203,7 @@ export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
   onComposeprogress?: CustomEventProp<ComposeProgress>
   pageWidths?: SegnaviaPage['pageWidths']
   profile?: SegnaviaPage['profile']
+  serveFrame?: SegnaviaPage['serveFrame']
   src?: string
   label?: string
   bounded?: boolean
@@ -232,6 +236,7 @@ export interface PrintedPagesProps extends Omit<ElementProps<SegnaviaPrintedPage
   asOf?: SegnaviaPrintedPages['asOf']
   moment?: SegnaviaPrintedPages['moment']
   profile?: SegnaviaPrintedPages['profile']
+  serveFrame?: SegnaviaPrintedPages['serveFrame']
   onPage?: CustomEventProp<{ page: number; pageCount: number }>
   onRecord?: CustomEventProp<{ record: string | undefined }>
   onAsof?: CustomEventProp<AsOfDay>
@@ -251,6 +256,7 @@ export interface BookProps extends Omit<ElementProps<SegnaviaBook>, 'onError'> {
   asOf?: SegnaviaBook['asOf']
   moment?: SegnaviaBook['moment']
   profile?: SegnaviaBook['profile']
+  serveFrame?: SegnaviaBook['serveFrame']
   src?: string
   spread?: boolean
   layout?: SegnaviaBook['layout']
@@ -308,6 +314,7 @@ export interface BoardProps extends ElementProps<SegnaviaBoard> {
   revealMaxZoom?: SegnaviaBoard['revealMaxZoom']
   resolveItem?: SegnaviaBoard['resolveItem']
   itemNames?: SegnaviaBoard['itemNames']
+  serveFrame?: SegnaviaBoard['serveFrame']
   onSegnaviaBoardChange?: CustomEventProp<BoardChangeDetail>
   onSegnaviaBoardError?: CustomEventProp<BoardErrorDetail>
   onSegnaviaBoardIcons?: CustomEventProp

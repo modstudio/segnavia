@@ -198,7 +198,6 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
         csp: this.cspExtra || undefined,
         origins: this.origins,
         profile,
-        serveFrame: this.serveFrameValue,
         day: established.day,
         report: (report) => {
           if (generation === this.generation && !controller.signal.aborted)
@@ -231,8 +230,6 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
           csp: this.cspExtra || undefined,
           origins: this.origins,
           profile: resolvePreflightProfile(this.profileValue),
-          serveFrame: this.serveFrameValue,
-          failed: (reason) => renderPrintedPagesFailure(this, reason),
           serveFrame: this.serveFrameValue,
           failed: (reason) => renderPrintedPagesFailure(this, reason),
         })

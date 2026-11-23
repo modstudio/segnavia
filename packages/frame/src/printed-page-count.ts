@@ -11,10 +11,10 @@ import {
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
+import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { layoutsForHtml } from './layout.ts'
 import type { PrintablePagesOptions } from './print-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 
 export const PRINTED_PAGE_COUNT_REFUSAL =
   'The browser could not establish the composed page count because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.'
@@ -98,8 +98,6 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
       frame,
       { html: srcdoc, policy: options.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: 'printed-page' },
       options.serveFrame,
-    ).catch((error) =>
-      finish(error, true),
-    )
+    ).catch((error) => finish(error, true))
   })
 }

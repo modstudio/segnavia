@@ -1,6 +1,7 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
 import { ControllerEdition } from './controller-edition.ts'
 import { emitControllerComplete, emitControllerState } from './controller-events.ts'
+import { ControllerFrameServing } from './controller-frame-serving.ts'
 import { handleControllerKey } from './controller-key.ts'
 import { stateForDeckLoad } from './controller-load.ts'
 import { controllerUrl, loadControllerUrl } from './controller-load-url.ts'
@@ -26,7 +27,7 @@ import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent, SeekPolicy, WatchedState } from './controller-types.ts'
-export class DeckController extends EventTarget {
+export class DeckController extends ControllerFrameServing {
   declare edition: string | undefined
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
@@ -45,7 +46,7 @@ export class DeckController extends EventTarget {
   private editions: ControllerEdition
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
   constructor(options: ControllerOptions = {}) {
-    super()
+    super(options.serveFrame)
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
     this.options = { hash: null, keys: 'stage', seek: 'free', completeAt: 1, ...options }
@@ -75,7 +76,6 @@ export class DeckController extends EventTarget {
   get captionsPolicy(): 'on' | 'off' | 'viewer' {
     return captionsPolicy(this.current.deck, this.options)
   }
-
   setPlayerOptions(options: PlayerOptions) {
     Object.assign(this.options, options)
     const deck = this.current.deck
@@ -91,13 +91,6 @@ export class DeckController extends EventTarget {
   }
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
-  }
-  get serveFrame(): ControllerOptions['serveFrame'] {
-    return this.options.serveFrame
-  }
-  set serveFrame(value: ControllerOptions['serveFrame']) {
-    this.options.serveFrame = value
-    this.emit()
   }
   addNavigationGuard(guard: (reason: NavigationGuardReason) => void | Promise<void>): () => void {
     return addNavigationGuard(this, guard)

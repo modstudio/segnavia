@@ -2,10 +2,10 @@ import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
 import { AsOfElement } from './as-of-element.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { THUMBNAIL_RATIOS, type ThumbnailRatio } from './fit.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import type { ServeFrame } from './frame-write.ts'
 
 export class ThumbnailProperties extends AsOfElement {
   private originOptions: readonly OriginApproval[] = []

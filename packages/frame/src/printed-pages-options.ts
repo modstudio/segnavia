@@ -1,9 +1,9 @@
 import { type PageWidths, type PreflightProfileInput, resolvePreflightProfile, type SlotsOptions } from '@segnavia/format'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { PageParseOptionsElement } from './page-parse-options-element.ts'
 import { PRINTED_PAGES_FITS, PRINTED_PAGES_LAYOUTS, type PrintedPagesFit, type PrintedPagesLayout, printedPagesOption } from './printed-pages-policy.ts'
-import type { ServeFrame } from './frame-write.ts'
 
 const positive = (value: number, name: string) => {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${name} must be a positive number.`)

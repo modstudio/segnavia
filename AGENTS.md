@@ -104,6 +104,10 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   from running while the bridge still runs. A standalone thumbnail without a
   `shrink`, `truncate` or `refuse` slot omits the bridge, uses an empty sandbox and sets
   `script-src 'none'`. Never add `allow-same-origin`.
+- A host may show a library-built frame document from a URL it serves through
+  `serveFrame`. The frame keeps the same sandbox, policy and bridge, and the
+  host serves the exact bytes once, with no CSP header or exactly the frame's
+  own.
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
   a ready signal, an animation report, a bounded slot-fit report, a bounded

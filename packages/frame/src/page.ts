@@ -19,6 +19,7 @@ import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
+import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { loadShownPageDocument } from './page-document-loading.ts'
@@ -26,7 +27,6 @@ import { reloadPageEdition } from './page-edition-reload.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { handlePageElementMessage } from './page-message-handler.ts'
@@ -37,12 +37,14 @@ import { readPageSelection } from './page-selection.ts'
 import { loadPageUrl } from './page-url-load.ts'
 import { renderPageValue } from './page-value-render.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
+import { defineServeFrameProperty } from './serve-frame-property.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
   static {
     defineEditionPropertyAccessor(SegnaviaPage.prototype)
+    defineServeFrameProperty(SegnaviaPage.prototype, (page) => page.pageValue && page.loadValue(page.pageValue))
   }
   static observedAttributes = ['src', 'edition', 'bounded', 'label']
   declare edition: string | undefined
@@ -71,7 +73,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
   private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
-  private serveFrameValue: ServeFrame | undefined
+  declare serveFrame: ServeFrame | undefined
   constructor() {
     super()
     upgradeProperties(this)
@@ -126,13 +128,6 @@ export class SegnaviaPage extends PageParseOptionsElement {
   set profile(value: PreflightProfileInput) {
     resolvePreflightProfile(value)
     this.profileInput = value
-    if (this.pageValue) this.loadValue(this.pageValue)
-  }
-  get serveFrame(): ServeFrame | undefined {
-    return this.serveFrameValue
-  }
-  set serveFrame(value: ServeFrame | undefined) {
-    this.serveFrameValue = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
@@ -379,13 +374,11 @@ export class SegnaviaPage extends PageParseOptionsElement {
       },
       { once: true },
     )
-    void writeFrameDocument(
-      iframe,
-      { html: srcdoc, policy: this.serveFrameValue ? frameDocumentPolicy(srcdoc) : '', kind: 'page' },
-      this.serveFrameValue,
-    ).catch((error) => {
-      if (written === this.documentWrites) dispatchPageFailure(this, error, true)
-    })
+    void writeFrameDocument(iframe, { html: srcdoc, policy: this.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: 'page' }, this.serveFrame).catch(
+      (error) => {
+        if (written === this.documentWrites) dispatchPageFailure(this, error, true)
+      },
+    )
   }
   private fit() {
     const page = this.pageValue

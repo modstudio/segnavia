@@ -48,12 +48,13 @@ describe('writeFrameDocument', () => {
     expect(iframe.srcdoc).toContain('blob:')
   })
 
-  test.each([['a rejection', () => Promise.reject(new Error('store unavailable'))], ['a javascript URL', () => 'javascript:alert(1)'], ['a data URL', () => 'data:text/html,no']])(
-    'refuses %s with the clearing action',
-    async (_, serve) => {
-      await expect(writeFrameDocument(frame(), servedFrameDocument(html, 'book'), serve)).rejects.toThrow(
-        /serveFrame.*make serveFrame resolve to an HTTP\(S\) URL to clear this refusal/,
-      )
-    },
-  )
+  test.each([
+    ['a rejection', () => Promise.reject(new Error('store unavailable'))],
+    ['a javascript URL', () => 'javascript:alert(1)'],
+    ['a data URL', () => 'data:text/html,no'],
+  ])('refuses %s with the clearing action', async (_, serve) => {
+    await expect(writeFrameDocument(frame(), servedFrameDocument(html, 'book'), serve)).rejects.toThrow(
+      /serveFrame.*make serveFrame resolve to an HTTP\(S\) URL to clear this refusal/,
+    )
+  })
 })

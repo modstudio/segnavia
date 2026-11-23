@@ -2,10 +2,10 @@ import type { OriginApproval, PageWidths } from '@segnavia/format'
 import { type AsOfElementProperties, defineAsOfPropertyAccessors } from './as-of-element.ts'
 import { BoardDocumentElement } from './board-document-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import type { ServeFrame } from './frame-write.ts'
 
 export interface BoardFrameInputs {
   motifs?: MotifsOptions

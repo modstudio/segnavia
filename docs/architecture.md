@@ -74,10 +74,17 @@ navigation policy, and ordered host navigation guards can refuse an allowed
 target. `watched`, `complete`, and `share` are client reports, not proof: a
 host that gates anything on them verifies the report on its server.
 
-Slide HTML remains in a sandbox without same-origin authority. A host content
-security policy must allow the inline nonce-bearing bridge script inherited by
-the slide's `srcdoc`; a host `script-src 'self'` policy without `unsafe-inline`
-currently renders the slide but blocks that bridge. Narration from the host
+Slide HTML remains in a sandbox without same-origin authority. By default, a
+host content security policy must allow the inline nonce-bearing bridge script
+inherited by the slide's `srcdoc`; a host `script-src 'self'` policy without
+`unsafe-inline` renders the slide but blocks that bridge. A host that cannot
+admit the bridge uses `serveFrame` to return an HTTP(S) URL for the exact
+library-built document. It serves those bytes once, or for a short time, as
+`text/html`, with no CSP response header or exactly the supplied `policy`, and
+must not cache one response across loads because each document has a fresh
+nonce. The parent policy's `frame-src` must admit the returned URL. The frame
+keeps its sandbox without `allow-same-origin`, its own policy, bridge, and
+`event.source` trust. Narration from the host
 loads when `media-src` allows its origin (for example, `media-src 'self'` for
 same-origin audio). The frame's own policy still limits execution to its bridge.
 
@@ -900,6 +907,7 @@ this adds no inbound frame message.
 | Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds designed pages, flowing sections and records in author order. A section may name a geometry from `style.pageGeometries`, so the document can compose several papers. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply binding-relative logical margins and inherited named regions on `blockStart`, `blockEnd`, `inlineStart` (binding) or `inlineEnd` (outer). The built-in `head` and `foot` names use the two block edges. Each region becomes a `data-segnavia-region` box; this parent-page furniture is distinct from a template's `data-region` content target. The composer measures content in each section's paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
 | `css` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style. |
 | `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>` | The host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |
+| `serveFrame` | `<segnavia-page>`, `<segnavia-book>`, `<segnavia-player>` / `DeckController`, `<segnavia-board>` and bridge-carrying thumbnails | Receives `{ html, policy, kind }` and returns an HTTP(S) URL that serves that exact single-use frame document. Without it, frames use `srcdoc`. Bridgeless thumbnails and browser printing remain on `srcdoc`. |
 | `scripts` | thumbnails, page preview, playback and render | A thumbnail always uses `refuse`; `<segnavia-page>` uses the page's mode, playback uses the deck's mode, and render uses the document's mode except that its margin layer uses `refuse`. A registered layout provider runs in every mode, including `refuse`, because its script carries the frame nonce, so layout-measuring code belongs in a provider. |
 | `alertLabels` | `<segnavia-page>`, `<segnavia-markdown-editor>` | Host overrides for the library-written GitHub alert labels in converted Markdown; locked editor views pass them to their nested page. |
 | `newId` | `<segnavia-page>` property; page and book render options; React page prop | The host's id function, passed to `Document.parse` when a page loads, so nodes and blocks missing an id get the host's ids. Setting it re-parses a page held as raw input; set it before `page`, or pass a stable function. A page loaded as an already-parsed value keeps its ids. |

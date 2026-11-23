@@ -3,6 +3,8 @@ import type { BrandsOptions } from './brands.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
+import type { ServeFrame } from './frame-write.ts'
+import { defineServeFrameProperty } from './serve-frame-property.ts'
 
 export interface StagePropertyValues {
   // Styles applied inside every slide, such as a host's house style.
@@ -12,9 +14,10 @@ export interface StagePropertyValues {
   bridgeReadyTimeoutMs: number
   frameTitle: FrameTitle
   brands: BrandsOptions | undefined
+  serveFrame: ServeFrame | undefined
 }
 
-export function defineStagePropertyAccessors(prototype: object): void {
+export function defineStagePropertyAccessors<T extends object>(prototype: T, changed: (host: T) => void): void {
   defineEditionPropertyAccessor(prototype)
   defineStylesheetPropertyAccessors(prototype)
   defineElementPropertyAccessors(prototype, () => ({
@@ -22,4 +25,5 @@ export function defineStagePropertyAccessors(prototype: object): void {
     frameTitle: defaultFrameTitle,
     brands: undefined,
   }))
+  defineServeFrameProperty(prototype, changed)
 }

@@ -1,8 +1,8 @@
 import type { OriginApproval, PreflightProfile } from '@segnavia/format'
 import { frameSandbox, newNonce } from './bridge.ts'
 import { dispatchElementError } from './element-error.ts'
-import { printedPageValueDocument } from './printed-page-document.ts'
 import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { printedPageValueDocument } from './printed-page-document.ts'
 import type { PreparedPrintedPages } from './printed-pages-load.ts'
 import {
   type PaperExtent,
@@ -107,7 +107,14 @@ export function composePrintedPaper(
   prepared: PreparedPrintedPages,
   index: number,
   generation: number,
-  options: { css: string; csp?: string; origins: Iterable<OriginApproval>; profile: PreflightProfile; serveFrame?: ServeFrame; failed?: (reason: unknown) => void },
+  options: {
+    css: string
+    csp?: string
+    origins: Iterable<OriginApproval>
+    profile: PreflightProfile
+    serveFrame?: ServeFrame
+    failed?: (reason: unknown) => void
+  },
 ): void {
   const belongsToGeneration = (frame: HTMLIFrameElement | undefined) => frame?.dataset.generation === String(generation)
   if (belongsToGeneration(state.shown) || belongsToGeneration(state.pending)) return
@@ -140,11 +147,9 @@ export function composePrintedPaper(
   frame.dataset.generation = String(generation)
   frame.style.visibility = 'hidden'
   const html = state.nonce === candidateNonce ? candidate : build(state.nonce)
-  void writeFrameDocument(
-    frame,
-    { html, policy: options.serveFrame ? frameDocumentPolicy(html) : '', kind: 'printed-page' },
-    options.serveFrame,
-  ).catch(options.failed)
+  void writeFrameDocument(frame, { html, policy: options.serveFrame ? frameDocumentPolicy(html) : '', kind: 'printed-page' }, options.serveFrame).catch(
+    options.failed,
+  )
   state.document = html
   state.pending = frame
   state.slot.append(frame)

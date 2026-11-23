@@ -55,9 +55,7 @@ function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, options: StageCan
     iframe,
     { html: srcdoc, policy: options.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: options.kind ?? 'slide' },
     options.serveFrame,
-  ).catch((reason) =>
-    options.failed?.(reason instanceof Error ? reason : new Error(String(reason))),
-  )
+  ).catch((reason) => options.failed?.(reason instanceof Error ? reason : new Error(String(reason))))
 }
 
 function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript {

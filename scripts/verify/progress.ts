@@ -213,6 +213,7 @@ async function verifyStrictCsp(h: Harness) {
     .catch(() => null)
   await page.goto(h.url('strict-csp.html'))
   await h.waitFor('#strict-player', (data) => data.slide === '1')
+  await page.waitForFunction(() => document.querySelector<HTMLElement>('#strict-page')?.dataset.measured !== undefined, undefined, { timeout: BOUNDED_WAIT_MS })
   const slideRendered = (await page.frameLocator('#strict-player iframe').locator('#progress-one').textContent()) === 'progress-one'
   const policy = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')
   const sandbox = await page.locator('#strict-player iframe').getAttribute('sandbox')
@@ -223,6 +224,10 @@ async function verifyStrictCsp(h: Harness) {
   const audioLoaded = (await audioResponse)?.ok() === true
   const violationText = (await violation)?.text() ?? ''
   const ready = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages.includes('segnavia:ready'))
+  const servedSlideUrl = await page.locator('#strict-player iframe').getAttribute('src')
+  const servedPageUrl = await page.locator('#strict-page iframe').getAttribute('src')
+  const pageHeight = await page.locator('#strict-page').evaluate((element) => element.getBoundingClientRect().height)
+  const controlUsesSrcdoc = await page.locator('#strict-control iframe').getAttribute('srcdoc')
   check(
     'a strict host CSP still renders a slide in a sandbox without same-origin',
     slideRendered &&
@@ -233,8 +238,13 @@ async function verifyStrictCsp(h: Harness) {
   )
   check("a strict host CSP with media-src 'self' loads same-origin narration audio", audioLoaded)
   check(
-    'without unsafe-inline, host script-src blocks the frame bridge and must allow its inline script',
-    !ready && violationText.includes("script-src 'self'"),
+    'serveFrame lets page and slide bridges run under a strict parent CSP',
+    ready && pageHeight > 150 && servedSlideUrl?.startsWith('/served-frame/') === true && servedPageUrl?.startsWith('/served-frame/') === true,
+    JSON.stringify({ ready, pageHeight, servedSlideUrl, servedPageUrl }),
+  )
+  check(
+    'without serveFrame, strict parent script-src blocks the srcdoc bridge',
+    controlUsesSrcdoc !== null && violationText.includes("script-src 'self'"),
     violationText || 'no CSP violation was reported',
   )
 }

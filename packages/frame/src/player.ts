@@ -66,7 +66,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   declare cspExtra: PlayerForwardedProperties['cspExtra']
   declare origins: PlayerForwardedProperties['origins']
   declare slots: PlayerForwardedProperties['slots']
-  declare serveFrame: PlayerForwardedProperties['serveFrame']
   declare transition: PlayerForwardedProperties['transition']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })

@@ -1,9 +1,9 @@
 import type { OriginApproval, PreflightProfile } from '@segnavia/format'
 import type { FrameReadinessOptions } from './frame-entry.ts'
 import type { FrameTitle } from './frame-title.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import type { HostTransition } from './transition.ts'
-import type { ServeFrame } from './frame-write.ts'
 
 export interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean

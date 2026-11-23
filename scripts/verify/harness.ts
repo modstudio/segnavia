@@ -33,10 +33,26 @@ export interface Harness {
 export async function openHarness(): Promise<Harness> {
   mkdirSync(EVIDENCE, { recursive: true })
   const heldFrames = new Set<ReadableStreamDefaultController<Uint8Array>>()
+  const servedFrames = new Map<string, { html: string; policy: string }>()
+  let servedFrameId = 0
   const server = Bun.serve({
     port: 0,
     fetch: async (request) => {
       const url = new URL(request.url)
+      if (url.pathname === '/served-frame' && request.method === 'POST') {
+        const id = String(++servedFrameId)
+        servedFrames.set(id, { html: await request.text(), policy: request.headers.get('x-segnavia-policy') ?? '' })
+        return new Response(`/served-frame/${id}`)
+      }
+      if (url.pathname.startsWith('/served-frame/')) {
+        const id = url.pathname.slice('/served-frame/'.length)
+        const frame = servedFrames.get(id)
+        if (!frame) return new Response('Not found', { status: 404 })
+        servedFrames.delete(id)
+        return new Response(frame.html, {
+          headers: { 'content-type': 'text/html; charset=utf-8', ...(frame.policy ? { 'content-security-policy': frame.policy } : {}) },
+        })
+      }
       if (url.pathname === '/held-frame.html') {
         const background = url.searchParams.has('red') ? 'rgb(255,0,0)' : 'rgb(88,28,135)'
         const encoder = new TextEncoder()

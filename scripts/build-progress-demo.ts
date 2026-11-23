@@ -49,6 +49,13 @@ export function buildProgressDemo(site: string, shell: (body: string) => string)
   )
   writeFileSync(
     path.join(site, 'strict-csp.html'),
-    `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; media-src 'self'"><style>html,body{margin:0;height:100%}segnavia-player{height:100%}</style></head><body><segnavia-player id="strict-player" src="deck-progress-strict.json"></segnavia-player><script type="module" src="segnavia-player.js"></script></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; media-src 'self'; frame-src 'self'"><style>segnavia-player{display:block;height:260px}segnavia-page{display:block}</style></head><body><segnavia-player id="strict-control" src="deck-progress-strict.json"></segnavia-player><segnavia-player id="strict-player" src="deck-progress-strict.json"></segnavia-player><segnavia-page id="strict-page"></segnavia-page><script type="module" src="segnavia-player.js"></script><script type="module" src="strict-csp.js"></script></body></html>`,
+  )
+  writeFileSync(
+    path.join(site, 'strict-csp.js'),
+    `await Promise.all([customElements.whenDefined('segnavia-player'),customElements.whenDefined('segnavia-page')]);
+const serveFrame=async document=>{const response=await fetch('/served-frame',{method:'POST',headers:{'content-type':'text/html','x-segnavia-policy':document.policy},body:document.html});if(!response.ok)throw new Error('The demo frame store refused the document.');return response.text()};
+const player=document.getElementById('strict-player');player.serveFrame=serveFrame;
+const page=document.getElementById('strict-page');page.serveFrame=serveFrame;page.page={type:'document',kind:'page',children:[{type:'block',kind:'html',html:'<main id="strict-page-content" style="height:240px">served page</main>'}]};`,
   )
 }

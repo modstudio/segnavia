@@ -325,6 +325,28 @@ to the slide's start at 0 ms. Scripted slides can listen for
 Printing does not add a bridge to host-served URL slides, so `printAtMs` does
 not affect them.
 
+### Frame documents under a strict host CSP
+
+When the host page uses `script-src 'self'` without `unsafe-inline`, opt in to
+URL-served library frames with `serveFrame`:
+
+```ts
+page.serveFrame = player.serveFrame = async ({ html, policy, kind }) => {
+  const response = await fetch('/frame-documents', {
+    method: 'POST',
+    headers: { 'content-type': 'text/html', 'x-frame-policy': policy, 'x-frame-kind': kind },
+    body: html,
+  })
+  if (!response.ok) throw new Error('The frame store refused the document.')
+  return response.text()
+}
+```
+
+The endpoint returns an HTTP(S) URL. Serve the exact bytes once as `text/html`,
+with no CSP header or exactly `policy`; do not reuse or cache a response across
+loads. The parent policy must allow the URL through `frame-src`. The frame still
+has an opaque origin because its sandbox never gains `allow-same-origin`.
+
 ### Host-served URL slide fonts
 
 A host can give a URL slide the same declared fonts as an HTML slide through

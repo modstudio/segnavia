@@ -9,7 +9,6 @@
 // data-word, data-shown, data-direction and data-refused. A visible canvas has data-active, and
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
-
 import { type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
@@ -32,7 +31,7 @@ import { measureStage } from './stage-measure.ts'
 import { handleStageMessage } from './stage-message.ts'
 import { setStagePreflightSurface } from './stage-preflight-surface.ts'
 import { defineStageProfileProperty } from './stage-profile-property.ts'
-import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
+import { defineStagePropertyAccessors, type StagePropertyValues } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { StageRefusalState } from './stage-refusal-state.ts'
 import type { StageReserve } from './stage-reserve.ts'
@@ -40,12 +39,11 @@ import { cancelStageSelectionRequests, shownScripts, stageSelectionRefusal } fro
 import { createSourceController } from './stage-source-controller.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
-import type { ServeFrame } from './frame-write.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'edition', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
-    defineStagePropertyAccessors(SegnaviaStage.prototype)
+    defineStagePropertyAccessors(SegnaviaStage.prototype, (stage) => stage.rebuildFrames())
     defineStageProfileProperty(SegnaviaStage.prototype, (stage) => (stage as SegnaviaStage).rebuildFrames())
   }
   declare css: string
@@ -64,7 +62,7 @@ export class SegnaviaStage extends AsOfElement {
   private transitionProperty: HostTransition | undefined
   private authoringRefusesScripts = false
   private viewportBlockSize = false
-  private serveFrameValue: ServeFrame | undefined
+  declare serveFrame: StagePropertyValues['serveFrame']
   private slotOptions: SlotsOptions | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotDeck: DeckState['deck'] = null
@@ -91,13 +89,6 @@ export class SegnaviaStage extends AsOfElement {
     this.slotGeneration++
     this.slotOptions = value
     this.slotDeck = null
-    this.rebuildFrames()
-  }
-  get serveFrame(): ServeFrame | undefined {
-    return this.serveFrameValue
-  }
-  set serveFrame(value: ServeFrame | undefined) {
-    this.serveFrameValue = value
     this.rebuildFrames()
   }
 
@@ -318,7 +309,7 @@ export class SegnaviaStage extends AsOfElement {
       bridgeReadyTimeoutMs: this.bridgeReadyTimeoutMs,
       preflight: surfacePreflightFor(this).resolvedProfile(),
       reportSlideError: this.reportFrameRefusal,
-      serveFrame: this.serveFrameValue ?? this.attached?.serveFrame,
+      serveFrame: this.serveFrame ?? this.attached?.serveFrame,
     })
     this.refused?.update(state)
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
