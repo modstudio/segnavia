@@ -4,16 +4,7 @@ import { PLACED_PDF_SOURCES } from '@segnavia/html'
 import { degrees, PDFDocument, PDFName, PDFNumber } from 'pdf-lib'
 import { parseBookPdfOptions } from './book-options.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
-import {
-  copyLimits,
-  enforceDeckLimits,
-  innerLimits,
-  pageCompositionCount,
-  parseComposedRenderOptions,
-  parseRenderOptions,
-  type RenderOptions,
-  refuseProgressUnlessOneComposition,
-} from './options.ts'
+import { copyLimits, enforceDeckLimits, innerLimits, parseComposedRenderOptions, parseRenderOptions, type RenderOptions } from './options.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
@@ -204,24 +195,6 @@ test('progress is normalized to one report function at the option edge', () => {
   expect(parseRenderOptions({ progress: { report } }).progress).toEqual({ report })
   expect(parseRenderOptions({}).progress).toBeUndefined()
   expect(() => parseRenderOptions({ progress: {} } as never)).toThrow('The progress option needs a report function')
-})
-
-test('progress is accepted only when a render runs one composition', () => {
-  const progress = { report: () => {} }
-  expect(() => refuseProgressUnlessOneComposition({ progress }, 1)).not.toThrow()
-  expect(() => refuseProgressUnlessOneComposition({ progress }, 2)).toThrow(
-    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
-  )
-  expect(() => refuseProgressUnlessOneComposition({ progress }, 0)).toThrow(
-    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
-  )
-})
-
-test('page composition count includes only printed pages and their output copies', () => {
-  const plain = { html: '', size: { width: 100, height: 100 } }
-  const printed = { ...plain, printedPages: { parents: [], parentRules: [] } }
-  expect(pageCompositionCount([plain, printed] as never)).toBe(1)
-  expect(pageCompositionCount([printed] as never, { fills: [{}, {}] })).toBe(2)
 })
 
 test('invalid preflight profiles refuse at the option edge', () => {

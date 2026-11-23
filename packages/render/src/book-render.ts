@@ -34,7 +34,7 @@ import { parseBookRenderPlan } from './book-plan-parse.ts'
 import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
-import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
+import { type Assets, assetSetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { pageFontFacts } from './page-render.ts'
@@ -43,7 +43,7 @@ import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { printTagged } from './pdf-tagging.ts'
 import { pdfPageHighestTextBaselinesInBrowser } from './pdfjs-browser.ts'
 import { awaitPreflightReport } from './preflight.ts'
-import { renderProgressDocumentOptions } from './progress.ts'
+import { composeProgressReport, type RenderProgressReporter, renderProgressDocumentOptions } from './progress.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
@@ -83,6 +83,7 @@ export interface BrowserBookDependencies {
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
   watermark?: import('./book-pdf-types.ts').BookPdfAdapter['watermark']
   fontFailures?: FontFailure[]
+  progress?: RenderProgressReporter
 }
 
 // A chapter can author its own plan carrier, so the composer's published one is the last.
@@ -170,7 +171,7 @@ function bookSrcdoc(
   })
 }
 
-function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, options: RenderOptions): TabSetup {
+function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, options: RenderOptions, progress?: RenderProgressReporter): TabSetup {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
   const sizes = bookPageGeometries(book).map((geometry) =>
     book.print && usesPressLayout(book.print) ? pressBoxes(geometry.paper, book.print).bleedBox : geometry.paper,
@@ -187,7 +188,7 @@ function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, o
     readiness: renderReadiness('refuse', false),
     boundMs: options.boundMs,
     ...assetSetup(options),
-    progressReport: options.progress?.report,
+    progressReport: progress ? composeProgressReport(progress) : undefined,
   }
 }
 
@@ -245,7 +246,7 @@ async function printBook(
   )
   const setup: TabSetup = paginated
     ? {
-        ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions),
+        ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions, dependencies.progress),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
           await awaitBookComposition(tab, renderOptions.preflight)
@@ -327,7 +328,6 @@ export async function renderBrowserBookPdf(
   dependencies: BrowserBookDependencies,
   day: AsOfDay,
 ): Promise<Uint8Array> {
-  refuseProgressUnlessOneComposition(options, book.mode === 'paginated' ? 1 : 0)
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
@@ -355,6 +355,7 @@ export async function renderBrowserBookPdf(
         : {}),
       watermark: dependencies.watermark,
       finish: dependencies.finish,
+      progress: dependencies.progress,
     },
     day,
   )
@@ -366,6 +367,7 @@ export async function renderBrowserBookPlan(
   fontCss: string,
   withTab: (setup: TabSetup, body: (tab: Tab) => Promise<SavedPlan>) => Promise<SavedPlan>,
   day: AsOfDay,
+  progress?: RenderProgressReporter,
 ): Promise<SavedPlan> {
   if (input.mode !== 'paginated') {
     throw new RenderRefusedError('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
@@ -384,7 +386,7 @@ export async function renderBrowserBookPlan(
   )
   return withTab(
     {
-      ...paginatedBookTabSetup(book, srcdoc, slotsForDocument(slots, [bookSlotFrames(book).all]), options),
+      ...paginatedBookTabSetup(book, srcdoc, slotsForDocument(slots, [bookSlotFrames(book).all]), options, progress),
       ...fontLoadSetup(options.fontFailures ?? [], options.fontLoad?.report),
     },
     async (tab) => {

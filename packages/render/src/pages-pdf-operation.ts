@@ -3,7 +3,7 @@ import { printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import type { TabRunner } from './browser-tab.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { fontFaces } from './font-faces.ts'
-import { innerLimits, pageCompositionCount, refuseProgressUnlessOneComposition } from './options.ts'
+import { innerLimits } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
@@ -11,11 +11,13 @@ import { captureInputRefusals, preparedRenderPagesPdfInputs, preparePagesPdfInpu
 import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { withPreflightSeed } from './preflight.ts'
+import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
 import type { ProtectPdf } from './protect-pdf.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
 import type { ParsedPagesPdfOptions } from './renderer.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
+import { slotCopyProgress } from './slot-copy-progress.ts'
 import { filledPages } from './slot-fill.ts'
 import { watermarkCopyStamper } from './watermark-stamp.ts'
 
@@ -30,15 +32,17 @@ export async function renderPagesPdfOperation(
   const refusedInputs = captureInputRefusals(parsedOptions.skipRefused, preparedInputs.refused)
   const renderOptions = { ...parsedOptions, ...(refusedInputs.option ? { skipRefused: refusedInputs.option } : {}) }
   const acceptedByIndex = new Map(preparedInputs.accepted.map((input) => [input.index, input]))
-  refuseProgressUnlessOneComposition(
-    parsedOptions,
-    pageCompositionCount(
-      preparedInputs.accepted.map(({ page }) => page),
-      parsedOptions.slots,
-    ),
-  )
+  const stages = renderProgressStages({
+    compose: preparedInputs.accepted.some(({ page }) => Boolean(page.printedPages)),
+    set: true,
+    impose: Boolean(parsedOptions.imposition),
+    finish: true,
+  })
+  const progress = renderProgressReporter(parsedOptions.progress, stages)
+  const copyCount = parsedOptions.slots?.fills?.length ?? 1
   const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted[0]?.fontCss ?? '', deadline, withTab)
-  const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
+  const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots, copyIndex) => {
+    const copyReporter = slotCopyProgress(progress, copyIndex, copyCount)
     const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, preparedInputs.accepted[0]?.established.slots)
     const slotInputs = await preparePagesPdfSlotInputs(preparedInputs.accepted, effectiveSlots)
     const survivingInputs = slotInputs.accepted.map(({ value }) => value)
@@ -57,9 +61,9 @@ export async function renderPagesPdfOperation(
       slots,
       { ...renderOptions, limits: innerLimits(renderOptions.limits), press: undefined },
       {
-        pagePdf: (page, slots, options, inputIndex, tagged) => {
+        pagePdf: async (page, slots, options, inputIndex, tagged) => {
           const accepted = acceptedByIndex.get(inputIndex)
-          return renderPagePdf(
+          const rendered = await renderPagePdf(
             page,
             slots,
             { ...options, preflight: withPreflightSeed(options.preflight, accepted?.preflight) },
@@ -71,13 +75,17 @@ export async function renderPagesPdfOperation(
             resolvedLayoutScripts,
             Boolean(parsedOptions.watermark),
             tagged,
+            composeProgressReport(copyReporter, inputIndex),
           )
+          copyReporter.report('set', 1, 1, inputIndex)
+          return rendered
         },
         piecePdf: (page, slots, geometry, css, options, tagged) =>
           renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark), tagged),
         fontFaces: (options) => `${preparedInputs.accepted[0]?.fontCss ?? ''}${fontFaces(options.fonts)}`,
         finish: async (pdf) => pdf,
         watermark: watermarkCopies.stamp,
+        progress: copyReporter,
       },
       preparedRenderPagesPdfInputs(pages, frameGroups, survivingInputs),
       [...preparedInputs.refused, ...slotInputs.refused],
@@ -86,7 +94,7 @@ export async function renderPagesPdfOperation(
   watermarkCopies.validate()
   const output = await enforce(
     await withDocumentMetadata(
-      await finishPdfWithBrowser(bytes, parsedOptions, withTab, deadline),
+      await finishPdfWithBrowser(bytes, parsedOptions, withTab, deadline, progress),
       parsedOptions.metadata,
       outputDate(preparedInputs.days),
       preparedInputs.accepted[0] ? printedPageDirection(preparedInputs.accepted[0].page) : undefined,

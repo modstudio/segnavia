@@ -27,6 +27,7 @@ import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { pagesTagged } from './pdf-tagging.ts'
+import type { RenderProgressReporter } from './progress.ts'
 import { renderInputRef, settleRenderInputs } from './render-inputs.ts'
 import type { ParsedPagesPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -40,6 +41,7 @@ interface PagesPdfServices {
   fontFaces(options: ComposedRenderOptions): string
   finish(pdf: Uint8Array, options: Pick<ComposedRenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   watermark?(parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]>
+  progress?: RenderProgressReporter
 }
 
 const watermarkParts = (services: PagesPdfServices, parts: readonly WatermarkPart[], pageCount?: number) =>
@@ -104,6 +106,12 @@ async function composedPdf(
   const marks = impositionMarks(imposition, press)
   const sides = boxes.map((sideBoxes) => ({ boxes: sideBoxes, marks: marks.find((entry) => entry.side === sideBoxes.side) }))
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
+  const setTotals = new Map<number, number>()
+  for (const group of groups) {
+    const input = inputs[group.page]
+    if (input) setTotals.set(input.ref.index, (setTotals.get(input.ref.index) ?? 0) + 1)
+  }
+  const setDone = new Map<number, number>()
   const baseCss = services.fontFaces(opts)
   const settled = await settleRenderInputs(
     groups.map((group) => ({ group, ...(inputs[group.page]?.ref ?? { index: group.page }) })),
@@ -126,6 +134,9 @@ async function composedPdf(
         },
         pagesTagged([isPrintedHtmlPage(page)], true),
       )
+      const done = (setDone.get(input.ref.index) ?? 0) + 1
+      setDone.set(input.ref.index, done)
+      services.progress?.report('set', done, setTotals.get(input.ref.index) ?? done, input.ref.index)
       return {
         group,
         rendered: {
@@ -166,6 +177,7 @@ async function composedPdf(
       })),
       sides,
       imposition.markColor,
+      (done, total) => services.progress?.report('impose', done, total),
     ),
     refused: [],
   }
@@ -333,6 +345,7 @@ async function renderPagesPdfPass(
       ),
       opts,
     )
+    services.progress?.report('impose', 1, 1)
     opts.overflow?.report?.({ entries: parts.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
     return completed(output, ledger, inputs.length, opts)
   }

@@ -1,6 +1,5 @@
 import {
   type BrandSource,
-  type ComposeProgress,
   type Deck,
   deckLimitsExceeded,
   type FetchKind,
@@ -10,22 +9,13 @@ import {
   type Limits,
   type OmittedImpositionMark,
   type OriginApproval,
-  type Page,
   PageWidths,
   parseLimits,
   placedPdfPage,
   resolveLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
-import {
-  type AsOfInputs,
-  type HtmlPage,
-  isPrintedHtmlPage,
-  PLACED_PDF_SOURCES,
-  PlacementResolutionError,
-  type PrintedHtmlPage,
-  type SlotPrintOptions,
-} from '@segnavia/html'
+import { type AsOfInputs, PLACED_PDF_SOURCES, PlacementResolutionError, type SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { ReceivedPdfError, RenderLimitError, RenderRefusedError } from './errors.ts'
@@ -211,7 +201,7 @@ function parseRenderProgress(value: unknown): RenderProgressOptions | undefined 
   if (typeof report !== 'function') {
     throw new RenderRefusedError('The progress option needs a report function; pass progress: { report(progress) {} }, or omit progress to clear this refusal.')
   }
-  return { report: report as (progress: ComposeProgress) => void }
+  return { report: report as RenderProgressOptions['report'] }
 }
 
 export function innerLimits(limits: Limits | undefined): Limits | undefined {
@@ -221,23 +211,6 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
     ...(limits.localFonts === undefined ? {} : { localFonts: limits.localFonts }),
     ...(limits.assets === undefined ? {} : { assets: limits.assets }),
   }
-}
-
-export function pageCompositionCount(pages: readonly (Page | HtmlPage | PrintedHtmlPage)[], slots?: Pick<SlotPrintOptions, 'fills'>): number {
-  const copies = slots?.fills?.length ?? 1
-  return pages.filter((page) => isPrintedHtmlPage(page) || page.printedPages !== undefined).length * copies
-}
-
-export function refuseProgressUnlessOneComposition(options: Pick<RenderOptions, 'progress'>, compositions: number): void {
-  if (!options.progress || compositions === 1) return
-  if (compositions === 0) {
-    throw new RenderRefusedError(
-      'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
-    )
-  }
-  throw new RenderRefusedError(
-    `The progress option is reported per single composition; this render runs ${compositions} compositions. Omit progress and render one paginated book or printed page at a time to clear this refusal.`,
-  )
 }
 
 /** Slot printing renders one copy per fill; a lone copy is the whole output, so it carries the whole output's limits. */

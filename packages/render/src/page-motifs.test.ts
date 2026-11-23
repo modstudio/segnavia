@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { PDFDocument } from 'pdf-lib'
+import type { RenderProgress } from './progress.ts'
 import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const documents: string[] = []
@@ -11,6 +12,7 @@ type RouteHandler = (route: {
 }) => Promise<void>
 
 function fakeTab(routeHandler: () => RouteHandler | undefined) {
+  const exposed = new Map<string, (value: unknown) => void>()
   const tab = {
     async goto(url: string) {
       const mainFrame = { page: () => ({ mainFrame: () => mainFrame }) }
@@ -22,17 +24,32 @@ function fakeTab(routeHandler: () => RouteHandler | undefined) {
         abort: async () => {},
         continue: async () => {},
       })
+      for (const report of exposed.values()) report({ pages: 1, total: 1 })
+    },
+    exposeFunction(name: string, report: (value: unknown) => void) {
+      exposed.set(name, report)
+      return Promise.resolve()
+    },
+    waitForFunction() {
+      return Promise.resolve()
     },
     evaluate(callback: (...args: never[]) => unknown) {
       if (String(callback).includes('document.fonts')) return Promise.resolve(true)
+      if (String(callback).includes('getAttribute')) return Promise.resolve(null)
       return Promise.resolve({ extent: 200, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })
     },
     emulateMedia() {
       return Promise.resolve()
     },
+    viewportSize() {
+      return { width: 200, height: 100 }
+    },
+    setViewportSize() {
+      return Promise.resolve()
+    },
     async pdf() {
       const document = await PDFDocument.create({ updateMetadata: false })
-      document.addPage()
+      document.addPage([612, 792])
       document.setTitle(RENDER_PLACEHOLDER_TITLE)
       return document.save()
     },
@@ -116,56 +133,27 @@ test('pagePdf and pageImage print the same motif-expanded page', async () => {
   }
 })
 
-test('renders without a composer refuse progress while printed composition remains eligible', async () => {
+test('a render without a composer reports set and finish progress', async () => {
   documents.length = 0
   const { openRenderer } = await import('./index.ts')
   const renderer = await openRenderer({ executablePath: '/fake/chromium' })
-  const progress = { report: () => {} }
+  const reports: RenderProgress[] = []
+  const progress = { report: (report: (typeof reports)[number]) => reports.push(report) }
   const page: import('@segnavia/format').DocumentInput = {
     type: 'document',
     kind: 'page',
     size: { width: 200, height: 100 },
     children: [{ type: 'page', body: { html: '<p>Plain page</p>' } }],
   }
-  const refusal = 'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.'
-  const deck: import('@segnavia/format').DocumentInput = {
-    type: 'document',
-    kind: 'deck',
-    title: 'Deck',
-    size: { width: 200, height: 100 },
-    children: [{ type: 'slide', content: { kind: 'html', html: '<p>Slide</p>' } }],
-  }
-  const calls = [
-    () => renderer.pagePdf(page, { progress }),
-    () => renderer.pageImage(page, { progress }),
-    () => renderer.coverImage({ page }, { width: 160, progress }),
-    () =>
-      renderer.bookPdf(
-        {
-          type: 'document',
-          kind: 'book',
-          title: 'Continuous',
-          mode: 'continuous',
-          page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
-          children: [
-            {
-              type: 'division',
-              name: 'body',
-              children: [{ type: 'section', title: 'One', children: [{ type: 'flow', html: '<p>Text</p>' }] }],
-            },
-          ],
-        },
-        { progress },
-      ),
-    () => renderer.deckPdf(deck, { progress }),
-    () => renderer.slideImage(deck, 0, { progress }),
-  ]
-  for (const call of calls) await expect(call()).rejects.toThrow(refusal)
-  expect(documents).toHaveLength(0)
+  await renderer.pagePdf(page, { progress, effects: false })
+  expect(reports).toEqual([
+    { stage: 'set', stages: ['set', 'finish'], done: 1, total: 1 },
+    { stage: 'finish', stages: ['set', 'finish'], done: 1, total: 1 },
+  ])
   await renderer.close()
 })
 
-test('pagesPdf refuses progress once for its several printed compositions', async () => {
+test('pagesPdf reports its several printed compositions per input', async () => {
   documents.length = 0
   const { openRenderer } = await import('./index.ts')
   const renderer = await openRenderer({ executablePath: '/fake/chromium' })
@@ -183,10 +171,18 @@ test('pagesPdf refuses progress once for its several printed compositions', asyn
     parentRules: [{ parent: 'body' }],
     children: [{ type: 'page', body: { html: '<p>Printed page</p>' } }],
   }
-  await expect(renderer.pagesPdf([printed, printed], { progress: { report: () => {} } })).rejects.toThrow(
-    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
-  )
-  expect(documents).toHaveLength(0)
+  const reports: RenderProgress[] = []
+  await renderer.pagesPdf([printed, printed], { effects: false, progress: { report: (report) => reports.push(report) } })
+  expect(reports.filter(({ stage }) => stage === 'compose')).toEqual([
+    { stage: 'compose', stages: ['compose', 'set', 'finish'], done: 1, total: 1, input: 0 },
+    { stage: 'compose', stages: ['compose', 'set', 'finish'], done: 1, total: 1, input: 1 },
+  ])
+  expect(
+    reports
+      .filter(({ stage }) => stage === 'set')
+      .map(({ input }) => input)
+      .sort(),
+  ).toEqual([0, 1])
   await renderer.close()
 })
 
@@ -247,12 +243,18 @@ test('pagesPdf skips a parse-refused input through the public renderer and repor
     size: { width: 200, height: 100 },
     children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
   }
-  const reports: unknown[] = []
+  const refusals: unknown[] = []
+  const progress: RenderProgress[] = []
   const pdf = await renderer.pagesPdf([{ ...good, id: 'bad-one', kind: 'unknown' } as never, good as never], {
-    skipRefused: { report: (entries) => reports.push(entries) },
+    skipRefused: { report: (entries) => refusals.push(entries) },
+    effects: false,
+    progress: { report: (report) => progress.push(report) },
   })
   expect((await PDFDocument.load(pdf)).getPageCount()).toBe(1)
-  expect(reports).toMatchObject([[{ index: 0, id: 'bad-one', error: { code: 'render' } }]])
+  expect(refusals).toMatchObject([[{ index: 0, id: 'bad-one', error: { code: 'render' } }]])
+  expect(progress.filter(({ input }) => input === 0)).toEqual([])
+  expect(progress).toContainEqual({ stage: 'set', stages: ['set', 'finish'], done: 1, total: 1, input: 1 })
+  expect(progress).toContainEqual({ stage: 'finish', stages: ['set', 'finish'], done: 1, total: 1 })
   expect(documents).toHaveLength(1)
   await renderer.close()
 })

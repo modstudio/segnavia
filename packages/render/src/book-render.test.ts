@@ -7,6 +7,7 @@ import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
 import { awaitBookComposition, continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
 import { RenderRefusedError } from './errors.ts'
+import { renderProgressReporter, renderProgressStages } from './progress.ts'
 
 const currentDay = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
 
@@ -253,6 +254,28 @@ test('bookPlan measures the host-filled text that bookPdf prints', async () => {
   ).catch(() => undefined)
 
   expect(html).toContain('Lincoln School')
+})
+
+test('bookPlan reports only its completed composition stage', async () => {
+  const book = parseBookFixture({
+    title: 'Plan progress',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+    chapters: [{ title: 'One', html: '<p>Text</p>' }],
+  })
+  const reports: unknown[] = []
+  await renderBrowserBookPlan(
+    book,
+    { progress: { report: (progress) => reports.push(progress) } },
+    '',
+    async (setup) => {
+      setup.progressReport?.({ pages: 2, total: 2 })
+      throw new Error('stop after progress')
+    },
+    currentDay,
+    renderProgressReporter({ report: (progress) => reports.push(progress) }, renderProgressStages({ compose: true })),
+  ).catch(() => undefined)
+  expect(reports).toEqual([{ stage: 'compose', stages: ['compose'], done: 2, total: 2 }])
 })
 
 test('bookPlan measures the as-of text that bookPdf prints', async () => {

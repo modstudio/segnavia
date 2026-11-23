@@ -7,8 +7,12 @@ export function effectiveCopySlots(slots: SlotPrintOptions | undefined, copy: Sl
 }
 
 /** Renders one PDF per fill entry and joins them in entry order, so every copy counts against later sheet and byte limits. */
-export async function renderSlotCopyPdfs(slots: SlotPrintOptions | undefined, renderCopy: (copy: SlotsOptions) => Promise<Uint8Array>): Promise<Uint8Array> {
-  const copies = await collectSlotPrintCopies(slots, renderCopy)
+export async function renderSlotCopyPdfs(
+  slots: SlotPrintOptions | undefined,
+  renderCopy: (copy: SlotsOptions, index: number) => Promise<Uint8Array>,
+): Promise<Uint8Array> {
+  let index = 0
+  const copies = await collectSlotPrintCopies(slots, (copy) => renderCopy(copy, index++))
   const first = copies[0]
   if (!first) throw new RangeError('Output was refused because slots.fills has no entries. Pass at least one fill, or omit fills, to clear this refusal.')
   if (copies.length === 1) return first

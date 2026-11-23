@@ -83,6 +83,30 @@ test('an imposed paper with registration marks stores Separation All and strokes
   expect(stroke.end.y).toBeCloseTo((height - mark.y2) / MM_PER_PT, 5)
 })
 
+test('reports each imposed paper side through completion', async () => {
+  const imposition = Imposition.parse({
+    paper: { width: 40, height: 80, unit: 'mm' },
+    columns: 1,
+    rows: 1,
+    cell: { width: 20, height: 20 },
+    margin: { top: 10, right: 10, bottom: 10, left: 10 },
+    sides: 'two',
+  })
+  const imposed = impose(imposition, 3)
+  const piece = await PDFDocument.create()
+  piece.addPage([80, 80]).drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+  const pieceBytes = await piece.save()
+  const reports: Array<[number, number]> = []
+  await composeImposedPdf(
+    imposed,
+    [{ key: 'piece', name: 'piece', bytes: pieceBytes, placements: [] }],
+    impositionBoxes(imposition).map((boxes) => ({ boxes })),
+    'black',
+    (done, total) => reports.push([done, total]),
+  )
+  expect(reports).toEqual(Array.from({ length: imposed.papers * 2 }, (_, index) => [index + 1, imposed.papers * 2]))
+})
+
 test('a folded imposition with registration marks strokes dashed fold marks in Separation All', async () => {
   const imposition = Imposition.parse({
     paper: { width: 300, height: 120, unit: 'mm' },

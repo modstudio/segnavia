@@ -1,4 +1,11 @@
-import { type FontFailure, PX_PER_MM, printedPageGeometries, printedPageGeometryByName, unknownPrintedPageGeometryRefusal } from '@segnavia/format'
+import {
+  type ComposeProgress,
+  type FontFailure,
+  PX_PER_MM,
+  printedPageGeometries,
+  printedPageGeometryByName,
+  unknownPrintedPageGeometryRefusal,
+} from '@segnavia/format'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'
@@ -67,6 +74,7 @@ export async function renderPagePdf(
   layoutScripts?: readonly LoadedLayoutScript[],
   captureFontFacts = false,
   tagged = false,
+  progressReport?: (progress: ComposeProgress) => void,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const geometryPlan =
@@ -95,7 +103,7 @@ export async function renderPagePdf(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
-      progressReport: opts.progress?.report,
+      progressReport,
       ...assetSetup(opts),
       ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
     },
