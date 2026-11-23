@@ -11,7 +11,7 @@ import {
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { frameDocumentPolicy, type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { layoutsForHtml } from './layout.ts'
 import type { PrintablePagesOptions } from './print-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
@@ -94,10 +94,6 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
     if (options.signal?.aborted) return onAbort()
     timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL), true), Math.max(0, deadlineAt - Date.now()))
     document.body.append(frame)
-    void writeFrameDocument(
-      frame,
-      { html: srcdoc, policy: options.serveFrame ? frameDocumentPolicy(srcdoc) : '', kind: 'printed-page' },
-      options.serveFrame,
-    ).catch((error) => finish(error, true))
+    void writeFrameDocument(frame, srcdoc, 'printed-page', options.serveFrame).catch((error) => finish(error, true))
   })
 }

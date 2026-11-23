@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { installFramePoolTestDocument } from './frame-pool.test-helper.ts'
+import type { ServedFrameDocument } from './frame-write.ts'
 import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
 import { stageCanvas } from './stage-content.ts'
-import type { ServedFrameDocument } from './frame-write.ts'
 
 let restoreDocument = () => {}
 beforeAll(() => {

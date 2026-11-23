@@ -374,11 +374,9 @@ export class SegnaviaPage extends PageParseOptionsElement {
       },
       { once: true },
     )
-    void writeFrameDocument(iframe, srcdoc, 'page', this.serveFrame).catch(
-      (error) => {
-        if (written === this.documentWrites) dispatchPageFailure(this, error, true)
-      },
-    )
+    void writeFrameDocument(iframe, srcdoc, 'page', this.serveFrame).catch((error) => {
+      if (written === this.documentWrites) dispatchPageFailure(this, error, true)
+    })
   }
   private fit() {
     const page = this.pageValue

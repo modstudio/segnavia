@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
-import type { ServedFrameDocument } from './frame-write.ts'
 import { FramePoolTestElement, installFramePoolTestDocument } from './frame-pool.test-helper.ts'
+import type { ServedFrameDocument } from './frame-write.ts'
 
 let restoreDocument = () => {}
 const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
@@ -14,13 +14,12 @@ afterAll(() => {
   else Reflect.deleteProperty(globalThis, 'HTMLElement')
 })
 
-const html =
-  '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="script-src \'none\'"></head><body>Frame</body></html>'
+const html = '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="script-src \'none\'"></head><body>Frame</body></html>'
 
 test('the page writer passes page documents to its serving seam', async () => {
   const { SegnaviaPage } = await import('./page.ts')
   let received: ServedFrameDocument | undefined
-  const page = Object.create(SegnaviaPage.prototype) as SegnaviaPage
+  const page = Object.create(SegnaviaPage.prototype) as InstanceType<typeof SegnaviaPage>
   Object.assign(page, { documentWrites: 0, loadGeneration: 0 })
   Object.defineProperty(page, 'serveFrame', {
     value: (document: ServedFrameDocument) => {
@@ -45,9 +44,9 @@ test('the page writer passes page documents to its serving seam', async () => {
 test('the book writer passes book documents to its serving seam', async () => {
   const { SegnaviaBook } = await import('./book.ts')
   let received: ServedFrameDocument | undefined
-  const book = Object.create(SegnaviaBook.prototype) as SegnaviaBook
+  const book = Object.create(SegnaviaBook.prototype) as InstanceType<typeof SegnaviaBook>
   Object.assign(book, { loadGeneration: 0 })
-  book.serveFrame = (document) => {
+  book.serveFrame = (document: ServedFrameDocument) => {
     received = document
     return '/frames/book'
   }

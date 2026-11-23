@@ -28,12 +28,7 @@ function serveFrameRefusal(document: ServedFrameDocument, reason: unknown): Erro
   )
 }
 
-export async function writeFrameDocument(
-  iframe: HTMLIFrameElement,
-  html: string,
-  kind: ServedFrameKind,
-  serve?: ServeFrame,
-): Promise<boolean> {
+export async function writeFrameDocument(iframe: HTMLIFrameElement, html: string, kind: ServedFrameKind, serve?: ServeFrame): Promise<boolean> {
   const write = (writes.get(iframe) ?? 0) + 1
   writes.set(iframe, write)
   if (!serve) {

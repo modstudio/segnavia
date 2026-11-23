@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { Page, type PreflightProfile } from '@segnavia/format'
 import { resolvePrintedPageHtml } from '@segnavia/html'
-import type { ServedFrameDocument } from './frame-write.ts'
 import { FramePoolTestElement, installFramePoolTestDocument } from './frame-pool.test-helper.ts'
+import type { ServedFrameDocument } from './frame-write.ts'
 import { composePrintedPaper, type PrintedPaperState } from './printed-pages-dom.ts'
 
 let restoreDocument = () => {}
