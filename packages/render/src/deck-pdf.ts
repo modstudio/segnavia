@@ -50,9 +50,9 @@ import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
+import { type RenderProgressReporter, renderProgressReporter, renderProgressStages } from './progress.ts'
 import { renderReadiness } from './render-readiness.ts'
 import type { Watermark } from './watermark-options.ts'
-import { renderProgressReporter, renderProgressStages, type RenderProgressReporter } from './progress.ts'
 
 export type DeckPdfOptions = ComposedRenderOptions & PrintOptions & { watermark?: Watermark }
 

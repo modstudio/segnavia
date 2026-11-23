@@ -8,11 +8,11 @@ import { outputDate } from './output-date.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { captureInputRefusals, preparedRenderPagesPdfInputs, preparePagesPdfInputs, preparePagesPdfSlotInputs } from './pages-pdf-inputs.ts'
-import { enforce } from './pdf-finish.ts'
+import { enforce, pdfSheetCount } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { withPreflightSeed } from './preflight.ts'
-import type { ProtectPdf } from './protect-pdf.ts'
 import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
+import type { ProtectPdf } from './protect-pdf.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
 import type { ParsedPagesPdfOptions } from './renderer.ts'
@@ -74,7 +74,8 @@ export async function renderPagesPdfOperation(
             tagged,
             composeProgressReport(progress, inputIndex),
           )
-          progress.report('set', 1, 1, inputIndex)
+          const pages = await pdfSheetCount(rendered.bytes)
+          progress.report('set', pages, pages, inputIndex)
           return rendered
         },
         piecePdf: (page, slots, geometry, css, options, tagged) =>

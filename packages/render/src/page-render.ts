@@ -1,4 +1,11 @@
-import { type ComposeProgress, type FontFailure, PX_PER_MM, printedPageGeometries, printedPageGeometryByName, unknownPrintedPageGeometryRefusal } from '@segnavia/format'
+import {
+  type ComposeProgress,
+  type FontFailure,
+  PX_PER_MM,
+  printedPageGeometries,
+  printedPageGeometryByName,
+  unknownPrintedPageGeometryRefusal,
+} from '@segnavia/format'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'

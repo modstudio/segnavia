@@ -309,6 +309,25 @@ const renderer = await openRenderer({ executablePath: '/usr/bin/chromium', concu
 const pdf = await renderer.deckPdf(deck, { layout: 'notes', limits: { sheets: 600 } })
 ```
 
+Track a render through the work it actually performs. `stages` is fixed before
+work starts; `pagesPdf` adds the original zero-based `input` to composition and
+setting reports, so a host can average the latest per-input fractions for one
+bar.
+
+```ts
+const latest = new Map<number, number>()
+const pdf = await renderer.pagesPdf(pages, {
+  progress: {
+    report({ stage, stages, done, total, input }) {
+      if (input !== undefined) latest.set(input, total === 0 ? 1 : done / total)
+      const own = total === 0 ? 1 : done / total
+      const fraction = input === undefined ? own : [...latest.values()].reduce((sum, value) => sum + value, 0) / latest.size
+      drawExportProgress({ stage, stages, fraction })
+    },
+  },
+})
+```
+
 A Document sent to a printer carries its bleed and marks in `print`: each page, slide or composed page is the trim, and its PDF writes trim and bleed boxes and crop marks.
 
 ```ts

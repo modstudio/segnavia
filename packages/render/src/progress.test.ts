@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { boundRenderProgress, composeProgressReport, renderProgressReporter, renderProgressStages, type RenderProgress } from './progress.ts'
+import { boundRenderProgress, composeProgressReport, type RenderProgress, renderProgressReporter, renderProgressStages } from './progress.ts'
 
 test('computes the ordered stages a render actually performs', () => {
   expect(renderProgressStages({ compose: true, set: true, finish: true })).toEqual(['compose', 'set', 'finish'])
@@ -14,7 +14,7 @@ test('bounds reports and holds a high-water per stage and input', () => {
   reporter.report('set', 0, 3, 0)
   reporter.report('set', 1, 3, 1)
   reporter.report('set', 4, 3, 0)
-  composeProgressReport(reporter, 0)({ pages: 2, total: 5 })
+  composeProgressReport(reporter, 0)?.({ pages: 2, total: 5 })
   expect(reports).toEqual([
     { stage: 'set', stages: ['compose', 'set'], done: 1, total: 3, input: 0 },
     { stage: 'set', stages: ['compose', 'set'], done: 1, total: 3, input: 1 },

@@ -24,13 +24,7 @@ import { pdfWithBackdropRasters } from './effects/raster.ts'
 import { parseCoverImageOptions, parseDeckPdfOptions, parsePageImageOptions, parseProofImageOptions, parseSlideImageOptions } from './entry-options.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import {
-  copyLimits,
-  enforceDeckLimits,
-  innerLimits,
-  type OverflowEntry,
-  parseImageRenderOptions,
-} from './options.ts'
+import { copyLimits, enforceDeckLimits, innerLimits, type OverflowEntry, parseImageRenderOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { resolveRenderDayContext } from './page-as-of.ts'
 import { prepareRenderedPage, prepareRenderedPageValue } from './page-document.ts'
@@ -38,15 +32,15 @@ import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdfOperation } from './pages-pdf-operation.ts'
-import { enforce } from './pdf-finish.ts'
+import { enforce, pdfSheetCount } from './pdf-finish.ts'
 import { createMergePdfsOperation } from './pdf-merge.ts'
 import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { createPdfPageImageOperation } from './pdf-page-image.ts'
 import { pagesTagged } from './pdf-tagging.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
-import { proofRasterImage } from './proof-image.ts'
 import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
+import { proofRasterImage } from './proof-image.ts'
 import { createProtectPdf } from './protect-pdf.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
@@ -158,10 +152,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
         const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
         const watermarkCopies = watermarkCopyStamper(parsedOptions, resolvedFontCss, deadline, withTab)
-        const progress = renderProgressReporter(
-          parsedOptions.progress,
-          renderProgressStages({ compose: book.mode === 'paginated', set: true, finish: true }),
-        )
+        const progress = renderProgressReporter(parsedOptions.progress, renderProgressStages({ compose: book.mode === 'paginated', set: true, finish: true }))
         const output = await renderBrowserBookPdf(
           book,
           seededOptions,
@@ -170,8 +161,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printBookPartWithPlacedPdf(tab, pdf, pageWidth, part, options)),
             withTab: (setup, body) => withTab({ ...setup, deadline }, body),
             fontFaces: (options) => fontFaces(options.fonts),
-            finish: (pdf, options) => {
-              progress.report('set', 1, 1)
+            finish: async (pdf, options) => {
+              const pages = await pdfSheetCount(pdf)
+              progress.report('set', pages, pages)
               return finishWithBrowser(pdf, options, deadline, progress)
             },
             watermark: parsedOptions.watermark
@@ -229,7 +221,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             pagesTagged([isPrintedHtmlPage(page)], false),
             composeProgressReport(progress, progressInput),
           )
-          progress.report('set', 1, 1, progressInput)
+          const pages = await pdfSheetCount(printed.bytes)
+          progress.report('set', pages, pages, progressInput)
           if (printed.overflow) overflows.push(printed.overflow)
           const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])
           return watermarked as Uint8Array

@@ -9,14 +9,14 @@ import type { JpegDecoder } from './press/image.ts'
 import { assertPressImageOptions, DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY } from './press/image-options.ts'
 import type { RenderProgressReporter } from './progress.ts'
 
-async function sheets(pdf: Uint8Array): Promise<number> {
+export async function pdfSheetCount(pdf: Uint8Array): Promise<number> {
   return (await loadPdf(pdf)).getPageCount()
 }
 
 export async function enforce(pdf: Uint8Array, limits: Limits | undefined): Promise<Uint8Array> {
   enforcePdfBytes(pdf, limits)
   if (limits?.sheets !== undefined) {
-    const count = await sheets(pdf)
+    const count = await pdfSheetCount(pdf)
     if (count > limits.sheets) throw new RenderLimitError('sheets', count, limits.sheets)
   }
   return pdf

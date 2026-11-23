@@ -2,9 +2,9 @@ import { browserJpegDecoder } from './browser-jpeg.ts'
 import type { TabRunner } from './browser-tab.ts'
 import type { RenderOptions } from './options.ts'
 import { finishPdf } from './pdf-finish.ts'
+import type { RenderProgressReporter } from './progress.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
-import type { RenderProgressReporter } from './progress.ts'
 
 export async function finishPdfWithBrowser(
   pdf: Uint8Array,

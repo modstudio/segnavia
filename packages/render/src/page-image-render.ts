@@ -10,8 +10,8 @@ import type { prepareRenderedPage } from './page-document.ts'
 import { pageFontFacts } from './page-render.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { SurfacePreflight } from './preflight.ts'
-import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
+import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
@@ -36,10 +36,7 @@ export async function renderPreparedPageImage(
   const resolvedLayoutScripts = await resolveRenderLayoutScripts(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
   const imagePage = opts.page ?? 1
-  const progress = renderProgressReporter(
-    opts.progress,
-    renderProgressStages({ compose: Boolean(page.printedPages), set: true, finish: true }),
-  )
+  const progress = renderProgressReporter(opts.progress, renderProgressStages({ compose: Boolean(page.printedPages), set: true, finish: true }))
   const output = await withTab(
     {
       viewport,

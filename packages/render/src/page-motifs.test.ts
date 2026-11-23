@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { PDFDocument } from 'pdf-lib'
+import type { RenderProgress } from './progress.ts'
 import { RENDER_PLACEHOLDER_TITLE } from './render-document-origin.ts'
 
 const documents: string[] = []
@@ -40,9 +41,15 @@ function fakeTab(routeHandler: () => RouteHandler | undefined) {
     emulateMedia() {
       return Promise.resolve()
     },
+    viewportSize() {
+      return { width: 200, height: 100 }
+    },
+    setViewportSize() {
+      return Promise.resolve()
+    },
     async pdf() {
       const document = await PDFDocument.create({ updateMetadata: false })
-      document.addPage()
+      document.addPage([612, 792])
       document.setTitle(RENDER_PLACEHOLDER_TITLE)
       return document.save()
     },
@@ -130,7 +137,7 @@ test('a render without a composer reports set and finish progress', async () => 
   documents.length = 0
   const { openRenderer } = await import('./index.ts')
   const renderer = await openRenderer({ executablePath: '/fake/chromium' })
-  const reports: Array<{ stage: string; done: number; total: number }> = []
+  const reports: RenderProgress[] = []
   const progress = { report: (report: (typeof reports)[number]) => reports.push(report) }
   const page: import('@segnavia/format').DocumentInput = {
     type: 'document',
@@ -164,13 +171,18 @@ test('pagesPdf reports its several printed compositions per input', async () => 
     parentRules: [{ parent: 'body' }],
     children: [{ type: 'page', body: { html: '<p>Printed page</p>' } }],
   }
-  const reports: Array<{ stage: string; input?: number; done: number; total: number }> = []
+  const reports: RenderProgress[] = []
   await renderer.pagesPdf([printed, printed], { effects: false, progress: { report: (report) => reports.push(report) } })
   expect(reports.filter(({ stage }) => stage === 'compose')).toEqual([
     { stage: 'compose', stages: ['compose', 'set', 'finish'], done: 1, total: 1, input: 0 },
     { stage: 'compose', stages: ['compose', 'set', 'finish'], done: 1, total: 1, input: 1 },
   ])
-  expect(reports.filter(({ stage }) => stage === 'set').map(({ input }) => input).sort()).toEqual([0, 1])
+  expect(
+    reports
+      .filter(({ stage }) => stage === 'set')
+      .map(({ input }) => input)
+      .sort(),
+  ).toEqual([0, 1])
   await renderer.close()
 })
 
@@ -232,7 +244,7 @@ test('pagesPdf skips a parse-refused input through the public renderer and repor
     children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
   }
   const refusals: unknown[] = []
-  const progress: Array<{ stage: string; input?: number; done: number; total: number }> = []
+  const progress: RenderProgress[] = []
   const pdf = await renderer.pagesPdf([{ ...good, id: 'bad-one', kind: 'unknown' } as never, good as never], {
     skipRefused: { report: (entries) => refusals.push(entries) },
     effects: false,

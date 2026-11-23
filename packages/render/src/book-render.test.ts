@@ -255,6 +255,27 @@ test('bookPlan measures the host-filled text that bookPdf prints', async () => {
   expect(html).toContain('Lincoln School')
 })
 
+test('bookPlan reports only its completed composition stage', async () => {
+  const book = parseBookFixture({
+    title: 'Plan progress',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+    chapters: [{ title: 'One', html: '<p>Text</p>' }],
+  })
+  const reports: unknown[] = []
+  await renderBrowserBookPlan(
+    book,
+    { progress: { report: (progress) => reports.push(progress) } },
+    '',
+    async (setup) => {
+      setup.progressReport?.({ pages: 2, total: 2 })
+      throw new Error('stop after progress')
+    },
+    currentDay,
+  ).catch(() => undefined)
+  expect(reports).toEqual([{ stage: 'compose', stages: ['compose'], done: 2, total: 2 }])
+})
+
 test('bookPlan measures the as-of text that bookPdf prints', async () => {
   const book = parseBookFixture({
     title: 'Dated workbook',
