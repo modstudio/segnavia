@@ -4,26 +4,35 @@ import { prepareSlots, resolvePageHtml } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { pagesPdfCopyProgress } from './pages-pdf-progress.ts'
 import { pt } from './pdf-geometry.ts'
 import { type RenderProgress, renderProgressReporter } from './progress.ts'
+import { slotCopyProgress } from './slot-copy-progress.ts'
 
-test('pagesPdf compose and set progress spans every slot-fill copy per original input', () => {
+test('slot-copy progress spans every pagesPdf and deckPdf stage through the final copy', () => {
   const reports: RenderProgress[] = []
-  const progress = renderProgressReporter({ report: (report) => reports.push(report) }, ['compose', 'set'])
+  const progress = renderProgressReporter({ report: (report) => reports.push(report) }, ['compose', 'set', 'impose'])
   for (let copy = 0; copy < 2; copy += 1) {
-    const copyProgress = pagesPdfCopyProgress(progress, copy, 2)
+    const copyProgress = slotCopyProgress(progress, copy, 2)
     copyProgress.report('compose', 1, 2, 3)
     copyProgress.report('compose', 2, 2, 3)
     copyProgress.report('set', 1, 1, 3)
+    copyProgress.report('set', 1, 1)
+    copyProgress.report('impose', 1, 2)
+    copyProgress.report('impose', 2, 2)
   }
   expect(reports.map(({ stage, done, total, input }) => ({ stage, done, total, input }))).toEqual([
     { stage: 'compose', done: 1, total: 4, input: 3 },
     { stage: 'compose', done: 2, total: 4, input: 3 },
     { stage: 'set', done: 1, total: 2, input: 3 },
+    { stage: 'set', done: 1, total: 2, input: undefined },
+    { stage: 'impose', done: 1, total: 4, input: undefined },
+    { stage: 'impose', done: 2, total: 4, input: undefined },
     { stage: 'compose', done: 3, total: 4, input: 3 },
     { stage: 'compose', done: 4, total: 4, input: 3 },
     { stage: 'set', done: 2, total: 2, input: 3 },
+    { stage: 'set', done: 2, total: 2, input: undefined },
+    { stage: 'impose', done: 3, total: 4, input: undefined },
+    { stage: 'impose', done: 4, total: 4, input: undefined },
   ])
 })
 

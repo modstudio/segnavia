@@ -8,7 +8,6 @@ import { outputDate } from './output-date.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { captureInputRefusals, preparedRenderPagesPdfInputs, preparePagesPdfInputs, preparePagesPdfSlotInputs } from './pages-pdf-inputs.ts'
-import { pagesPdfCopyProgress } from './pages-pdf-progress.ts'
 import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { withPreflightSeed } from './preflight.ts'
@@ -18,6 +17,7 @@ import type { RenderDeadline } from './render-deadline.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
 import type { ParsedPagesPdfOptions } from './renderer.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
+import { slotCopyProgress } from './slot-copy-progress.ts'
 import { filledPages } from './slot-fill.ts'
 import { watermarkCopyStamper } from './watermark-stamp.ts'
 
@@ -42,7 +42,7 @@ export async function renderPagesPdfOperation(
   const copyCount = parsedOptions.slots?.fills?.length ?? 1
   const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted[0]?.fontCss ?? '', deadline, withTab)
   const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots, copyIndex) => {
-    const copyReporter = pagesPdfCopyProgress(progress, copyIndex, copyCount)
+    const copyReporter = slotCopyProgress(progress, copyIndex, copyCount)
     const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, preparedInputs.accepted[0]?.established.slots)
     const slotInputs = await preparePagesPdfSlotInputs(preparedInputs.accepted, effectiveSlots)
     const survivingInputs = slotInputs.accepted.map(({ value }) => value)

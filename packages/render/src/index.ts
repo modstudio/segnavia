@@ -50,6 +50,7 @@ import { renderReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
+import { slotCopyProgress } from './slot-copy-progress.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledPage } from './slot-fill.ts'
 import { stampReceivedPdf } from './stamp-pdf.ts'
@@ -270,7 +271,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         enforceDeckLimits(deck, options.limits)
         const progress = renderProgressReporter(options.progress, renderProgressStages({ set: true, impose: Boolean(options.imposition), finish: true }))
         const watermarkCopies = watermarkCopyStamper(options, '', deadline, withTab)
-        const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
+        const copyCount = options.slots?.fills?.length ?? 1
+        const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots, copyIndex) => {
+          const copyProgress = slotCopyProgress(progress, copyIndex, copyCount)
           const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
           const { value: prepared, slots } = await fillDeckForDay(deck, established.day, effectiveSlots, deadline.signal)
           const htmlSlides = prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join('')
@@ -296,7 +299,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               finish: async (pdf) => pdf,
               watermark: options.watermark ? watermarkCopies.stamp : undefined,
               signal: deadline.signal,
-              progress,
+              progress: copyProgress,
             },
             established.day,
             resolvedLayoutScripts,
