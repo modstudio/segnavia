@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal, Page } from '@segnavia/format'
-import { RequiredSlotsRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
+import { RequiredSlotsRefusedError, resolvePrintedPageHtml, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import type { RenderLimitError } from './errors.ts'
 import { enforce } from './pdf-finish.ts'
@@ -53,6 +53,33 @@ test('deck copies keep entry order and one slide set per entry in the joined PDF
   })
   expect(order).toEqual(['ada:<p dir="auto">Ada</p>|<p dir="auto">Ada</p>', 'bea:<p dir="auto">Bea</p>|<p dir="auto">Bea</p>'])
   expect((await PDFDocument.load(pdf)).getPageCount()).toBe(4)
+})
+
+test('a print copy accepts slots declared by a printed record template', async () => {
+  const page = resolvePrintedPageHtml(
+    Page.parse({
+      print: { paper: 'letter' },
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        parentRules: [{ parent: 'body' }],
+        sections: [
+          {
+            id: 'record',
+            html: '<p data-slot-value="name"></p>',
+            values: { name: 'Ada' },
+            record: { index: 1, count: 1 },
+            recordTemplate: { name: 'row', slots: [{ key: 'name' }] },
+          },
+        ],
+      },
+    }),
+  )
+  const pdf = await renderSlotCopyPdfs({ fills: [{}] }, async (copy) => {
+    await filledPages([page], copy)
+    return pdfWithPages(1)
+  })
+
+  expect((await PDFDocument.load(pdf)).getPageCount()).toBe(1)
 })
 
 test('default fills refusal lists every refused entry and produces no PDF', async () => {

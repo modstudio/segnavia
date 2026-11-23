@@ -1,4 +1,4 @@
-import { type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
+import { AS_OF_SLOT_KEYS, type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
   bindBookRecordValues,
@@ -14,6 +14,7 @@ import {
   prepareSlotCollection,
   prepareSlots,
   printedSectionBodies,
+  refuseUndefinedSlotPaths,
   requiredSlotRefusal,
   resolvePageHtml,
   type SlotPrintOptions,
@@ -28,6 +29,12 @@ export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions
 function refuseRequired(prepared: PreparedSlots): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
   if (refusal) throw refusal
+}
+
+function refuseUndefinedPrintedSectionSlots(section: PrintedHtmlPage['printedPages']['sections'][number], prepared: PreparedSlots): void {
+  const sectionKeys = 'pages' in section ? [] : (section.recordTemplate?.slots.map(({ key }) => key) ?? [])
+  const declaredKeys = [...prepared.declarations.map(({ key }) => key), ...sectionKeys, ...AS_OF_SLOT_KEYS]
+  for (const html of printedSectionBodies(section)) refuseUndefinedSlotPaths(html, declaredKeys)
 }
 
 export function filledPage(
@@ -66,7 +73,7 @@ export async function filledPage(
           )
         })
       : input.printedPages.sections
-    if (!work) for (const section of sections) printedSectionBodies(section).forEach(prepared.apply)
+    if (!work) for (const section of sections) refuseUndefinedPrintedSectionSlots(section, prepared)
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
   }
   const page = 'html' in input ? input : resolvePageHtml(input)
@@ -134,7 +141,7 @@ export async function filledPages(
     : pages
   if (!work) {
     for (const page of pages) {
-      if (isPrintedHtmlPage(page)) for (const section of page.printedPages.sections) printedSectionBodies(section).forEach(prepared.apply)
+      if (isPrintedHtmlPage(page)) for (const section of page.printedPages.sections) refuseUndefinedPrintedSectionSlots(section, prepared)
       else prepared.apply(page.html)
     }
   }
