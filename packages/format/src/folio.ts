@@ -59,8 +59,8 @@ export function computeNumberingRuns(pages: readonly NumberedPage[]): NumberingR
   const totals: string[] = []
   const folios = pages.map(({ numbering }, pageIndex) => {
     const startsRun = pageIndex === 0 || numbering.restart
-    if (startsRun) next = numbering.start
     if (startsRun) {
+      next = numbering.start
       runIndex += 1
       totals.push('')
     }
