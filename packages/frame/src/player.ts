@@ -143,7 +143,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   get rail(): boolean {
     return this.hasAttribute('rail')
   }
-
   set rail(value: boolean) {
     this.toggleAttribute('rail', value)
   }
