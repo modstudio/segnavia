@@ -21,7 +21,7 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 segnavia-refusal{position:absolute;inset:0;z-index:1}
 /* Contain: the gutter is the room the stage's shadow throws into, inside the host's clip. */
 :host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center;padding:var(--segnavia-stage-gutter,24px)}
-segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);
+segnavia-stage{width:100%;height:auto;border-radius:max(0px,calc(var(--_radius) - 4px));
   box-shadow:0 1px 2px rgb(0 0 0 / .18),0 10px 30px rgb(0 0 0 / .22);--segnavia-canvas:#fff}
 segnavia-stage,segnavia-rail{--_segnavia-shot-backdrop:var(--segnavia-shot-backdrop,#fff)}
 :host([fit="height"]) .player,:host([data-presenting]) .player{height:100%}
