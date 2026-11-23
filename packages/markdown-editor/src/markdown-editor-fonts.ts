@@ -6,7 +6,8 @@ function nativeFace(face: FontFaceData): FontFace {
   if (face.weight !== undefined) descriptors.weight = String(face.weight)
   if (face.style !== undefined) descriptors.style = face.style
   if (face.unicodeRange !== undefined) descriptors.unicodeRange = face.unicodeRange
-  return new FontFace(face.family, new Uint8Array(face.data).buffer, descriptors)
+  const source = 'data' in face ? new Uint8Array(face.data).buffer : `url(${JSON.stringify(face.url)})`
+  return new FontFace(face.family, source, descriptors)
 }
 
 export async function registerMarkdownEditorFonts(

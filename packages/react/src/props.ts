@@ -65,6 +65,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   css?: string
   cspExtra?: string
   forms?: FormsOption
+  fonts?: SegnaviaPlayer['fonts']
   origins?: SegnaviaPlayer['origins']
   resolveSlide?: ControllerOptions['resolveSlide']
   watched?: SegnaviaPlayer['watched']
@@ -96,6 +97,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
   css?: string
   cspExtra?: string
   forms?: FormsOption
+  fonts?: SegnaviaStage['fonts']
   origins?: SegnaviaStage['origins']
   bridgeReadyTimeoutMs?: SegnaviaStage['bridgeReadyTimeoutMs']
   frameTitle?: SegnaviaStage['frameTitle']

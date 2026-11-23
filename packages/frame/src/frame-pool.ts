@@ -13,6 +13,18 @@ interface PendingTurn {
   cancel: () => void
 }
 
+function poolContentValue(content: ResolvedContent, scripts: NonNullable<DeckState['deck']>['scripts'], controller: DeckController, options: PoolOptions) {
+  return comparableContent(
+    content,
+    (path) => controller.url(path),
+    scripts,
+    `${options.fontCss ?? ''}${options.css}`,
+    options.csp,
+    options.origins,
+    options.forms,
+  )
+}
+
 export class FramePool {
   private entries = new Map<string, FrameEntry>()
   private turn = 0
@@ -126,7 +138,7 @@ export class FramePool {
     if (!deck || !slide || !state.content) return false
     if (this.pending?.id === slide.id) {
       const pending = this.entries.get(slide.id)
-      const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, `${options.fontCss ?? ''}${options.css}`, options.csp, options.origins, options.forms)
+      const value = poolContentValue(state.content, deck.scripts, controller, options)
       if (pending && canReuseFrame({ readiness: pending.ready, sameResolution: pending.content === state.content }, pending.value, value)) return true
     }
     this.cancelPending()
@@ -144,7 +156,7 @@ export class FramePool {
       hostOverride: options.transition,
       reducedMotion: options.reducedMotion,
     })
-    const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, `${options.fontCss ?? ''}${options.css}`, options.csp, options.origins, options.forms)
+    const value = poolContentValue(state.content, deck.scripts, controller, options)
     const existing = this.entries.get(slide.id)
     const reused =
       deck.scripts === 'refuse' &&
@@ -167,7 +179,7 @@ export class FramePool {
     const active = this.host.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     const activeId = active?.dataset.slideId
     if (activeId && activeId !== slide.id) {
-      const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, `${options.fontCss ?? ''}${options.css}`, options.csp, options.origins, options.forms)
+      const value = poolContentValue(state.content, deck.scripts, controller, options)
       const pending = this.entries.get(slide.id)
       if (
         this.pending?.id === slide.id &&

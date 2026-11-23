@@ -192,13 +192,10 @@ export type FontFace = FontFaceBase &
   (
     | {
         data: Uint8Array
-        url?: never
         postscriptName?: string
       }
     | {
         url: string
-        data?: never
-        postscriptName?: never
       }
   )
 

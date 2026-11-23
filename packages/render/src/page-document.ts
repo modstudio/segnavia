@@ -208,7 +208,9 @@ export async function prepareRenderedPages(
   for (const name of Object.keys(declarations)) undeclared.delete(name)
   const references = fontManifestReferences(declarations, [...undeclared])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
-  const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, [...undeclared], options.fontSource, local.faces, signal, 'page', options.origins))
+  const resolved = await fontCssForRender(
+    resolveRenderFontReferences(declarations, [...undeclared], options.fontSource, local.faces, signal, 'page', options.origins),
+  )
   options.localFonts?.report?.(local.report)
   const fontFailuresByInput = expanded.map((item) => {
     const references = fontManifestReferences(item.page.style?.fonts, fontManifestWithReferences(item.page.style?.fonts, item.fonts).undeclared)

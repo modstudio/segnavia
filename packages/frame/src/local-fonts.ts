@@ -14,6 +14,8 @@ import {
 import { bytesToBase64, fontFormat } from '@segnavia/html'
 import { FontRefusedError } from './page-fonts.ts'
 
+type ByteFontFace = Extract<FontFace, { data: Uint8Array }>
+
 export type LocalFontUnavailableReason = 'unsupported' | 'denied' | 'not-installed' | 'unreadable'
 
 export interface LocalFontUnavailable {
@@ -23,7 +25,7 @@ export interface LocalFontUnavailable {
 }
 
 export interface LocalFonts {
-  faces: FontFace[]
+  faces: ByteFontFace[]
   unavailable: LocalFontUnavailable[]
 }
 
@@ -89,7 +91,7 @@ function faceWeightAndStyle(style: string): { weight: number; style: 'normal' | 
   return { weight, style: italic ? 'italic' : 'normal' }
 }
 
-async function readCut(font: LocalFontData, family: string, signal: AbortSignal): Promise<FontFace | undefined> {
+async function readCut(font: LocalFontData, family: string, signal: AbortSignal): Promise<ByteFontFace | undefined> {
   signal.throwIfAborted()
   try {
     const data = new Uint8Array(await (await font.blob()).arrayBuffer())
@@ -109,8 +111,12 @@ async function readCut(font: LocalFontData, family: string, signal: AbortSignal)
   }
 }
 
-async function facesForFamily(family: string, installed: readonly LocalFontData[], signal: AbortSignal): Promise<{ faces: FontFace[]; unreadable: boolean }> {
-  const faces: FontFace[] = []
+async function facesForFamily(
+  family: string,
+  installed: readonly LocalFontData[],
+  signal: AbortSignal,
+): Promise<{ faces: ByteFontFace[]; unreadable: boolean }> {
+  const faces: ByteFontFace[] = []
   const seen = new Set<string>()
   let matched = false
   let unreadable = false
@@ -148,7 +154,7 @@ export async function readLocalFonts(fonts: FontReferencesSource, options: { sig
   const installed = await installedFonts(options.signal)
   if (installed.reason) return unavailable(locals, installed.reason)
   const installedFontData = installed.fonts ?? []
-  const faces: FontFace[] = []
+  const faces: ByteFontFace[] = []
   const present = new Set<string>()
   const unreadable = new Set<string>()
   for (const ref of locals) {
@@ -175,6 +181,7 @@ export function packLocalFaces(faces: readonly FontFace[], fonts: FontReferences
     if (!families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
   }
   const selected = faces.flatMap((face) => {
+    if (!('data' in face)) return []
     const family = families.get(face.family.toLowerCase())
     if (!family) return []
     return [{ face, family }]

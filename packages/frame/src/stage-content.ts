@@ -1,4 +1,13 @@
-import { type Deck, type Folio, firstStrongDirection, type FontFailure, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
+import {
+  type Deck,
+  type Folio,
+  type FontFailure,
+  firstStrongDirection,
+  type OriginApproval,
+  type PixelSize,
+  type PreflightProfile,
+  type Slide,
+} from '@segnavia/format'
 import { type BuiltFrameDocument, buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'

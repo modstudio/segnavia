@@ -52,7 +52,7 @@ export class DeckController extends ControllerFrameServing {
   private editions: ControllerEdition
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
   constructor(options: ControllerOptions = {}) {
-    super(options.serveFrame, options.forms)
+    super(options.serveFrame, options.forms, options.fonts)
     this.frameServingChanged = () => this.current.deck && this.emit()
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
@@ -98,14 +98,6 @@ export class DeckController extends ControllerFrameServing {
   }
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
-  }
-  get fonts(): ControllerOptions['fonts'] {
-    return this.options.fonts
-  }
-  set fonts(value: ControllerOptions['fonts']) {
-    if (this.options.fonts === value) return
-    this.options.fonts = value
-    if (this.current.deck) this.emit()
   }
   addNavigationGuard(guard: (reason: NavigationGuardReason) => void | Promise<void>): () => void {
     return addNavigationGuard(this, guard)

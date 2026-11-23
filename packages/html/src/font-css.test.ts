@@ -5,7 +5,7 @@ import { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 
 const data = new Uint8Array([0])
 
-function face(overrides: Partial<FontFace> & Pick<FontFace, 'family'>): FontFace {
+function face(overrides: Partial<Extract<FontFace, { data: Uint8Array }>> & Pick<FontFace, 'family'>): FontFace {
   return { data, format: 'truetype', ...overrides }
 }
 
@@ -46,22 +46,16 @@ describe('bytesToBase64', () => {
 describe('fontCss', () => {
   test('writes an approved URL face without embedding bytes', () => {
     const url = 'https://assets.example/fonts/body.woff2'
-    expect(
-      fontFaceCss(
-        { family: 'Remote Face', url, format: 'woff2' },
-        [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }],
-      ),
-    ).toBe(
+    expect(fontFaceCss({ family: 'Remote Face', url, format: 'woff2' }, [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }])).toBe(
       '@font-face{font-family:"Remote Face";src:url("https://assets.example/fonts/body.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}',
     )
   })
 
   test('refuses a URL face outside the approved font paths', () => {
     expect(() =>
-      fontFaceCss(
-        { family: 'Remote Face', url: 'https://assets.example/private/body.woff2', format: 'woff2' },
-        [{ origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' }],
-      ),
+      fontFaceCss({ family: 'Remote Face', url: 'https://assets.example/private/body.woff2', format: 'woff2' }, [
+        { origin: 'https://assets.example', kinds: ['font'], pathname: '/fonts' },
+      ]),
     ).toThrow('add { origin: "https://assets.example", kinds: ["font"], pathname: "/private/body.woff2" } to origins to clear this refusal')
   })
 

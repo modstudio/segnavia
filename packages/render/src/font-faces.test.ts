@@ -5,7 +5,7 @@ import type { Font } from './options.ts'
 
 const data = new Uint8Array([0])
 
-function face(overrides: Partial<Font> & Pick<Font, 'family'>): Font {
+function face(overrides: Partial<Extract<Font, { data: Uint8Array }>> & Pick<Font, 'family'>): Font {
   return { data, format: 'truetype', ...overrides }
 }
 

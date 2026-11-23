@@ -13,6 +13,8 @@ import {
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 
+type ByteFontFace = Extract<FontFace, { data: Uint8Array }>
+
 export interface LocalFontsReport {
   fellBack: Array<{ family: string; fallback: string }>
 }
@@ -28,7 +30,7 @@ function familyFrom(value: unknown): string {
   return typeof family === 'string' && family.length > 0 ? family : 'unknown family'
 }
 
-function decodeFace(input: unknown): FontFace {
+function decodeFace(input: unknown): ByteFontFace {
   const parsed = LocalFaceTransport.safeParse(input)
   const family = familyFrom(input)
   if (!parsed.success) {
@@ -63,7 +65,7 @@ function decodeFace(input: unknown): FontFace {
   return { ...face, ...resolved }
 }
 
-function decodedFaces(options: LocalFontsOptions | undefined, limits: ResolvedLimits['localFonts']): FontFace[] {
+function decodedFaces(options: LocalFontsOptions | undefined, limits: ResolvedLimits['localFonts']): ByteFontFace[] {
   const supplied: unknown = options?.faces ?? []
   if (!Array.isArray(supplied)) {
     throw new RenderRefusedError('The local faces transport is not an array; send an array of local faces to clear this refusal.')
@@ -92,7 +94,7 @@ export function localFontsForRender(
   options: LocalFontsOptions | undefined,
   references: readonly FontReference[],
   limits: ResolvedLimits['localFonts'],
-): { faces: FontFace[]; report: LocalFontsReport } {
+): { faces: ByteFontFace[]; report: LocalFontsReport } {
   const decoded = decodedFaces(options, limits)
   const locals = localFontReferences(references)
   const declared = new Map(locals.map((reference) => [reference.local.toLowerCase(), reference.local]))

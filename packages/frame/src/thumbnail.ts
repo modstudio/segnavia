@@ -19,6 +19,11 @@ import { mountThumbnailDesignedCover, thumbnailCoverFrameInputs, thumbnailCoverS
 import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
+
+async function resolveThumbnailFonts(deck: Deck, options: ThumbnailProperties['fonts'], origins: ThumbnailProperties['origins']) {
+  return options ? resolveFonts(deck.style?.fonts, { ...options, origins, signal: new AbortController().signal }) : { css: '', failures: [] }
+}
+
 import { resolveFonts } from './page-fonts.ts'
 
 function thumbnailDayChangesCanvas(deck: Deck, content: ResolvedContent, slots: ThumbnailProperties['slots'], refused: boolean): boolean {
@@ -278,9 +283,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.controller = controller
     try {
       await controller.loadDeckValue(deck, this.baseUrl)
-      const resolvedFonts = this.fontOptions
-        ? await resolveFonts(deck.style?.fonts, { ...this.fontOptions, origins: this.origins, signal: new AbortController().signal })
-        : { css: '', failures: [] }
+      const resolvedFonts = await resolveThumbnailFonts(deck, this.fontOptions, this.origins)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
       const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, undefined, this.origins, false, resolvedFonts)
