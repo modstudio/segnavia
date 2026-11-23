@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test'
-import { refreshRailPreviews } from './rail.ts'
 
-test('changing the controller serving seam drops mounted rail previews for remount', () => {
+test('changing the controller serving seam drops mounted rail previews for remount', async () => {
+  const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
+  const { refreshRailPreviews } = await import('./rail.ts')
   let children = 1
   const preview = {
     dataset: { generation: '2' },
@@ -17,4 +19,6 @@ test('changing the controller serving seam drops mounted rail previews for remou
 
   expect(children).toBe(0)
   expect(preview.dataset.generation).toBe('3')
+  if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
+  else Reflect.deleteProperty(globalThis, 'HTMLElement')
 })

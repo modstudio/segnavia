@@ -2,10 +2,10 @@ import type { OriginApproval, Page, PageWidths, Print, SlotsOptions } from '@seg
 import type { EstablishedPageDay } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page-element.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import type { ServeFrame } from './frame-write.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 
 interface ThumbnailPageOptions {

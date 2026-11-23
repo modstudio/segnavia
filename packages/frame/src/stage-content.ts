@@ -1,5 +1,5 @@
 import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
-import { buildFrameDocument, type BuiltFrameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { type ServedFrameKind, type ServeFrame, writeFrameDocument } from './frame-write.ts'
@@ -52,9 +52,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
 function writeFrame(iframe: HTMLIFrameElement, document: BuiltFrameDocument, options: StageCanvasOptions): void {
   void writeFrameDocument(iframe, document, options.kind ?? 'slide', options.serveFrame, () =>
     iframe.addEventListener('load', options.loaded, { once: true }),
-  ).catch((reason) =>
-    options.failed?.(reason instanceof Error ? reason : new Error(String(reason))),
-  )
+  ).catch((reason) => options.failed?.(reason instanceof Error ? reason : new Error(String(reason))))
 }
 
 function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript {

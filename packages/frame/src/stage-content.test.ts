@@ -55,7 +55,7 @@ describe('stageCanvas', () => {
       loaded: () => loads++,
       serveFrame: () => new Promise((done) => (resolve = done)),
     })
-    const iframe = canvas.querySelector('iframe') as (HTMLIFrameElement & { dispatch(name: string): void })
+    const iframe = canvas.querySelector('iframe') as HTMLIFrameElement & { dispatch(name: string): void }
     iframe.dispatch('load')
     expect(loads).toBe(0)
     resolve('/frames/real')

@@ -23,15 +23,16 @@ import { internalPaperPagesLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
-import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
+import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { ServeFrame } from './frame-write.ts'
 import { framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { preparePaperDays } from './paper-day.ts'
 import { resolvePaperDocuments, resolvePaperPageValues } from './paper-document-load.ts'
+import { definePaperFrameServing, writePrintablePaper } from './paper-frame-serving.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
-import { printablePaper, writePrintablePaper } from './print-document.ts'
+import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
@@ -42,11 +43,7 @@ export class SegnaviaPaper extends HTMLElement {
     defineStylesheetPropertyAccessors(SegnaviaPaper.prototype)
     defineAsOfPropertyAccessors(SegnaviaPaper.prototype)
     defineEditionPropertyAccessor(SegnaviaPaper.prototype)
-    defineElementPropertyAccessors(
-      SegnaviaPaper.prototype,
-      () => ({ serveFrame: undefined as ServeFrame | undefined }),
-      (paper) => paper.imposed && paper.paint(),
-    )
+    definePaperFrameServing(SegnaviaPaper.prototype)
   }
   declare edition: string | undefined
   declare css: string
@@ -368,9 +365,6 @@ export class SegnaviaPaper extends HTMLElement {
     const paper = paperBoxSize(imposed.paper)
     box.style.width = `${paper.width}px`
     box.style.height = `${paper.height}px`
-    // Author HTML occurs only in escaped srcdoc attributes produced by the
-    // builder, so assigning its trusted placement markup here cannot parse it
-    // as part of the host document.
     const resolvedPages = pages.map((page) => ({ ...page, html: slotHtml(page.html, this.resolvedSlots) }))
     const options = {
       css: `${this.resolvedFontCss}${this.css}`,
@@ -379,26 +373,10 @@ export class SegnaviaPaper extends HTMLElement {
       pageWidths: this.widthOptions,
     }
     if (this.serveFrame)
-      writePrintablePaper(
-        box,
-        resolvedPages,
-        imposition,
-        imposed,
-        this.paperIndex,
-        options,
-        this.shownSide,
-        this.serveFrame,
-        (reason) => dispatchElementError(this, reason),
+      writePrintablePaper(box, resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide, this.serveFrame, (reason) =>
+        dispatchElementError(this, reason),
       )
-    else
-      box.innerHTML = printablePaper(
-        resolvedPages,
-        imposition,
-        imposed,
-        this.paperIndex,
-        options,
-        this.shownSide,
-      )
+    else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
     this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
     this.replaceChildren(box)
     this.fit()

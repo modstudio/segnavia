@@ -37,8 +37,7 @@ import {
   resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
-import { buildFrameDocument, frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
-import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
+import { buildFrameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -285,6 +284,19 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
   return { document, markup }
 }
 
+export function printablePaperFrames(
+  pages: HtmlPage[],
+  imposition: Imposition,
+  imposed: Imposed,
+  paper: number,
+  options: PrintablePagesOptions = {},
+  side: 'front' | 'back' = 'front',
+) {
+  return imposed.placements
+    .filter((placement) => placement.paper === paper && placement.side === side)
+    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options))
+}
+
 // Builds only the positioned placement boxes for one physical paper, so the
 // browser element and the print document use exactly the same frame markup.
 export function printablePaper(
@@ -295,32 +307,9 @@ export function printablePaper(
   options: PrintablePagesOptions = {},
   side: 'front' | 'back' = 'front',
 ): string {
-  return imposed.placements
-    .filter((placement) => placement.paper === paper && placement.side === side)
-    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options).markup)
+  return printablePaperFrames(pages, imposition, imposed, paper, options, side)
+    .map((frame) => frame.markup)
     .join('')
-}
-
-export function writePrintablePaper(
-  box: HTMLElement,
-  pages: HtmlPage[],
-  imposition: Imposition,
-  imposed: Imposed,
-  paper: number,
-  options: PrintablePagesOptions,
-  side: 'front' | 'back',
-  serveFrame: ServeFrame,
-  failed: (reason: unknown) => void,
-): void {
-  const frames = imposed.placements
-    .filter((placement) => placement.paper === paper && placement.side === side)
-    .map((placement) => pageFrame(pages[placement.page] as HtmlPage, imposition, placement, options))
-  box.innerHTML = frames.map((frame) => frame.markup).join('')
-  const elements = [...box.querySelectorAll<HTMLIFrameElement>('iframe')]
-  frames.forEach((frame, index) => {
-    const element = elements[index]
-    if (element) void writeFrameDocument(element, frame.document, 'printed-page', serveFrame).catch(failed)
-  })
 }
 
 // This frame-based document is for a browser to show and print. The frame

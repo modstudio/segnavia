@@ -1,7 +1,7 @@
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
-import { buildFrameDocument, type BuiltFrameDocument, type FrameOptions, newNonce } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, type FrameOptions, newNonce } from './bridge.ts'
 import { type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
-import { buildPrintedPageValueDocument, printedPageValueDocument } from './printed-page-document.ts'
+import { buildPrintedPageValueDocument, type printedPageValueDocument } from './printed-page-document.ts'
 import { buildShownPageDocument, type ShownPageDocumentOptions } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
@@ -65,5 +65,11 @@ export function loadShownPageDocument(
   failed: (error: unknown) => void,
   loadLayouts = loadLayoutScripts,
 ): void {
-  loadLayoutDocument(page.html, (nonce, layoutScripts) => buildShownPageDocument(page, resolved, { ...options, nonce, layoutScripts }), loaded, failed, loadLayouts)
+  loadLayoutDocument(
+    page.html,
+    (nonce, layoutScripts) => buildShownPageDocument(page, resolved, { ...options, nonce, layoutScripts }),
+    loaded,
+    failed,
+    loadLayouts,
+  )
 }

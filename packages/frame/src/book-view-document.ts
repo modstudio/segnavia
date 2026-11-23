@@ -17,7 +17,7 @@ import {
 } from '@segnavia/format'
 import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
-import { buildFrameDocument, type BuiltFrameDocument, frameStyleSheets } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'

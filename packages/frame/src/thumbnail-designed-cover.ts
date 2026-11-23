@@ -1,12 +1,11 @@
-import type { SlotsOptions } from '@segnavia/format'
+import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
+import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { CoverPresentation } from './designed-cover-policy.ts'
+import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import type { BoardFrameInputs } from './board-frame-inputs.ts'
-import type { ServeFrame } from './frame-write.ts'
-import type { PageWidths, OriginApproval } from '@segnavia/format'
 
 interface CoverViewport {
   firstElementChild: Element | null

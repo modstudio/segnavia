@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { writeFrameDocument } from './frame-write.ts'
 import { buildFrameDocument } from './bridge.ts'
+import { writeFrameDocument } from './frame-write.ts'
 
 const html = '<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="script-src \'none\'; img-src data:"></head></html>'
 const built = { html, policy: "script-src 'none'; img-src data:" }

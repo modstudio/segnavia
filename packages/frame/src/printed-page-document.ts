@@ -41,7 +41,7 @@ import {
   withPrintedSectionBodies,
 } from '@segnavia/html'
 import { type ComposerPageGeometry, composerPageRules, composerParentGeometry } from './book-page-geometries.ts'
-import { buildFrameDocument, type BuiltFrameDocument, frameStyleSheets } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'

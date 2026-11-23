@@ -18,7 +18,6 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
-import { defineElementPropertyAccessors } from './element-property-accessors.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
@@ -29,6 +28,7 @@ import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
+import { definePageFrameServing } from './page-frame-serving-property.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { handlePageElementMessage } from './page-message-handler.ts'
 import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
@@ -44,11 +44,7 @@ export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageParseOptionsElement {
   static {
     defineEditionPropertyAccessor(SegnaviaPage.prototype)
-    defineElementPropertyAccessors(
-      SegnaviaPage.prototype,
-      () => ({ serveFrame: undefined as ServeFrame | undefined }),
-      (page) => page.pageValue && page.loadValue(page.pageValue),
-    )
+    definePageFrameServing(SegnaviaPage.prototype)
   }
   static observedAttributes = ['src', 'edition', 'bounded', 'label']
   declare edition: string | undefined
@@ -260,7 +256,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string, policy: string, provisional: boolean, hasLayoutScripts: boolean) => {
+    const write = (document: string, provisional: boolean, hasLayoutScripts: boolean, policy: string) => {
       if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts, policy)
     }
     const asOfLoad = captureAsOfLoad(this)

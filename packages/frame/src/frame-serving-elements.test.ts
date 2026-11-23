@@ -48,7 +48,12 @@ test('a page reports a serving rejection through its existing error event', asyn
   Object.assign(page, { documentWrites: 0, loadGeneration: 0 })
   Object.defineProperty(page, 'serveFrame', { value: () => Promise.reject(new Error('store unavailable')) })
   let message = ''
-  Object.defineProperty(page, 'dispatchEvent', { value: (event: ErrorEvent) => ((message = event.message), true) })
+  Object.defineProperty(page, 'dispatchEvent', {
+    value: (event: ErrorEvent) => {
+      message = event.message
+      return true
+    },
+  })
   const frame = new FramePoolTestElement('iframe') as unknown as HTMLIFrameElement
 
   ;(page as unknown as { writeDocument(frame: HTMLIFrameElement, html: string, provisional: boolean, layouts: boolean, policy: string): void }).writeDocument(

@@ -9,7 +9,7 @@ import {
 } from '@segnavia/format'
 import type { BookLayout } from './book-presentation.ts'
 import { buildFlowViewDocument, buildPaginatedViewDocument } from './book-view-document.ts'
-import { buildFrameDocument, type BuiltFrameDocument, frameStyleSheets, newNonce } from './bridge.ts'
+import { buildFrameDocument, frameStyleSheets, newNonce } from './bridge.ts'
 import { bookLabel } from './labels.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 

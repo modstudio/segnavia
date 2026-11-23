@@ -1,6 +1,6 @@
 import { type FontFailure, type OriginApproval, type PreflightProfile, pageDirection, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
-import { buildFrameDocument, type BuiltFrameDocument, frameDocument, frameStyleSheets } from './bridge.ts'
+import { type BuiltFrameDocument, buildFrameDocument, frameStyleSheets } from './bridge.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import { slotHtml } from './slot-render.ts'

@@ -24,5 +24,9 @@ export function defineStagePropertyAccessors<T extends object>(prototype: T, cha
     frameTitle: defaultFrameTitle,
     brands: undefined,
   }))
-  defineElementPropertyAccessors(prototype, () => ({ serveFrame: undefined as ServeFrame | undefined }), changed)
+  defineElementPropertyAccessors(
+    prototype,
+    () => ({ serveFrame: undefined as ServeFrame | undefined }),
+    (host) => changed(host as T),
+  )
 }

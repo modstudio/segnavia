@@ -4,12 +4,12 @@ import type { DeckState } from './controller.ts'
 import { CORNER_SCALE_CSS } from './controls-style.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { dispatchElementError } from './element-error.ts'
+import type { ServeFrame } from './frame-write.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection, railSelectionAfterRender } from './rail-navigation.ts'
 import { railOrderMoves } from './rail-order.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import { thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
-import type { ServeFrame } from './frame-write.ts'
 
 export type { RailReorderIntent } from './rail-reorder.ts'
 
