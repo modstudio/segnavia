@@ -2,15 +2,13 @@ import { z } from 'zod'
 import { bytesToHex } from './bytes-to-hex.ts'
 import { DocumentField } from './document.ts'
 import { pageFromDocument } from './document-lowering.ts'
+import { COVER_DRAWING_VERSION } from './drawing-version.ts'
 import type { Motif } from './motif.ts'
 import type { Page as PageValue } from './page.ts'
 import { sheetMm } from './paper.ts'
 import { Print } from './print.ts'
 
 export const COVER_SHEET = { width: 160, height: 100 } as const
-
-// This rises when the way a cover is drawn changes, so kept pictures get a new immutable address.
-export const COVER_DRAWING_VERSION = 1
 
 const COVER_PRINT = {
   paper: { width: COVER_SHEET.width, height: COVER_SHEET.height, unit: 'mm' as const },

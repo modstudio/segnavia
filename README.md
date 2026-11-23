@@ -432,6 +432,7 @@ bun run setup      # point git at the tracked hooks
 bun run build      # build every package and the three self-contained browser bundles
 bun run check              # the CI gate: rules, Biome, types, all tests and package/release checks
 bun run check --changed    # the local gate: rules, Biome, types and tests reached by this branch
+bun run drawing:record     # record drawing inputs after raising both drawing versions
 bun run setup:php  # the PHP host fixture's validator, once
 bun run demo       # capture, narrate, build and render; then check it in Chromium, under Bun and Node, and from PHP
 ```
@@ -446,6 +447,9 @@ resolution and refuses stale built output.
 The pre-commit hook checks the staged files and runs only the unit tests they
 reach; the full `bun run check` runs in CI. The selection rules are in
 [`docs/continuous-integration.md`](docs/continuous-integration.md).
+When the drawing-input check reports a pixel-affecting change, raise
+`IMAGE_DRAWING_VERSION` and `COVER_DRAWING_VERSION` together, then run
+`bun run drawing:record`.
 The commit-msg hook refuses AI attribution and a subject without the project's
 task key, whose prefix is in `.githooks/key-prefix`. `AGENTS.md` holds the rules
 every change follows.

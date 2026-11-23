@@ -24,6 +24,7 @@ import { pdfWithBackdropRasters } from './effects/raster.ts'
 import { parseCoverImageOptions, parseDeckPdfOptions, parsePageImageOptions, parseProofImageOptions, parseSlideImageOptions } from './entry-options.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
+import { NO_NETWORK_ARGS } from './no-network-args.ts'
 import { copyLimits, enforceDeckLimits, innerLimits, type OverflowEntry, parseImageRenderOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { resolveRenderDayContext } from './page-as-of.ts'
@@ -58,8 +59,6 @@ import { parseStampPdfOptions } from './stamp-pdf-options.ts'
 import { watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 export * from './public.ts'
-
-const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
 export async function openRenderer(options: RendererOptions): Promise<Renderer> {
   const heapMb = options.jsHeapMb ?? DEFAULT_JS_HEAP_MB

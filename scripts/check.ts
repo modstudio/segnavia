@@ -7,6 +7,7 @@ import path from 'node:path'
 import getReleasePlan from '@changesets/get-release-plan'
 import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architecture.ts'
 import { selectChangedTests } from './checks/changed.ts'
+import { checkDrawingInputs } from './checks/drawing-inputs.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import { checkRandomUuidSource } from './checks/random-uuid-source.ts'
 import type { PackageExports } from './checks/readme.ts'
@@ -31,6 +32,7 @@ import {
 import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
 import { checkVueImports } from './checks/vue-imports.ts'
+import { drawingInputState, readDrawingInputRecord } from './drawing-input-state.ts'
 import { cleanGitEnv } from './review-artifact.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -219,6 +221,13 @@ function changedFiles(staged: boolean): string[] {
 
 const names = hostNames()
 const findings = structural(names)
+const drawingRecord = readDrawingInputRecord(ROOT)
+const currentDrawingWithoutChanges = drawingInputState(ROOT, [])
+const currentDrawing =
+  drawingRecord.fingerprint === currentDrawingWithoutChanges.fingerprint ? currentDrawingWithoutChanges : drawingInputState(ROOT, changedFiles(false))
+for (const message of checkDrawingInputs(drawingRecord, currentDrawing)) {
+  findings.push({ rule: 'drawing-inputs', path: 'drawing-inputs.json', message })
+}
 for (const finding of findings) console.error(`✗ ${finding.rule}  ${finding.path}: ${finding.message}`)
 if (names.length === 0) console.log('! host-name rule was not enforced; create host-names.local to enable it.')
 if (findings.length === 0) {

@@ -1404,6 +1404,18 @@ behavior, while a plain page has only page 1. `pageImage`, `slideImage` and
 The browser canvas and the library's unpainted paper become transparent, while
 authored backgrounds, motifs, watermarks and proof conversion remain content.
 JPEG refuses this option because it has no alpha channel.
+
+A host gives a kept page or slide picture an immutable key made from its
+content digest, `IMAGE_DRAWING_VERSION`, and the browser build it chose through
+`executablePath`. The content digest covers the document, slots, media and
+fonts. The drawing version covers the library's lowering, frame document and
+Chromium settings; the browser build remains a host fact. `COVER_DRAWING_VERSION`
+uses the same drawing-input boundary. `drawing-inputs.json` fingerprints that
+boundary, the pinned `playwright-core` version and the offline Chromium
+arguments. When the drawing-input check fails, raise both versions and run
+`bun run drawing:record` after deciding that the changed source can alter the
+drawn result.
+
 Every ordinary page frame, including browser print and render output, resolves
 its root direction from the page's declared `dir`, then its `lang`, then the
 first strong letter in its visible HTML text, with left to right as the

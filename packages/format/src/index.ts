@@ -22,7 +22,6 @@ export {
 export { closedObject, renderIssuePath } from './closed-object.ts'
 export { boundComposeProgress, COMPOSE_PROGRESS_PAGES_LIMIT, type ComposeProgress } from './compose-progress.ts'
 export {
-  COVER_DRAWING_VERSION,
   COVER_SHEET,
   Cover,
   type CoverDigestMaterial,
@@ -107,6 +106,7 @@ export {
 } from './document-op-model.ts'
 export { DOCUMENT_PROFILES } from './document-profile.ts'
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
+export { COVER_DRAWING_VERSION, IMAGE_DRAWING_VERSION } from './drawing-version.ts'
 export { formatDuration } from './duration.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
