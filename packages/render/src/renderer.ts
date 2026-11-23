@@ -3,6 +3,7 @@ import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
 import type { AsOfInputs } from '@segnavia/html'
 import type { CoverImageOptions } from './cover-image.ts'
+import type { InputRefusal } from './errors.ts'
 import type { MergePdfsOptions } from './merge-pdf-options.ts'
 import type {
   ComposedRenderInput,
@@ -34,6 +35,8 @@ export interface RendererOptions {
 
 export type PagePdfOptions = PageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
 export type ParsedPagePdfOptions = ParsedPageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
+export type PagesPdfOptions = PagePdfOptions & { imposition?: ImpositionInput; skipRefused?: { report(refused: readonly InputRefusal[]): void } }
+export type ParsedPagesPdfOptions = ParsedPagePdfOptions & Pick<PagesPdfOptions, 'imposition' | 'skipRefused'>
 export type BookPdfOptions = ComposedRenderInput & PdfOptions & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[]; watermark?: Watermark }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }
@@ -53,7 +56,7 @@ export interface Renderer {
   bookPdf(book: DocumentInput, options?: BookPdfOptions): Promise<Uint8Array>
   bookPlan(book: DocumentInput, options?: BookPlanOptions): Promise<Plan>
   pagePdf(page: PageOrPrintedInput, options?: PagePdfOptions): Promise<Uint8Array>
-  pagesPdf(pages: PageOrPrintedInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
+  pagesPdf(pages: PageOrPrintedInput[], options?: PagesPdfOptions): Promise<Uint8Array>
   pageImage(page: PageOrPrintedInput, options?: PageImageOptions): Promise<Uint8Array>
   coverImage(cover: CoverInput, options: CoverImageOptions): Promise<Uint8Array>
   deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PdfOptions & PrintOptions & AsOfInputs & { watermark?: Watermark }): Promise<Uint8Array>

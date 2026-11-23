@@ -7,8 +7,10 @@ export { type DirectoryFontSourceOptions, directoryFontSource } from './director
 export type { EffectsReport } from './effects/types.ts'
 export {
   type ColorProfileUse,
+  type InputRefusal,
   RenderColorProfileError,
   RendererUnavailableError,
+  RenderInputsRefusedError,
   RenderLimitError,
   RenderOversetError,
   RenderRefusedError,

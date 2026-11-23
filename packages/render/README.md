@@ -16,6 +16,17 @@ The request is `{ "render": "page" | "pages" | "book" | "deck", "document": ...,
 
 Success exits 0 with an empty standard error. A refusal exits 2 with one JSON line on standard error under `refusal`; another failure exits 1 with one line under `failure`. The command accepts at most 100 MiB on standard input. Function seams such as assets, brands, reports and hooks are unavailable, and rendering remains offline.
 
+`pagesPdf` refuses with `RenderInputsRefusedError` after settling every input, so `entries` identifies each failed document by its zero-based input index and id. A host may explicitly omit those inputs while keeping the `Uint8Array` return type by supplying a required report:
+
+```ts
+const refused = []
+const pdf = await renderer.pagesPdf(documents, {
+  skipRefused: { report: (entries) => refused.push(...entries) },
+})
+```
+
+The command-line equivalent is `"options": { "skipRefused": true }`. On success the PDF remains on standard output and one JSON line on standard error contains `{ "refused": [...] }`; without the option, no input is omitted.
+
 Use `renderer.stampPdf(bytes, { watermark, protection })` to apply the same watermark and PDF protection model to a PDF supplied by the host. Its image watermark uses the same offline `origins`, `assets` and `assetBudget` seam as the render methods. A text watermark uses `watermark.font`, then the first family in `fonts`, then `sans-serif`. Received files and decoded object streams are bounded by host-only `limits.input.bytes` and `limits.input.streamBytes`. The renderer stays offline and never follows external references in the PDF. Stamping changes the file, so an original digital signature no longer validates.
 
 ## Folder fonts

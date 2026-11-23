@@ -1,6 +1,5 @@
-import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
+import { Cover } from '@segnavia/format'
 import {
-  documentOutlineSource,
   fillPageAsOfBindings,
   isPrintedHtmlPage,
   type PreparedSlots,
@@ -14,7 +13,7 @@ import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
 import { printBookPartWithPlacedPdf } from './book-placed-pdf.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
-import { resolveRenderBrand, resolveRenderDeck } from './brand.ts'
+import { resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { keepBrowser } from './browser-keeper.ts'
 import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
@@ -35,12 +34,13 @@ import {
   refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
-import { resolveRenderDayContext, resolveRenderDayContexts } from './page-as-of.ts'
-import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue } from './page-document.ts'
+import { resolveRenderDayContext } from './page-as-of.ts'
+import { prepareRenderedPage, prepareRenderedPageValue } from './page-document.ts'
 import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
+import { captureInputRefusals, preparePagesPdfInputs } from './pages-pdf-inputs.ts'
 import { enforce } from './pdf-finish.ts'
 import { createMergePdfsOperation } from './pdf-merge.ts'
 import { addPdfOutline } from './pdf-outline.ts'
@@ -256,57 +256,48 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       const parsedOptions = parsePagePdfOptions(opts ?? {}, 'pagesPdf')
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const parsedDocuments = await Promise.all(
-          inputs.map(async (input) => {
-            const document = resolveEdition(parseDocument(input, { newId: parsedOptions.newId }), parsedOptions.edition)
-            const brand = await resolveRenderBrand(document, parsedOptions.brandSource, deadline.signal)
-            const page = pageOrPrintedFromDocument(document, brand)
-            return { page, outlineSource: document.kind === 'printed' ? documentOutlineSource(document) : undefined }
-          }),
-        )
-        const parsed = parsedDocuments.map(({ page }) => page)
+        const preparedInputs = await preparePagesPdfInputs(inputs, parsedOptions, deadline.signal)
+        const refusedInputs = captureInputRefusals(parsedOptions.skipRefused, preparedInputs.refused)
+        const renderOptions = { ...parsedOptions, ...(refusedInputs.option ? { skipRefused: refusedInputs.option } : {}) }
+        const parsed = preparedInputs.accepted.map(({ page }) => page)
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount(parsed, parsedOptions.slots))
-        const contexts = await resolveRenderDayContexts(parsed, parsedOptions, deadline.signal)
-        const expanded = await Promise.all(
-          parsed.map((page, index) => {
-            const day = contexts.pages[index]?.day
-            return expandRenderedPageValue(page, parsedOptions, deadline.signal, day, 'print')
-          }),
-        )
-        const prepared = await prepareRenderedPages(expanded, parsedOptions, deadline.signal)
-        const expandedPages = expanded.map((item, index) => fillPageAsOfBindings(item.page, contexts.pages[index]?.day))
-        const watermarkCopies = watermarkCopyStamper(parsedOptions, prepared.fontCss, deadline, withTab)
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, preparedInputs.accepted.map(({ fontCss }) => fontCss).join(''), deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
-          const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
-          const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
+          const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, preparedInputs.accepted[0]?.established.slots)
+          const { value: pages, slots, frameGroups } = await filledPages(parsed, effectiveSlots, deadline.signal)
           const resolvedLayoutScripts = await resolveRenderLayoutScripts(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
             pages,
             slots,
-            { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
+            { ...renderOptions, limits: innerLimits(renderOptions.limits), press: undefined },
             {
               pagePdf: (page, slots, options, inputIndex, tagged) =>
                 renderPagePdf(
                   page,
                   slots,
-                  { ...options, preflight: withPreflightSeed(options.preflight, expanded[inputIndex]?.preflight) },
+                  {
+                    ...options,
+                    preflight: withPreflightSeed(options.preflight, preparedInputs.accepted.find((input) => input.index === inputIndex)?.preflight),
+                  },
                   { withTab },
                   inputIndex,
                   deadline,
-                  prepared.fontCss,
-                  prepared.fontFailures,
+                  preparedInputs.accepted.find((input) => input.index === inputIndex)?.fontCss ?? '',
+                  preparedInputs.accepted.find((input) => input.index === inputIndex)?.fontFailures ?? [],
                   resolvedLayoutScripts,
                   Boolean(parsedOptions.watermark),
                   tagged,
                 ),
               piecePdf: (page, slots, geometry, css, options, tagged) =>
                 renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark), tagged),
-              fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
+              fontFaces: (options) => `${preparedInputs.accepted.map(({ fontCss }) => fontCss).join('')}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               watermark: watermarkCopies.stamp,
             },
             frameGroups,
-            parsedDocuments.map(({ outlineSource }) => outlineSource),
+            preparedInputs.accepted.map(({ outlineSource }) => outlineSource),
+            preparedInputs.accepted.map(({ index, id }) => ({ index, id })),
+            preparedInputs.refused,
           )
         })
         watermarkCopies.validate()
@@ -314,12 +305,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           await withDocumentMetadata(
             await finishWithBrowser(bytes, parsedOptions, deadline),
             parsedOptions.metadata,
-            outputDate(contexts.days),
-            expanded[0] ? printedPageDirection(expanded[0].page) : undefined,
+            outputDate(preparedInputs.accepted.map(({ established }) => established.day)),
+            preparedInputs.accepted[0] ? printedPageDirection(preparedInputs.accepted[0].page) : undefined,
           ),
           parsedOptions.limits,
         )
-        return protectPdf(output, parsedOptions, deadline)
+        const protectedOutput = await protectPdf(output, parsedOptions, deadline)
+        if (parsedOptions.skipRefused) refusedInputs.report()
+        return protectedOutput
       })
     },
 

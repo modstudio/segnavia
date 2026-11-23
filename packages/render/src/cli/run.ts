@@ -1,7 +1,7 @@
 import { parseBookPdfOptions } from '../book-options.ts'
 import { directoryFontSource } from '../directory-font-source.ts'
 import { parseDeckPdfOptions } from '../entry-options.ts'
-import { RenderRefusedError } from '../errors.ts'
+import { type InputRefusal, RenderRefusedError } from '../errors.ts'
 import { parsePagePdfOptions } from '../page-render-options.ts'
 import { type BookPdfOptions, CONTAINER_ARGS, type DeckPdfInputOptions, type PagePdfOptions, type PagesPdfInputOptions, type Renderer } from '../renderer.ts'
 import { outcomeFromError, parseRenderRequest, type RenderOutcome, type RenderRequest } from './protocol.ts'
@@ -58,6 +58,7 @@ const FUNCTION_OPTIONS = {
   'motifs.placed': true,
   'asOf.report': true,
   'anchors.resolve': true,
+  'skipRefused.report': true,
   inline: true,
 } satisfies Record<CliFunctionOptionPath, true>
 
@@ -73,7 +74,7 @@ function functionOptionPath(value: unknown, path: string[] = []): string | undef
   return undefined
 }
 
-function cliOptions(request: RenderRequest, environment: RenderEnvironment): Record<string, unknown> {
+function cliOptions(request: RenderRequest, environment: RenderEnvironment, refusedInputs: InputRefusal[]): Record<string, unknown> {
   const refused = functionOptionPath(request.options)
   if (refused)
     throw new RenderRefusedError(`The command-line render option ${refused} requires a function; remove it to clear this refusal.`, {
@@ -85,9 +86,21 @@ function cliOptions(request: RenderRequest, environment: RenderEnvironment): Rec
       code: 'render-request',
       subject: 'SEGNAVIA_FONTS',
     })
-  return request.fonts
-    ? { ...request.options, fontSource: directoryFontSource(request.fonts, { root: environment.SEGNAVIA_FONTS as string }) }
-    : request.options
+  const options =
+    request.render === 'pages' && request.options.skipRefused === true
+      ? { ...request.options, skipRefused: { report: (entries: readonly InputRefusal[]) => refusedInputs.push(...entries) } }
+      : request.options
+  return request.fonts ? { ...options, fontSource: directoryFontSource(request.fonts, { root: environment.SEGNAVIA_FONTS as string }) } : options
+}
+
+function refusedLine(entries: readonly InputRefusal[]): string {
+  return `${JSON.stringify({
+    refused: entries.map(({ index, id, error }) => ({
+      index,
+      ...(id === undefined ? {} : { id }),
+      refusal: { code: error.code, subject: error.subject ?? null, message: error.message, refusals: error.refusals },
+    })),
+  })}\n`
 }
 
 function renderRequest(renderer: Renderer, request: RenderRequest, options: Record<string, unknown>): Promise<Uint8Array> {
@@ -111,7 +124,8 @@ export async function runRenderRequest(input: Uint8Array, environment: RenderEnv
         code: 'render-request',
         subject: 'SEGNAVIA_CHROMIUM',
       })
-    const options = cliOptions(request, environment)
+    const refusedInputs: InputRefusal[] = []
+    const options = cliOptions(request, environment, refusedInputs)
     const renderer = await open({
       executablePath: environment.SEGNAVIA_CHROMIUM,
       ...(environment.SEGNAVIA_CHROMIUM_CONTAINER === '1' ? { args: CONTAINER_ARGS } : {}),
@@ -121,7 +135,7 @@ export async function runRenderRequest(input: Uint8Array, environment: RenderEnv
       try {
         await renderer.close()
       } catch {}
-      return { exitCode: 0, stdout, stderr: '' }
+      return { exitCode: 0, stdout, stderr: refusedInputs.length === 0 ? '' : refusedLine(refusedInputs) }
     } catch (error) {
       try {
         await renderer.close()

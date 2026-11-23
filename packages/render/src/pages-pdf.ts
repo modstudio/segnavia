@@ -12,12 +12,13 @@ import {
   printedSectionPapers,
   printPadding,
   printProperties,
+  Refusal,
   sharedImpositionPress,
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PreparedSlots, type PrintedHtmlPage } from '@segnavia/html'
 import { type BookDestination, namedDestinations } from './book-destinations.ts'
 import { writeDocumentOutlines } from './book-structure.ts'
-import { RenderRefusedError } from './errors.ts'
+import { type InputRefusal, RenderInputsRefusedError, RenderRefusedError } from './errors.ts'
 import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
@@ -30,7 +31,10 @@ import { pagesTagged } from './pdf-tagging.ts'
 import { slotsForDocument } from './slot-document.ts'
 import type { WatermarkPart } from './watermark-stamp.ts'
 
-export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionInput }
+export type PagesPdfOptions = ComposedRenderOptions & {
+  imposition?: ImpositionInput
+  skipRefused?: { report(refused: readonly InputRefusal[]): void }
+}
 
 interface PagesPdfServices {
   pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number, tagged: boolean): Promise<PrintResult>
@@ -156,6 +160,55 @@ async function composedPdf(
   }
 }
 
+async function renderUnimposedPagesPdf(
+  pages: Array<HtmlPage | PrintedHtmlPage>,
+  slots: PreparedSlots,
+  opts: PagesPdfOptions,
+  services: PagesPdfServices,
+  frameGroups: ReadonlyArray<readonly number[]>,
+  outlineSources: ReadonlyArray<OutlineSource | undefined>,
+  inputFacts: ReadonlyArray<{ index: number; id?: string }>,
+  priorRefusals: readonly InputRefusal[],
+): Promise<Uint8Array> {
+  const tagged = pagesTagged(pages.map(isPrintedHtmlPage), false)
+  const settled = await Promise.all(
+    pages.map(async (page, inputIndex) => {
+      const input = inputFacts[inputIndex] ?? { index: inputIndex, ...(page.id === undefined ? {} : { id: page.id }) }
+      try {
+        const rendered = await services.pagePdf(
+          page,
+          slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
+          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
+          input.index,
+          tagged,
+        )
+        return { page, inputIndex, rendered }
+      } catch (error) {
+        if (!(error instanceof Refusal)) throw error
+        return { page, inputIndex, refusal: { ...input, error } satisfies InputRefusal }
+      }
+    }),
+  )
+  const refused = [...priorRefusals, ...settled.flatMap((entry) => ('refusal' in entry ? [entry.refusal] : []))]
+  const accepted = settled.filter((entry): entry is Extract<(typeof settled)[number], { rendered: PrintResult }> => 'rendered' in entry)
+  if (refused.length > 0 && (!opts.skipRefused || accepted.length === 0)) throw new RenderInputsRefusedError(refused)
+  const rendered = accepted.map((entry) => entry.rendered)
+  const watermarked = await watermarkParts(
+    services,
+    accepted.map(({ page, rendered: part }) => ({ ...part, page })),
+  )
+  const output = await services.finish(
+    await joinWithOutlines(
+      watermarked,
+      accepted.map(({ inputIndex }) => outlineSources[inputIndex]),
+    ),
+    opts,
+  )
+  opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
+  if (refused.length > 0) opts.skipRefused?.report(refused)
+  return output
+}
+
 // Pages arrive parsed and filled with the slot preparation that measures their overflow.
 export async function renderPagesPdf(
   pages: Array<HtmlPage | PrintedHtmlPage>,
@@ -164,30 +217,13 @@ export async function renderPagesPdf(
   services: PagesPdfServices,
   frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
   outlineSources: ReadonlyArray<OutlineSource | undefined> = [],
+  inputFacts: ReadonlyArray<{ index: number; id?: string }> = pages.map((page, index) => ({ index, ...(page.id === undefined ? {} : { id: page.id }) })),
+  priorRefusals: readonly InputRefusal[] = [],
 ): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
+  if (pages.length === 0 && priorRefusals.length > 0) throw new RenderInputsRefusedError(priorRefusals)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
-  if (!opts.imposition) {
-    const tagged = pagesTagged(pages.map(isPrintedHtmlPage), false)
-    const rendered = await Promise.all(
-      pages.map((page, inputIndex) =>
-        services.pagePdf(
-          page,
-          slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
-          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
-          inputIndex,
-          tagged,
-        ),
-      ),
-    )
-    const watermarked = await watermarkParts(
-      services,
-      rendered.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
-    )
-    const output = await services.finish(await joinWithOutlines(watermarked, outlineSources), opts)
-    opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
-    return output
-  }
+  if (!opts.imposition) return renderUnimposedPagesPdf(pages, slots, opts, services, frameGroups, outlineSources, inputFacts, priorRefusals)
   const imposition = Imposition.parse(opts.imposition)
   for (const page of pages) {
     if (!isPrintedHtmlPage(page)) continue
@@ -237,12 +273,17 @@ export async function renderPagesPdf(
     )
     const output = await services.finish(await joinWithOutlines(watermarked, outlineSources), opts)
     opts.overflow?.report?.({ entries: overflow })
+    if (priorRefusals.length > 0 && !opts.skipRefused) throw new RenderInputsRefusedError(priorRefusals)
+    if (priorRefusals.length > 0) opts.skipRefused?.report(priorRefusals)
     return output
   }
   if (!pages.every((page): page is HtmlPage => !isPrintedHtmlPage(page))) {
     throw new RenderRefusedError('A sectioned printed page could not be imposed with other pages; print without imposition to clear this refusal.')
   }
-  return services.finish((await composedPdf(pages, slots, imposition, opts, services, frameGroups)).bytes, opts)
+  const output = await services.finish((await composedPdf(pages, slots, imposition, opts, services, frameGroups)).bytes, opts)
+  if (priorRefusals.length > 0 && !opts.skipRefused) throw new RenderInputsRefusedError(priorRefusals)
+  if (priorRefusals.length > 0) opts.skipRefused?.report(priorRefusals)
+  return output
 }
 
 async function joinWithOutlines(parts: Uint8Array[], sources: ReadonlyArray<OutlineSource | undefined>): Promise<Uint8Array> {

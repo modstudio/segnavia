@@ -167,6 +167,15 @@ async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
   }
 }
 
+export function prepareExpandedRenderedPage<T extends HtmlPage | PrintedHtmlPage>(
+  expanded: { page: T; fonts: FontReference[]; preflight?: PreflightEntry[] },
+  options: ComposedRenderOptions,
+  signal: AbortSignal,
+  established: EstablishedPageDay,
+) {
+  return preparedRender(expanded, options, signal, established)
+}
+
 export async function prepareRenderedPages(
   expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
   options: ComposedRenderOptions,
