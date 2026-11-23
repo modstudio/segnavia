@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, bookParentPages } from '@segnavia/format'
 import { type BookPrintedPagePlan, parseBookFixture } from '@segnavia/html'
+import { bookPlanFolios } from '@segnavia/layout'
 import { continuousMarginVariableValues, marginFactsFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 
@@ -53,6 +54,37 @@ test('resolves chapter-number on the server margin path', () => {
     [{ name: 'chapter', kind: 'text', from: 'chapter-number', pick: 'first' }],
   )
   expect(facts[0]?.variables?.chapter).toBe('4')
+})
+
+test('agrees with the layout numbering totals for roman front matter and a Hebrew body', () => {
+  const pages = [
+    { sequence: 'front', flow: 'preface', blank: false },
+    { sequence: 'front', flow: 'preface', blank: false },
+    { sequence: 'body', flow: 'chapter', blank: false },
+    { sequence: 'body', flow: 'chapter', blank: false },
+  ]
+  const plan = bookPlanFolios(pages, { frontMatter: 'roman-lower', body: 'hebrew' })
+  const variable = [{ name: 'run-total', kind: 'pages' as const, of: 'numbering' as const }]
+  const front = marginFactsFor(
+    [{ id: 'preface', kind: 'front', division: 'front' }],
+    new Map([['preface', { page: 1, x: 0, y: 0 }]]),
+    2,
+    new Set(),
+    { system: 'roman-lower', printed: true },
+    variable,
+  )
+  const body = marginFactsFor(
+    [{ id: 'chapter', kind: 'chapter', division: 'body' }],
+    new Map([['chapter', { page: 1, x: 0, y: 0 }]]),
+    2,
+    new Set(),
+    { system: 'hebrew', printed: true },
+    variable,
+  )
+
+  const totals = [...front, ...body].map((page) => page.variables?.['run-total'])
+  expect(totals).toEqual(['ii', 'ii', 'ב', 'ב'])
+  expect(totals).toEqual(plan.numberingTotals)
 })
 
 test('resolves content variables from ordered continuous-page set points', () => {

@@ -33,7 +33,7 @@ export function numberVariableValue(
   return variableValue(variable, {
     folio: folios.folios[index],
     documentFolio: documents.documentFolios[index],
-    numberingTotal: folios.total,
+    numberingTotal: folios.numberingTotals[index] ?? '',
     documentTotal: documents.documentTotal,
     recordIndex: record?.index,
     recordCount: record?.count,

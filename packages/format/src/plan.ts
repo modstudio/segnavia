@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { DEFAULT_LIMITS, LimitExceededError, type Limits, type PageLimitSource } from './limits.ts'
 
-export const PLAN_VERSION = 8 as const
+export const PLAN_VERSION = 9 as const
 
 export const PaginateWindow = z.object({
   flow: z.string(),
@@ -69,6 +69,7 @@ const PlanShape = z.object({
   pages: z.array(PlanPage),
   folios: z.array(z.string().nullable()),
   folioPrints: z.array(z.boolean().nullable()),
+  numberingTotals: z.array(z.string()),
   total: z.string(),
   documentFolios: z.array(z.string().nullable()),
   documentTotal: z.string(),
@@ -93,6 +94,13 @@ function structurallyConsistentPlan(plan: z.infer<typeof PlanShape>, ctx: z.Refi
       code: 'custom',
       path: ['folioPrints'],
       message: `folioPrints has ${plan.folioPrints.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+    })
+  }
+  if (plan.numberingTotals.length !== plan.pages.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['numberingTotals'],
+      message: `numberingTotals has ${plan.numberingTotals.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
     })
   }
   if (plan.documentFolios.length !== plan.pages.length) {

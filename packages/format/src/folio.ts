@@ -46,25 +46,47 @@ export interface Folio {
   printed: boolean
 }
 
-export function computeFolios(pages: readonly NumberedPage[]): Array<Folio | null> {
-  let next: number | undefined
-  return pages.map(({ numbering }) => {
-    if (next === undefined || numbering.restart) next = numbering.start
+export interface NumberingRuns {
+  folios: Array<Folio | null>
+  runIndexes: number[]
+  totals: string[]
+}
+
+export function computeNumberingRuns(pages: readonly NumberedPage[]): NumberingRuns {
+  let next = 0
+  let runIndex = -1
+  const runIndexes: number[] = []
+  const totals: string[] = []
+  const folios = pages.map(({ numbering }, pageIndex) => {
+    const startsRun = pageIndex === 0 || numbering.restart
+    if (startsRun) {
+      next = numbering.start
+      runIndex += 1
+      totals.push('')
+    }
+    runIndexes.push(runIndex)
     if (!numbering.counted) return null
     const number = next
     next += 1
-    return { number, text: formatNumber(number, numbering.system), printed: numbering.printed }
+    const text = formatNumber(number, numbering.system)
+    totals[runIndex] = text
+    return { number, text, printed: numbering.printed }
   })
+  return { folios, runIndexes, totals }
+}
+
+export function computeFolios(pages: readonly NumberedPage[]): Array<Folio | null> {
+  return computeNumberingRuns(pages).folios
 }
 
 export function sequenceFolios(count: number, system: NumberSystem, printed = true): Folio[] {
-  return computeFolios(
+  return computeNumberingRuns(
     Array.from({ length: count }, () => ({
       numbering: { system, start: 1, restart: false, counted: true, printed },
     })),
-  ).filter((folio): folio is Folio => folio !== null)
+  ).folios.filter((folio): folio is Folio => folio !== null)
 }
 
 export function folioScript(): string {
-  return `${numberingScript()}\n${computeFolios.toString()}\nvar computeFolios=${computeFolios.name};\n${sequenceFolios.toString()}\nvar sequenceFolios=${sequenceFolios.name};`
+  return `${numberingScript()}\n${computeNumberingRuns.toString()}\nvar computeNumberingRuns=${computeNumberingRuns.name};\n${computeFolios.toString()}\nvar computeFolios=${computeFolios.name};\n${sequenceFolios.toString()}\nvar sequenceFolios=${sequenceFolios.name};`
 }

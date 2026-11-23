@@ -5,7 +5,7 @@ import { RenderRefusedError } from './errors.ts'
 
 test('turns an invalid saved plan field into a render refusal', () => {
   expect(() => parseBookPdfOptions({ plan: { version: 3 } } as never)).toThrow(RenderRefusedError)
-  expect(() => parseBookPdfOptions({ plan: { version: 1 } } as never)).toThrow('version: version must be 8')
+  expect(() => parseBookPdfOptions({ plan: { version: 8 } } as never)).toThrow('version: version must be 9')
 })
 
 test('parses a saved plan structure before the document page limit is known', () => {
@@ -27,12 +27,13 @@ test('parses a saved plan structure before the document page limit is known', ()
   } satisfies Plan['pages'][number]
   const pages = Array.from({ length: 501 }, (_, index) => ({ ...page, number: index + 1 }))
   const plan = {
-    version: 8,
+    version: 9,
     fingerprint: 'saved',
     breaks: [],
     pages,
     folios: pages.map(() => '1'),
     folioPrints: pages.map(() => true),
+    numberingTotals: pages.map(() => '501'),
     total: '501',
     documentFolios: pages.map(() => '1'),
     documentTotal: '501',

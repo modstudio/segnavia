@@ -2,12 +2,12 @@ import {
   type Book,
   type BookVariableNumberPage,
   bookVariablePageNumbers,
+  computeNumberingRuns,
   effectiveParentRules,
   FLOWING_PARENT_RULES,
   isContentTextVariable,
   LIBRARY_VARIABLES,
   type ParentRules,
-  sequenceFolios,
   type VariableDocumentFacts,
   variableValue,
   withLibraryEntries,
@@ -15,7 +15,6 @@ import {
 import type { BookPageFacts, BookSectionInfo, BookVariableSetPoint } from '@segnavia/html'
 import { continuousPageVariables } from '@segnavia/layout'
 import type { BookDestination } from './book-destinations.ts'
-import { folioCountedTextAt, folioDisplayTextAt } from './book-print-status.ts'
 
 interface MarginPageOwner {
   page: number
@@ -104,8 +103,19 @@ export function marginFactsFor(
   bookRules?: ParentRules,
   contentValues: readonly Record<string, string>[] = [],
 ): BookPageFacts[] {
-  const folios = sequenceFolios(pages, numbering.system, numbering.printed)
   const owners = marginPageOwners(sections, destinations, pages, blanks)
+  // Each call covers one division, and continuous books refuse section and record restarts.
+  const runs = computeNumberingRuns(
+    Array.from({ length: pages }, (_, index) => ({
+      numbering: {
+        system: numbering.system,
+        printed: numbering.printed,
+        start: 1,
+        restart: index === 0,
+        counted: true,
+      },
+    })),
+  )
   const numbers = bookVariablePageNumbers(document.pages, document.system)
   const variablesFor = (owner: MarginPageOwner | undefined, index: number, folio: string): Record<string, string> => {
     const resolved: Record<string, string> = { ...contentValues[index] }
@@ -115,7 +125,7 @@ export function marginFactsFor(
       const value = variableValue(variable, {
         folio,
         documentFolio: numbers.documentFolios[documentIndex],
-        numberingTotal: folioCountedTextAt(folios, pages),
+        numberingTotal: runs.totals[runs.runIndexes[index] ?? -1] ?? '',
         documentTotal: numbers.documentTotal,
         recordIndex: owner?.section.record?.index,
         recordCount: owner?.section.record?.count,
@@ -135,7 +145,8 @@ export function marginFactsFor(
     const page = index + 1
     if (blanks.has(page)) return { blank: true, sectionOpening: false }
     const owner = owners[index]
-    const folio = folioDisplayTextAt(folios, page)
+    const countedFolio = runs.folios[index]
+    const folio = countedFolio?.printed ? countedFolio.text : ''
     return {
       blank: false,
       sectionOpening: owner?.page === page,

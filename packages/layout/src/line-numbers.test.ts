@@ -48,12 +48,13 @@ function fixtures() {
     fingerprint: '',
   })
   const plan = {
-    version: 8,
+    version: 9,
     fingerprint: '',
     breaks: [],
     pages: [page(0, 80, 0, true), page(80, 170, 0, false)],
     folios: ['1', '2'],
     folioPrints: [true, true],
+    numberingTotals: ['2', '2'],
     total: '2',
     documentFolios: ['1', '2'],
     documentTotal: '2',
