@@ -47,7 +47,7 @@ export class DeckController extends ControllerFrameServing {
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
   constructor(options: ControllerOptions = {}) {
     super(options.serveFrame)
-    this.frameServingChanged = () => this.emit()
+    this.frameServingChanged = () => this.current.deck && this.emit()
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
     this.options = { hash: null, keys: 'stage', seek: 'free', completeAt: 1, ...options }
