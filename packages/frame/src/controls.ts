@@ -22,6 +22,8 @@ import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { type IconName, iconSlot, iconSlotName } from './icon-slots.ts'
 import type { PlaybackState } from './playback.ts'
 import { playbackKeyTarget } from './playback-key.ts'
+import { stepTrackKeyTarget } from './step-track-key.ts'
+import { stepTrackSliderValues } from './step-track-values.ts'
 import { type DeckTimeline, slideDurationMs } from './timeline.ts'
 import { TRACK_GAP_WIDTH, TRACK_MARKER_WIDTH, trackTargetAt } from './track-mapping.ts'
 
@@ -228,7 +230,7 @@ export class SegnaviaTrack extends SegnaviaControl {
       ol{display:flex;gap:${TRACK_GAP_WIDTH}px;margin:0;padding:0;list-style:none;position:relative}li{flex:1;display:flex}
       ol::after{content:"";position:absolute;z-index:1;pointer-events:none;inset-block:0;inset-inline-start:calc(var(--_reach,1) * 100%);inset-inline-end:0;background:color-mix(in srgb,var(--_surface) 65%,transparent)}
       button{all:unset;box-sizing:border-box;inline-size:100%;block-size:20px;border-radius:4px;position:relative;cursor:pointer}
-      button:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
+      ol:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
       button::before{content:"";position:absolute;inset-inline:0;inset-block:8px;border-radius:2px;background:var(--_line)}
       button:hover::before{background:var(--_muted)}
       .fill{position:absolute;inset-block:8px;inset-inline-start:0;inline-size:0;border-radius:2px;background:var(--_accent)}
@@ -241,7 +243,6 @@ export class SegnaviaTrack extends SegnaviaControl {
       ol.continuous li.marker{inline-size:${TRACK_MARKER_WIDTH}px}
       ol.continuous .segment{position:absolute;inset:8px 0;background:var(--_line)}
       ol.continuous .fill{inset:0;block-size:auto}
-      ol.continuous:focus-visible{outline:2px solid var(--_accent);outline-offset:1px}
       @media (prefers-reduced-motion:no-preference){.fill{transition:inline-size .12s linear}}`
   }
   protected markup() {
@@ -271,10 +272,12 @@ export class SegnaviaTrack extends SegnaviaControl {
   }
   private configureAccessibility(list: HTMLOListElement, state: PlaybackState, continuous: boolean) {
     list.setAttribute('aria-label', continuous ? this.labels.seek : this.labels.slides)
-    list.setAttribute('role', continuous ? 'slider' : 'list')
-    list.tabIndex = continuous ? 0 : -1
+    list.setAttribute('role', 'slider')
+    list.tabIndex = 0
     if (!continuous) {
-      for (const name of ['aria-valuemin', 'aria-valuemax', 'aria-valuenow', 'aria-valuetext']) list.removeAttribute(name)
+      const slides = state.deck?.slides ?? []
+      const values = stepTrackSliderValues(state.index, slides.length, slides[state.index]?.title, this.labels.slide)
+      for (const [name, value] of Object.entries(values)) list.setAttribute(name, value)
       return
     }
     list.setAttribute('aria-valuemin', '0')
@@ -295,7 +298,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     return deck.slides
       .map(
         (slide, index) =>
-          `<li><button part="segment" data-go="${index}"${slideDurationMs(slide, deck) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
+          `<li><button part="segment" data-go="${index}" tabindex="-1" aria-hidden="true"${slideDurationMs(slide, deck) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
       )
       .join('')
   }
@@ -307,16 +310,10 @@ export class SegnaviaTrack extends SegnaviaControl {
     }
     const deckState = this.deckController?.state
     if (!deckState?.deck) return
-    const folios = deckFolios(deckState.deck)
-    const total = folios.length
     for (const item of list.querySelectorAll<HTMLElement>('[data-go]')) {
       const index = Number(item.dataset.go)
       item.dataset.state = trackSegmentState(deckState, index, deckState.index)
       item.style.setProperty('--progress', deckState.playing ? String(deckState.progress) : '1')
-      const folio = deckFolioAt(folios, index)
-      item.setAttribute('aria-label', this.labels.slide(folio.number, total, deckState.deck.slides[index]?.title))
-      if (index === deckState.index) item.setAttribute('aria-current', 'step')
-      else item.removeAttribute('aria-current')
     }
   }
   private renderContinuousSegments(list: HTMLOListElement, state: PlaybackState) {
@@ -351,8 +348,21 @@ export class SegnaviaTrack extends SegnaviaControl {
 
   private onKey = (event: KeyboardEvent) => {
     const playback = this.playback
-    if (playback?.state.playback !== 'continuous') return
+    if (!playback) return
     const state = playback.state
+    if (state.playback !== 'continuous') {
+      const controller = this.deckController
+      const deckState = controller?.state
+      if (!controller || !deckState.deck) return
+      const lastIndex = deckState.deck.slides.length - 1
+      const furthestAllowed = deckState.seek === 'free' ? lastIndex : deckState.watched.reach.index
+      const target = stepTrackKeyTarget(event.key, deckState.index, deckState.deck.slides.length, deckState.direction, furthestAllowed)
+      if (target === null) return
+      event.preventDefault()
+      event.stopPropagation()
+      void controller.go(target).catch(() => {})
+      return
+    }
     if (event.key === 'PageUp' || event.key === 'PageDown') {
       const controller = this.deckController
       const deckState = controller?.state

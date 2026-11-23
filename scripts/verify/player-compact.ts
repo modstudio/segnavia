@@ -184,6 +184,13 @@ async function readFocusKind(h: Harness): Promise<string> {
   }, focusKindSrc())
 }
 
+async function focusStepTrack(h: Harness) {
+  await h.page.locator(PLAYER).evaluate((player) => {
+    const track = player.shadowRoot?.querySelector('segnavia-track')
+    ;(track?.shadowRoot?.querySelector('ol') as HTMLOListElement | null)?.focus()
+  })
+}
+
 async function tabKindsFromNext(h: Harness): Promise<string[]> {
   await h.page.locator(PLAYER).evaluate((player) => {
     const next = player.shadowRoot?.querySelector('segnavia-step[to="next"]')?.shadowRoot?.querySelector('button') as HTMLButtonElement | null
@@ -252,7 +259,17 @@ export async function verifyCompactPlayerActions(h: Harness) {
     bars.railTop >= bars.transportBottom - 0.5 && bars.actionsTop !== null && bars.railBottom <= (bars.actionsTop ?? 0) + 0.5,
     JSON.stringify(bars),
   )
+  await focusStepTrack(h)
+  await page.keyboard.press('ArrowRight')
+  await h.waitFor(PLAYER, (data) => data.slide === '2')
+  check('ArrowRight on the focused step track shows the next slide', (await h.state(PLAYER)).slide === '2')
   const tabs = await tabKindsFromNext(h)
+  const trackIndex = tabs.indexOf('track')
+  check(
+    'one Tab enters the step track and the next Tab leaves it',
+    trackIndex > 0 && tabs[trackIndex - 1] === 'segnavia-player' && tabs[trackIndex + 1] === 'previous' && tabs.filter((kind) => kind === 'track').length === 1,
+    JSON.stringify(tabs),
+  )
   const groups = tabGroupsAfterNext(tabs)
   // Every host action must be reachable by keyboard. Moving .actions after the
   // rail looked right but Chromium's Tab left the player at the rail and never
@@ -313,6 +330,15 @@ export async function verifyCompactPlayerActions(h: Harness) {
 
   await mountRailAndActions(h, 2, { dir: 'rtl' })
   await page.waitForTimeout(200)
+  await focusStepTrack(h)
+  const rtlTrack = await page.locator(PLAYER).evaluate((player: HTMLElement & { controller: { state: { direction: string; index: number; playback: string } } }) => {
+    const list = player.shadowRoot?.querySelector('segnavia-track')?.shadowRoot?.querySelector('ol') as HTMLOListElement | null
+    return { ...player.controller.state, listDirection: list?.dir, focused: list === list?.getRootNode().activeElement }
+  })
+  await page.keyboard.press('ArrowLeft')
+  await page.waitForTimeout(100)
+  const rtlState = await h.state(PLAYER)
+  check('ArrowLeft on the focused right-to-left step track shows the next slide', rtlState.slide === '2', JSON.stringify({ rtlTrack, rtlState }))
   const rtl = await page.locator(PLAYER).evaluate((player) => {
     const root = player.shadowRoot as ShadowRoot
     const board = root.querySelector('.player') as HTMLElement
