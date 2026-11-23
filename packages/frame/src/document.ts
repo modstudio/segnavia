@@ -39,10 +39,11 @@ const MOUNT_MARGIN = 600
 export class SegnaviaDocument extends DocumentAsOfElement {
   static {
     defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['origins'])
+    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['forms'], (document) => (document as SegnaviaDocument).paint())
   }
   private stylesheet = ''
   private extraCsp = ''
-  private formsValue: 'refuse' | undefined
+  declare forms: 'refuse' | undefined
   declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []
@@ -172,20 +173,15 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.extraCsp = value
     this.paint()
   }
-  get forms(): 'refuse' | undefined {
-    return this.formsValue
-  }
 
-  set forms(value: 'refuse' | undefined) {
-    this.formsValue = value
-    this.paint()
-  }
   get pages(): Document[] {
     return this.sourceDocuments
   }
+
   get currentPageIndex(): number {
     return this.currentPage
   }
+
   set pages(value: PageOrPrintedInput[] | undefined) {
     const documents = parseDocumentEditions(value ?? [], this.edition)
     this.editionDocuments = documents.authored
@@ -379,7 +375,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       brands: this.brandOptions,
       css: this.stylesheet,
       csp: this.extraCsp,
-      forms: this.formsValue,
+      forms: this.forms,
       origins: [...this.origins],
       profile: surfacePreflightFor(this).resolvedProfile(),
       preflight: (report) => surfacePreflightFor(this).receive(index, report),

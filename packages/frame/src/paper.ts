@@ -30,8 +30,9 @@ import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { preparePaperDays } from './paper-day.ts'
 import { resolvePaperDocuments, resolvePaperPageValues } from './paper-document-load.ts'
+import { fitPaper } from './paper-fit.ts'
 import { definePaperFrameServing, writePrintablePaper } from './paper-frame-serving.ts'
-import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
+import { clampPaper, paperBoxSize } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -61,7 +62,7 @@ export class SegnaviaPaper extends HTMLElement {
   private imposed: ReturnType<typeof impose> | null = null
   private paperIndex = 0
   private shownSide: 'front' | 'back' = 'front'
-  private resize = new ResizeObserver(() => this.fit())
+  private resize = new ResizeObserver(() => fitPaper(this, this.imposed))
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
@@ -75,10 +76,12 @@ export class SegnaviaPaper extends HTMLElement {
   private slotGeneration = 0
   private resolvedGeneration = 0
   private slotPreparation: AbortController | undefined
+
   constructor() {
     super()
     upgradeProperties(this)
   }
+
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
@@ -174,7 +177,7 @@ export class SegnaviaPaper extends HTMLElement {
     window.addEventListener('message', this.onMessage)
     this.resize.observe(this)
     if (this.imposed) this.paint()
-    else this.fit()
+    else fitPaper(this, this.imposed)
   }
 
   disconnectedCallback() {
@@ -347,7 +350,7 @@ export class SegnaviaPaper extends HTMLElement {
     box.style.height = `${paper.height}px`
     this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
     this.replaceChildren(box)
-    this.fit()
+    fitPaper(this, this.imposed)
   }
 
   private cancelSlotPreparation() {
@@ -379,15 +382,7 @@ export class SegnaviaPaper extends HTMLElement {
     else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
     this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
     this.replaceChildren(box)
-    this.fit()
-  }
-
-  private fit() {
-    const box = this.querySelector<HTMLElement>('.segnavia-paper__paper')
-    const imposed = this.imposed
-    if (!box || !imposed) return
-    const scale = paperScale(this.clientWidth, paperBoxSize(imposed.paper).width)
-    box.style.transform = scale === 1 ? '' : `scale(${scale})`
+    fitPaper(this, this.imposed)
   }
 
   private onMessage = (event: MessageEvent) => {

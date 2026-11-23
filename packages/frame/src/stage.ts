@@ -2,7 +2,8 @@
 // fit the box the host gives it, with a shot's annotations shown on cue. It
 // draws no controls and brings no appearance: a host styles it, and builds
 // its own controls from `stage.controller`.
-// Give it a controller, or a deck: attributes src, hash ("off" to leave the address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
+// Give it a controller, or a deck: attributes src, hash ("off" to leave the
+// address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
 // State is mirrored as data attributes for styling: data-slide, data-playing,
 // data-word, data-shown, data-direction and data-refused. A visible canvas has data-active, and
@@ -24,6 +25,7 @@ import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
 import { stageControllerEdition } from './stage-controller-edition.ts'
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
+import { defineStageFitProperty } from './stage-fit-property.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { recordFrameRefusal, shownFrameRefusal } from './stage-frame-refusal.ts'
 import { measureStage } from './stage-measure.ts'
@@ -44,6 +46,7 @@ export class SegnaviaStage extends AsOfElement {
   static {
     defineStagePropertyAccessors(SegnaviaStage.prototype, (stage) => stage.rebuildFrames())
     defineStageProfileProperty(SegnaviaStage.prototype, (stage) => (stage as SegnaviaStage).rebuildFrames())
+    defineStageFitProperty(SegnaviaStage.prototype)
   }
   declare css: string
   declare edition: string | undefined
@@ -53,6 +56,7 @@ export class SegnaviaStage extends AsOfElement {
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
+  declare fit: 'box' | 'viewport'
   private owned: DeckController | null = null
   private attached: DeckController | null = null
   private room: StageReserve = {}
@@ -91,6 +95,7 @@ export class SegnaviaStage extends AsOfElement {
     this.slotDeck = null
     this.rebuildFrames()
   }
+
   protected asOfInputsChanged(): void {
     this.slots = this.slotOptions
   }
@@ -118,15 +123,6 @@ export class SegnaviaStage extends AsOfElement {
 
   set neighbors(value: boolean) {
     this.toggleAttribute('neighbors', value)
-  }
-
-  get fit(): 'box' | 'viewport' {
-    return this.getAttribute('fit') === 'viewport' ? 'viewport' : 'box'
-  }
-
-  set fit(value: 'box' | 'viewport') {
-    if (value === 'viewport') this.setAttribute('fit', value)
-    else this.removeAttribute('fit')
   }
 
   get reserve(): StageReserve {

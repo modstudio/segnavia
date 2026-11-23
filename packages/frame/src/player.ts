@@ -64,6 +64,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   declare moment: PlayerForwardedProperties['moment']
   declare css: PlayerForwardedProperties['css']
   declare cspExtra: PlayerForwardedProperties['cspExtra']
+  declare forms: PlayerForwardedProperties['forms']
   declare origins: PlayerForwardedProperties['origins']
   declare slots: PlayerForwardedProperties['slots']
   declare transition: PlayerForwardedProperties['transition']
@@ -130,20 +131,19 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     if (this.controller.state.deck) this.update(this.controller.state)
     this.dispatchEvent(new CustomEvent('segnavia-labels'))
   }
+
   set resolveSlide(resolve: DeckController['resolveSlide']) {
     this.controller.resolveSlide = resolve
-  }
-  set forms(value: DeckController['forms']) {
-    this.controller.forms = value
-    this.stage.forms = value
   }
   set serveFrame(value: DeckController['serveFrame']) {
     this.controller.serveFrame = value
     this.stage.serveFrame = value
   }
+
   get rail(): boolean {
     return this.hasAttribute('rail')
   }
+
   set rail(value: boolean) {
     this.toggleAttribute('rail', value)
   }

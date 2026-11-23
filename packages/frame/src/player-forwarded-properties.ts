@@ -2,12 +2,14 @@ import type { SegnaviaStage } from './stage.ts'
 
 const READABLE_PROPERTIES = ['anchors', 'asOf', 'moment', 'transition'] as const
 const WRITE_ONLY_PROPERTIES = ['css', 'cspExtra', 'origins', 'slots'] as const
+const CONTROLLER_AND_STAGE_PROPERTIES = ['forms'] as const
 
-type ForwardedProperty = (typeof READABLE_PROPERTIES)[number] | (typeof WRITE_ONLY_PROPERTIES)[number]
+type ForwardedProperty = (typeof READABLE_PROPERTIES)[number] | (typeof WRITE_ONLY_PROPERTIES)[number] | (typeof CONTROLLER_AND_STAGE_PROPERTIES)[number]
 
 export type PlayerForwardedProperties = Pick<SegnaviaStage, ForwardedProperty>
 
 interface PlayerForwardingHost {
+  controller: { forms: SegnaviaStage['forms'] }
   stage: SegnaviaStage
 }
 
@@ -27,6 +29,15 @@ export function definePlayerForwardedPropertyAccessors(prototype: object): void 
     Object.defineProperty(prototype, property, {
       configurable: true,
       set(this: PlayerForwardingHost, value: SegnaviaStage[typeof property]) {
+        Reflect.set(this.stage, property, value)
+      },
+    })
+  }
+  for (const property of CONTROLLER_AND_STAGE_PROPERTIES) {
+    Object.defineProperty(prototype, property, {
+      configurable: true,
+      set(this: PlayerForwardingHost, value: SegnaviaStage[typeof property]) {
+        Reflect.set(this.controller, property, value)
         Reflect.set(this.stage, property, value)
       },
     })

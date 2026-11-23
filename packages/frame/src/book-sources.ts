@@ -9,8 +9,10 @@ import { parsePageWidths, samePageWidths } from './page-widths.ts'
 export abstract class BookSourcesElement extends HTMLElementBase {
   static {
     defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['origins'])
+    defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['forms'], (book) => (book as BookSourcesElement).sourcesChanged())
     defineAsOfPropertyAccessors(BookSourcesElement.prototype)
   }
+  declare forms: 'refuse' | undefined
   declare origins: Iterable<OriginApproval>
   declare anchors: AsOfElementProperties['anchors']
   declare asOf: AsOfElementProperties['asOf']
