@@ -388,14 +388,23 @@ import { bridgeForHost, resolveFonts } from '@segnavia/frame/bridge'
 const fonts = deck.style?.fonts
 const { css, failures } = await resolveFonts(fonts, { source })
 // Include in the served page:
-const head = `<style>${css}</style><script nonce="${nonce}">${bridgeForHost({ fonts })}</script>`
+const head = `<style>${css}
+[data-segnavia-cues] [data-annotation]:not([data-shown]) { visibility: hidden }
+</style><script nonce="${nonce}">${bridgeForHost({ fonts })}</script>`
+const body = `<figure data-annotation="0">First mark</figure>
+<figure data-annotation="1">Second mark</figure>`
 // Return bridged resolved content from the host's resolveSlide seam:
 player.resolveSlide = (slide) => slide.content.kind === 'url' ? { ...slide.content, bridge: true } : slide.content
 ```
 
 `failures` contains faces the source could not supply. The bridge waits for
 the declared faces in the served page, reports any that did not load, and
-then reports ready to the stage. `bridge` belongs to resolved content returned
+then reports ready to the stage. A narrated URL slide declares `annotationCount`
+in the deck document; the stage sends its shown indexes to the bridge, which
+sets `data-segnavia-cues` on the root and toggles `data-shown` on the matching
+`data-annotation` elements. With no cue message, or a null one, every mark
+remains visible. Print sends no cue message, so print shows every mark.
+`bridge` belongs to resolved content returned
 by `resolveSlide`; a `bridge` key in a deck document is dropped by
 `Document.parse`.
 

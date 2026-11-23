@@ -1,10 +1,16 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { FontManifest, type FontSource } from '@segnavia/format'
+import { FontManifest, type FontSource, type Narration, type VoicedNarration } from '@segnavia/format'
 import { bridgeForHost, resolveFonts } from '@segnavia/frame/bridge'
+import { wordIndex } from '@segnavia/frame/timeline'
 
 export const urlSlideFonts = FontManifest.parse({ host: { faces: [{}], generic: 'sans-serif' } })
 export const URL_SLIDE_FONT_FAMILY = 'Demo Alef'
+export const URL_SLIDE_NARRATION = 'Hosted marks show first and then second.'
+export const urlSlideCues = (narration: Pick<VoicedNarration, 'words'>): Narration['cues'] => [
+  { word: wordIndex(narration, 'first'), annotation: 0 },
+  { word: wordIndex(narration, 'second'), annotation: 1 },
+]
 export const urlSlidePlayer = `<segnavia-player id="player" hash="off" presentation="native"></segnavia-player>
   <script type="module">
     await customElements.whenDefined('segnavia-player')
@@ -34,5 +40,5 @@ export async function urlSlideHtml(root: string): Promise<string> {
   }
   const resolved = await resolveFonts(urlSlideFonts, { source })
   if (resolved.failures.length > 0) throw new Error(`The media deck fonts are unavailable: ${JSON.stringify(resolved.failures)}`)
-  return `<!doctype html><html><head><style>${resolved.css}</style></head><body style="margin:0;display:grid;place-content:center;height:100vh;font-size:48px;font-family:var(--segnavia-font-host)"><h1 id="served">Served by the host</h1><script>${bridgeForHost({ fonts: urlSlideFonts })}</script></body></html>`
+  return `<!doctype html><html><head><style>${resolved.css}[data-segnavia-cues] [data-annotation]:not([data-shown]){visibility:hidden}</style></head><body style="margin:0;display:grid;place-content:center;height:100vh;font-size:48px;font-family:var(--segnavia-font-host)"><h1 id="served">Served by the host</h1><p data-annotation="0">First hosted mark</p><p data-annotation="1">Second hosted mark</p><script>${bridgeForHost({ fonts: urlSlideFonts })}</script></body></html>`
 }

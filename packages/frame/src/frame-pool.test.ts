@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
+import { MESSAGE } from './bridge.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { initialDeckState } from './controller-types.ts'
 import { type FrameEvent, harness, installFramePoolTestDocument, state, FramePoolTestElement as TestElement } from './frame-pool.test-helper.ts'
 import { FramePool } from './frame-pool.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
+import { postLoadedStageCue } from './stage-cue.ts'
 
 let restoreDocument = () => {}
 beforeAll(() => {
@@ -116,6 +118,24 @@ test('a ready url frame survives a fresh src with the same reuse key without lif
   pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
   expect(pool.frames()[0]).toBe(original)
   expect(events).toHaveLength(beforeReuse)
+})
+
+test('a frame load delivers the stage cue before bridge readiness', () => {
+  const content = { kind: 'url' as const, src: 'one.html', bridge: true as const }
+  const cueState = { ...state(0, content), shown: [0] }
+  const sent = new WeakMap<HTMLIFrameElement, string>()
+  const messages: unknown[] = []
+  let pool!: FramePool
+  const loaded = (slideId: string) => postLoadedStageCue(pool, sent, cueState, slideId)
+  const frameHarness = harness([content], 10, loaded)
+  pool = frameHarness.pool
+  pool.update(cueState, frameHarness.controller, frameHarness.options)
+  const frame = pool.frames()[0] as unknown as TestElement
+  Object.assign(frame.contentWindow as object, { postMessage: (message: unknown) => messages.push(message) })
+
+  frame.dispatch('load')
+
+  expect(messages).toEqual([{ type: MESSAGE.cue, annotations: [0] }])
 })
 
 test('a url frame that failed to report ready is replaced on its next resolution', async () => {

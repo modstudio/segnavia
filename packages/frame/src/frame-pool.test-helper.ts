@@ -151,21 +151,26 @@ export function state(index: number, content: ResolvedContent): DeckState {
   return { ...initialDeckState(), deck, index, slide: deck.slides[index] ?? null, content }
 }
 
-export function harness(contents: ResolvedContent[], timeout = 10) {
+export function harness(contents: ResolvedContent[], timeout = 10, loaded: (slideId: string) => void = () => {}) {
   const host = new FramePoolTestElement('host')
   host.isConnected = true
   const errors: Error[] = []
   const events: FrameEvent[] = []
-  const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
-    mounted: (slideId, content) =>
-      events.push({
-        kind: 'mounted',
-        slideId,
-        content,
-        connected: host.querySelectorAll('iframe').some((frame) => frame.closest(`[data-slide-id="${slideId}"]`)?.isConnected),
-      }),
-    released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
-  })
+  const pool = new FramePool(
+    host as unknown as HTMLElement,
+    () => {},
+    {
+      mounted: (slideId, content) =>
+        events.push({
+          kind: 'mounted',
+          slideId,
+          content,
+          connected: host.querySelectorAll('iframe').some((frame) => frame.closest(`[data-slide-id="${slideId}"]`)?.isConnected),
+        }),
+      released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
+    },
+    loaded,
+  )
   const controller = {
     state: state(0, contents[0] as ResolvedContent),
     url: (path: string) => new URL(path, 'https://example.test/').href,

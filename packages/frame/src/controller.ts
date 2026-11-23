@@ -44,7 +44,7 @@ export class DeckController extends ControllerFrameServing {
   private shots = new Map<string, Promise<PublishedShot>>()
   private prefetched = new Map<string, Promise<ResolvedContent>>()
   private placementLifetime = new AbortController()
-  private lastCue = ''
+  private lastCue: string | undefined
   private presented: HTMLElement | null = null
   private bodyOverflow = ''
   private windowConnection = new ControllerWindowConnection()
@@ -359,7 +359,7 @@ export class DeckController extends ControllerFrameServing {
     const startMs = timeline.slides[index]?.startMs ?? 0
     this.current = { ...this.current, slide, content, playing, word: null, shown: null, progress: 0, elapsedMs: startMs, slideElapsedMs: 0 }
     this.playback.show(index)
-    this.lastCue = ''
+    this.lastCue = undefined
     if (playing) this.playback.startClock()
     this.emit()
     this.dispatchEvent(new CustomEvent('slide', { detail: { index } }))

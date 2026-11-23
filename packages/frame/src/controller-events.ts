@@ -1,8 +1,9 @@
 import type { DeckState } from './controller-types.ts'
+import { cueKey } from './cue-key.ts'
 
-export function emitControllerState(target: EventTarget, state: DeckState, lastCue: string): string {
+export function emitControllerState(target: EventTarget, state: DeckState, lastCue: string | undefined): string {
   target.dispatchEvent(new CustomEvent('change', { detail: state }))
-  const cue = state.shown === null ? 'all' : state.shown.join(',')
+  const cue = cueKey(state.shown)
   if (cue !== lastCue) target.dispatchEvent(new CustomEvent('cue', { detail: { annotations: state.shown } }))
   return cue
 }
