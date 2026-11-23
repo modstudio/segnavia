@@ -38,6 +38,10 @@ export interface PageValueRenderHandlers {
   fit(): void
 }
 
+function shownSlotDeclarations(page: HtmlPage, slots: SlotsOptions): Array<{ key: string }> {
+  return [...(page.slots ?? []), ...(slots.declarations ?? [])]
+}
+
 export function renderPageValue(
   page: Page,
   day: AsOfDay,
@@ -86,7 +90,7 @@ export function renderPageValue(
     }
     let sheets: string[]
     try {
-      slotHtml(resolvedPage.html, undefined, [...(resolvedPage.slots ?? []), ...(effectiveSlots.declarations ?? [])])
+      slotHtml(resolvedPage.html, undefined, shownSlotDeclarations(resolvedPage, effectiveSlots))
       sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
     } catch (error) {
       handlers.report(error)

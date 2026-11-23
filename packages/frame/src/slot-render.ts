@@ -75,7 +75,7 @@ export function prepareSlotCollection(
   return prepareHtmlSlotCollection(items, options, signal)
 }
 
-export function slotHtml(html: string, prepared: PreparedSlots | undefined, declarations: readonly SlotDeclaration[] = []): string {
+export function slotHtml(html: string, prepared: PreparedSlots | undefined, declarations: readonly { key: string }[] = []): string {
   return prepared && prepared !== EMPTY_SLOTS
     ? prepared.apply(html)
     : refuseUndefinedSlotPaths(html, [...declarations.map((slot) => slot.key), ...AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)])
