@@ -44,6 +44,64 @@ function pageHasSlotWork(page: HtmlPage, slots: SlotsOptions): boolean {
   return work
 }
 
+function pageHasSlotWorkOrReport(page: HtmlPage, slots: SlotsOptions, handlers: PageValueRenderHandlers): boolean | undefined {
+  try {
+    return pageHasSlotWork(page, slots)
+  } catch (error) {
+    handlers.report(error)
+    handlers.fit()
+  }
+}
+
+function renderUnexpandedPage(
+  page: Page,
+  resolvedPage: HtmlPage,
+  effectiveSlots: SlotsOptions,
+  signal: AbortSignal,
+  options: PageValueRenderOptions,
+  handlers: PageValueRenderHandlers,
+): void {
+  const motifRefusal = framePageMotifRefusal(resolvedPage)
+  if (motifRefusal) {
+    handlers.report(motifRefusal)
+    handlers.fit()
+    return
+  }
+  let sheets: string[]
+  try {
+    sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
+  } catch (error) {
+    handlers.report(error)
+    handlers.fit()
+    return
+  }
+  const provisional = pageHasSlotWorkOrReport(resolvedPage, effectiveSlots, handlers)
+  if (provisional === undefined) return
+  loadPageDocument(
+    resolvedPage,
+    {
+      scripts: page.scripts,
+      dir: pageDirection(resolvedPage),
+      lang: page.lang,
+      sheets,
+      css: options.css,
+      csp: options.csp,
+      origins: options.origins,
+      relayKeys: false,
+      preflight: resolvePreflightProfile(options.profile),
+    },
+    (document, hasLayoutScripts) => handlers.write(document, provisional, hasLayoutScripts),
+    handlers.report,
+  )
+  const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
+  if (refusal) handlers.report(refusal)
+  else if (provisional)
+    void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
+      .then((resolved) => handlers.show(resolvedPage, resolved))
+      .catch(handlers.report)
+  handlers.fit()
+}
+
 export function renderPageValue(
   page: Page,
   day: AsOfDay,
@@ -84,44 +142,7 @@ export function renderPageValue(
       handlers.fit()
       return
     }
-    const motifRefusal = framePageMotifRefusal(resolvedPage)
-    if (motifRefusal) {
-      handlers.report(motifRefusal)
-      handlers.fit()
-      return
-    }
-    let sheets: string[]
-    try {
-      sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
-    } catch (error) {
-      handlers.report(error)
-      handlers.fit()
-      return
-    }
-    const provisional = pageHasSlotWork(resolvedPage, effectiveSlots)
-    loadPageDocument(
-      resolvedPage,
-      {
-        scripts: page.scripts,
-        dir: pageDirection(resolvedPage),
-        lang: page.lang,
-        sheets,
-        css: options.css,
-        csp: options.csp,
-        origins: options.origins,
-        relayKeys: false,
-        preflight: resolvePreflightProfile(options.profile),
-      },
-      (document, hasLayoutScripts) => handlers.write(document, provisional, hasLayoutScripts),
-      handlers.report,
-    )
-    const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
-    if (refusal) handlers.report(refusal)
-    else if (provisional)
-      void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
-        .then((resolved) => handlers.show(resolvedPage, resolved))
-        .catch(handlers.report)
-    handlers.fit()
+    renderUnexpandedPage(page, resolvedPage, effectiveSlots, signal, options, handlers)
     return
   }
   void prepareShownPage(resolvedPage, options.motifs, slots, options.fonts, signal, options.placements, options.widths, day)
