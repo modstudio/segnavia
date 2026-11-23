@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { deckLoadOptions, validateWatchedSeed } from './watched-seed.ts'
+import { deckLoadOptions } from './deck-load-options.ts'
+import { validateWatchedSeed } from './watched-seed.ts'
 
 const entry = { slideId: 'one', reached: true, watchedThrough: false }
 

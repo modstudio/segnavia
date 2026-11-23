@@ -20,3 +20,10 @@ export function takePlayerWatched(player: object): WatchedSeed | undefined {
   watchedByPlayer.delete(player)
   return watched
 }
+
+export function queuePlayerSourceLoad(player: object, src: string, load: (src: string, options: { watched: WatchedSeed } | undefined) => Promise<void>): void {
+  queueMicrotask(() => {
+    const watched = takePlayerWatched(player)
+    void load(src, watched ? { watched } : undefined).catch(() => {})
+  })
+}

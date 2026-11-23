@@ -79,7 +79,10 @@ have no meaning. `watchedThrough` takes precedence over spans. Entries whose
 slide ids are absent from the loaded edition are dropped rather than applied by
 position. The seed carries watched facts only, never a completion threshold:
 the loaded deck's `completeAt` computes completion and reach is derived from the
-facts. A seed already meeting that threshold emits `complete` once, after the
+facts. Under `seek: 'furthest'`, a host-initiated load carrying a seed opens at
+that reach even when it replaces another deck; a hash-selected slide takes
+precedence. An edition replay instead keeps the currently shown slide by
+identity while replaying the seed facts. A seed already meeting that threshold emits `complete` once, after the
 first `change` for the load. `watched`, `complete`, and `share` are client reports, not proof: a
 host that gates anything on them verifies the report on its server.
 

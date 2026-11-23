@@ -36,7 +36,7 @@ import { PLAYER_MARKUP } from './player-markup.ts'
 import { connectPlayerRefusal } from './player-refusal.ts'
 import { PlayerSoundPlayback } from './player-sound.ts'
 import { PLAYER_CSS } from './player-style.ts'
-import { definePlayerWatchedPropertyAccessor, takePlayerWatched } from './player-watched.ts'
+import { definePlayerWatchedPropertyAccessor, queuePlayerSourceLoad } from './player-watched.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaRefusal } from './refusal.ts'
 import type { SegnaviaStage } from './stage.ts'
@@ -143,6 +143,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   get rail(): boolean {
     return this.hasAttribute('rail')
   }
+
   set rail(value: boolean) {
     this.toggleAttribute('rail', value)
   }
@@ -222,8 +223,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     if (name === 'edition') this.controller.edition = value ?? undefined
     if (name === 'src' && value) {
       this.passPlayerOptions()
-      const watched = takePlayerWatched(this)
-      void this.controller.loadUrl(value, watched ? { watched } : undefined).catch(() => {})
+      queuePlayerSourceLoad(this, value, (src, options) => this.controller.loadUrl(src, options))
     }
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
     if (name === 'notes' && this.controller.state.deck) {

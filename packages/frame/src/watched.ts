@@ -1,3 +1,5 @@
+import type { WatchedSeed } from './watched-seed.ts'
+
 export interface Position {
   index: number
   ms: number
@@ -29,8 +31,6 @@ export interface WatchedSlideSource {
   id: string
   durationMs: number | null
 }
-
-import type { WatchedSeed } from './watched-seed.ts'
 
 export function mergeSpans(spans: readonly PlayedSpan[]): PlayedSpan[] {
   const ordered = spans

@@ -217,7 +217,7 @@ export default defineConfig({ plugins: [vue({ template: { compilerOptions: { isC
 ```vue
 <script setup lang="ts">
 import '@segnavia/frame/player'
-import type { DeckState, SegnaviaPlayer, WatchedSeed } from '@segnavia/frame/player'
+import type { DeckState, SegnaviaPlayer } from '@segnavia/frame/player'
 import { onMounted, onUnmounted, ref } from 'vue'
 
 const player = ref<SegnaviaPlayer | null>(null)
@@ -253,7 +253,7 @@ The same controller API works with plain custom elements:
 
 ```ts
 import '@segnavia/frame/player'
-import type { DeckState, SegnaviaPlayer } from '@segnavia/frame/player'
+import type { DeckState, SegnaviaPlayer, WatchedSeed } from '@segnavia/frame/player'
 
 const player = document.querySelector<SegnaviaPlayer>('segnavia-player')!
 const savedWatched: WatchedSeed = await fetch('/api/progress').then((response) => response.json())

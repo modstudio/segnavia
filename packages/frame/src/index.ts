@@ -52,6 +52,7 @@ export {
   type SeekPolicy,
   type WatchedSeed,
   type WatchedSeedEntry,
+  type WatchedSeedSpan,
   type WatchedState,
 } from './controller.ts'
 export { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'

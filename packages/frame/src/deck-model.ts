@@ -1,6 +1,7 @@
 export { formatTime } from './control-values.ts'
 export type { ControllerOptions, DeckState, ResolvedContent } from './controller-types.ts'
+export type { DeckLoadOptions } from './deck-load-options.ts'
 export { HEADLESS_ELEMENTS } from './headless-elements.ts'
 export type { SeekPolicy } from './navigation-limit.ts'
 export type { WatchedState } from './watched.ts'
-export type { DeckLoadOptions, WatchedSeed, WatchedSeedEntry } from './watched-seed.ts'
+export type { WatchedSeed, WatchedSeedEntry, WatchedSeedSpan } from './watched-seed.ts'

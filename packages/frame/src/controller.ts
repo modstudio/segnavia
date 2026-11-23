@@ -1,4 +1,5 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
+import { resolveControllerDeck } from './controller-deck-resolution.ts'
 import { ControllerEdition } from './controller-edition.ts'
 import { emitControllerComplete, emitControllerState } from './controller-events.ts'
 import { ControllerFrameServing } from './controller-frame-serving.ts'
@@ -11,12 +12,14 @@ import { handleControllerPageKey } from './controller-page-key.ts'
 import { replacePlacementLifetime, setPlacementOptions } from './controller-placement-options.ts'
 import { ControllerPlayback } from './controller-playback.ts'
 import { type ContentRefreshResult, refreshControllerContent } from './controller-refresh.ts'
-import { resolveFreshContent } from './controller-resolution.ts'
+import { resolveFreshContent, takeResolvedContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
-import { resetControllerWatched, seededStartIndex } from './controller-watched-seed.ts'
-import { internalDeckLoad, resolveDeckLoad } from './deck-load-origin.ts'
+import { resetControllerWatched } from './controller-watched-seed.ts'
+import { ControllerWindowConnection } from './controller-window.ts'
+import { type DeckLoadOptions, reportedDeckLoadOptions } from './deck-load-options.ts'
+import { internalDeckLoad } from './deck-load-origin.ts'
 import { DeckPlaybackState } from './deck-playback-state.ts'
-import { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
+import { SlideRefusedError } from './deck-refusal.ts'
 import { dispatchElementError } from './element-error.ts'
 import type { DeckAction } from './keys.ts'
 import { navigationError, slideIdAt } from './navigation-error.ts'
@@ -26,10 +29,10 @@ import type { PlaybackState } from './playback.ts'
 import { hasWindow } from './schedule.ts'
 import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
 import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from './viewer-settings.ts'
-import { type DeckLoadOptions, type DeckLoadOptionsInput, deckLoadOptions } from './watched-seed.ts'
 
 export type { ControllerOptions, DeckState, ResolvedContent, SeekPolicy, WatchedState } from './controller-types.ts'
-export type { DeckLoadOptions, WatchedSeed, WatchedSeedEntry } from './watched-seed.ts'
+export type { DeckLoadOptions } from './deck-load-options.ts'
+export type { WatchedSeed, WatchedSeedEntry, WatchedSeedSpan } from './watched-seed.ts'
 export class DeckController extends ControllerFrameServing {
   declare edition: string | undefined
   private options: ControllerOptions
@@ -44,7 +47,7 @@ export class DeckController extends ControllerFrameServing {
   private lastCue = ''
   private presented: HTMLElement | null = null
   private bodyOverflow = ''
-  private listening = false
+  private windowConnection = new ControllerWindowConnection()
   private completeEmitted = false
   private editions: ControllerEdition
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
@@ -54,7 +57,7 @@ export class DeckController extends ControllerFrameServing {
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
     this.options = { hash: null, keys: 'stage', seek: 'free', completeAt: 1, ...options }
-    this.editions = new ControllerEdition(this.options, (load) => void this.loadDeck(load.input, load.options, false).catch(() => {}))
+    this.editions = new ControllerEdition(this.options, (load) => void this.loadDeck(load.input, load.options, false, true).catch(() => {}))
     this.editions.attach(this)
     this.playback = new ControllerPlayback({
       state: () => this.current,
@@ -110,31 +113,29 @@ export class DeckController extends ControllerFrameServing {
     this.disconnectWindow()
   }
   connectWindow() {
-    if (!hasWindow || this.listening) return
-    if (this.options.hash) window.addEventListener('hashchange', this.onHash)
-    if (this.options.keys === 'page') window.addEventListener('keydown', this.onPageKey)
-    this.listening = true
+    this.windowConnection.connect(this.options.hash, this.options.keys, this.onHash, this.onPageKey)
   }
   disconnectWindow() {
-    if (!hasWindow || !this.listening) return
-    window.removeEventListener('hashchange', this.onHash)
-    window.removeEventListener('keydown', this.onPageKey)
-    this.listening = false
+    this.windowConnection.disconnect(this.onHash, this.onPageKey)
   }
-  async loadUrl(src: string, options?: DeckLoadOptionsInput): Promise<void> {
-    const parsed = deckLoadOptions(options)
+  async loadUrl(src: string, options?: string | DeckLoadOptions): Promise<void> {
+    const parsed = reportedDeckLoadOptions(this, options, src)
     await loadControllerUrl(this, src, (input, base) => this.loadDeck(input, { ...parsed, base: parsed.base ?? base }, false))
   }
-  async load(input: unknown, options?: DeckLoadOptionsInput): Promise<void> {
-    await this.loadDeck(input, deckLoadOptions(options), false)
+
+  async load(input: unknown, options?: string | DeckLoadOptions): Promise<void> {
+    await this.loadDeck(input, reportedDeckLoadOptions(this, options), false)
   }
-  async loadDeckValue(input: unknown, options?: DeckLoadOptionsInput): Promise<void> {
-    await this.loadDeck(input, deckLoadOptions(options), true)
+
+  async loadDeckValue(input: unknown, options?: string | DeckLoadOptions): Promise<void> {
+    await this.loadDeck(input, reportedDeckLoadOptions(this, options), true)
   }
+
   async [internalDeckLoad](input: Deck): Promise<void> {
     await this.loadDeck(input, {}, true)
   }
-  private async loadDeck(input: unknown, loadOptions: DeckLoadOptions, internal: boolean): Promise<void> {
+
+  private async loadDeck(input: unknown, loadOptions: DeckLoadOptions, internal: boolean, editionReplay = false): Promise<void> {
     this.editions.record(input, loadOptions, internal)
     const { base, watched } = loadOptions
     const lifetime = replacePlacementLifetime(this.placementLifetime)
@@ -142,31 +143,29 @@ export class DeckController extends ControllerFrameServing {
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
     if (guarded) await guarded
     if (base) this.options.base = base
-    let deck: Deck
-    try {
-      deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal, this.options.edition)
-    } catch (error) {
-      if (lifetime.signal.aborted) return
-      const refusal = new DeckRefusedError(error, base)
-      dispatchElementError(this, refusal)
-      throw error
-    }
-    if (lifetime.signal.aborted) return
+    const deck = await resolveControllerDeck(this, input, this.options.brands?.source, lifetime.signal, guarded, internal, this.options.edition, base)
+    if (!deck || lifetime.signal.aborted) return
     this.prefetched.clear()
     this.shots.clear()
-    const wasOpen = this.current.deck !== null
     const hashIndex = controllerHashIndex(deck, this.options.hash)
-    const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, hashIndex)
+    const seeded = resetControllerWatched(this.playback, deck, watched)
+    const loaded = stateForDeckLoad(
+      this.current,
+      deck,
+      this.settings.captionsVisible,
+      this.options,
+      hashIndex,
+      seeded.reach.index,
+      editionReplay,
+      watched !== undefined,
+    )
     this.current = { ...this.current, ...loaded }
     this.completeEmitted = false
-    const seeded = resetControllerWatched(this.playback, deck, loaded.index, watched)
-    const resumeIndex = seededStartIndex(loaded.index, deck.slides.length, wasOpen, hashIndex, loaded.seek, seeded.reach.index, watched)
-    if (resumeIndex !== loaded.index) this.current = { ...this.current, index: resumeIndex, slide: deck.slides[resumeIndex] ?? null }
     try {
-      await this.show(resumeIndex)
+      await this.show(loaded.index)
     } catch (error) {
       if (lifetime.signal.aborted || this.current.deck !== deck) throw error
-      const refusal = new SlideRefusedError(resumeIndex, slideIdAt(deck, resumeIndex), error)
+      const refusal = new SlideRefusedError(loaded.index, slideIdAt(deck, loaded.index), error)
       dispatchElementError(this, refusal)
       throw error
     }
@@ -370,10 +369,9 @@ export class DeckController extends ControllerFrameServing {
   private prefetch() {
     prefetchControllerNeighbors(this.options.prefetch, this.current.deck, this.current.index, (index) => this.contentFor(index))
   }
+
   private resolve(slide: Slide, index: number): Promise<ResolvedContent> {
-    const ready = this.prefetched.get(slide.id)
-    this.prefetched.delete(slide.id)
-    return ready ?? this.resolveFresh(slide, index)
+    return takeResolvedContent(this.prefetched, slide.id, () => this.resolveFresh(slide, index))
   }
   private async resolveFresh(slide: Slide, index: number): Promise<ResolvedContent> {
     return resolveFreshContent(

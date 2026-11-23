@@ -12,13 +12,6 @@ export interface WatchedSeedEntry {
 
 export type WatchedSeed = readonly WatchedSeedEntry[]
 
-export interface DeckLoadOptions {
-  base?: string
-  watched?: WatchedSeed
-}
-
-export type DeckLoadOptionsInput = string | DeckLoadOptions | undefined
-
 const ENTRY_LIMIT = 10_000
 const SLIDE_ID_LIMIT = 256
 const SPAN_LIMIT = 1_000
@@ -77,10 +70,4 @@ export function validateWatchedSeed(input: unknown): WatchedSeed {
     seen.set(entry.slideId, index)
     return entry
   })
-}
-
-export function deckLoadOptions(input: DeckLoadOptionsInput): DeckLoadOptions {
-  if (typeof input === 'string') return { base: input }
-  if (!input) return {}
-  return { base: input.base, watched: input.watched === undefined ? undefined : validateWatchedSeed(input.watched) }
 }

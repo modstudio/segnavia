@@ -1,4 +1,4 @@
-import type { DeckLoadOptions } from './watched-seed.ts'
+import type { DeckLoadOptions } from './deck-load-options.ts'
 
 interface EditionOptions {
   edition?: string
