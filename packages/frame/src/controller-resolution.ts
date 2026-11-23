@@ -5,6 +5,16 @@ import { referenceOverrides, resolvedPublishedShot } from './controller-options.
 import type { ControllerOptions, ResolvedContent } from './controller-types.ts'
 import { resolveMediaContent } from './print-document.ts'
 
+export function takeResolvedContent(
+  prefetched: Map<string, Promise<ResolvedContent>>,
+  slideId: string,
+  resolve: () => Promise<ResolvedContent>,
+): Promise<ResolvedContent> {
+  const ready = prefetched.get(slideId)
+  prefetched.delete(slideId)
+  return ready ?? resolve()
+}
+
 export async function resolveFreshContent(
   slide: Slide,
   index: number,

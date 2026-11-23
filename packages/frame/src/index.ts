@@ -43,7 +43,18 @@ export type { BrandsOptions } from './brands.ts'
 export { bridgeForHost, frameDocument, MESSAGE, type PageSelection, RELAYED_KEYS, StyleSheetRefusedError } from './bridge.ts'
 export type { FontFailureDetail } from './bridge-message.ts'
 export { formatTime } from './control-values.ts'
-export { type ControllerOptions, DeckController, type DeckState, type ResolvedContent, type SeekPolicy, type WatchedState } from './controller.ts'
+export {
+  type ControllerOptions,
+  DeckController,
+  type DeckLoadOptions,
+  type DeckState,
+  type ResolvedContent,
+  type SeekPolicy,
+  type WatchedSeed,
+  type WatchedSeedEntry,
+  type WatchedSeedSpan,
+  type WatchedState,
+} from './controller.ts'
 export { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
 export type { DesignedCover } from './designed-cover-policy.ts'
 export { SegnaviaDocument } from './document.ts'

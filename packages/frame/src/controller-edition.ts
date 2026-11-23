@@ -1,10 +1,12 @@
+import type { DeckLoadOptions } from './deck-load-options.ts'
+
 interface EditionOptions {
   edition?: string
 }
 
 interface EditionLoad {
   input: unknown
-  base?: string
+  options: DeckLoadOptions
   internal: boolean
 }
 
@@ -36,7 +38,7 @@ export class ControllerEdition {
     })
   }
 
-  record(input: unknown, base: string | undefined, internal: boolean): void {
-    this.lastLoad = { input, base, internal }
+  record(input: unknown, options: DeckLoadOptions, internal: boolean): void {
+    this.lastLoad = { input, options, internal }
   }
 }

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { Clock } from './clock.ts'
 import { DeckController } from './controller.ts'
+import { stateForDeckLoad } from './controller-load.ts'
 import type { SeekPolicy } from './navigation-limit.ts'
 
 const timedDeck = (count = 1) => ({
@@ -192,6 +193,98 @@ test('complete fires once for each loaded deck', async () => {
 
   await controller.loadDeckValue({ title: 'Untimed', slides: [{ id: 'still', content: { kind: 'html', html: '' } }] })
   expect(completes).toBe(2)
+})
+
+test('a seed sets the first state, opens the furthest reached slide, and drops absent ids', async () => {
+  const { controller } = harness({ seek: 'furthest' })
+  const changes: Array<{ index: number; watchedMs: number }> = []
+  controller.addEventListener('change', () => changes.push({ index: controller.state.index, watchedMs: controller.state.watched.ms }))
+  await controller.loadDeckValue(timedDeck(5), {
+    watched: [
+      ...Array.from({ length: 4 }, (_, index) => ({ slideId: String(index), reached: true, watchedThrough: true })),
+      { slideId: '4', reached: true, watchedThrough: false },
+      { slideId: 'absent', reached: true, watchedThrough: true },
+    ],
+  })
+
+  expect(controller.state.index).toBe(4)
+  expect(controller.state.slideElapsedMs).toBe(0)
+  expect(controller.state.watched).toMatchObject({ ms: 4000, reach: { index: 4, ms: 0 }, complete: false })
+  expect(changes[0]).toEqual({ index: 4, watchedMs: 4000 })
+})
+
+test('a seeded load after another deck opens at the new deck reach', async () => {
+  const { controller } = harness({ seek: 'furthest' })
+  await controller.loadDeckValue(timedDeck(2))
+  await controller.loadDeckValue(timedDeck(5), {
+    watched: [
+      ...Array.from({ length: 3 }, (_, index) => ({ slideId: String(index), reached: true, watchedThrough: true })),
+      { slideId: '3', reached: true, watchedThrough: false },
+    ],
+  })
+
+  expect(controller.state.index).toBe(3)
+})
+
+test('an edition replay after a seeded load keeps the shown slide', async () => {
+  const { controller } = harness({ seek: 'furthest' })
+  const document = {
+    type: 'document' as const,
+    kind: 'deck' as const,
+    title: 'Editions',
+    conditions: [{ type: 'condition' as const, name: 'teacher' }],
+    editions: [
+      { type: 'edition' as const, name: 'student', conditions: [] },
+      { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    children: Array.from({ length: 3 }, (_, index) => ({
+      type: 'slide' as const,
+      id: String(index),
+      holdMs: 1000,
+      content: { kind: 'html' as const, html: '' },
+    })),
+  }
+  await controller.load(document, { watched: [{ slideId: '0', reached: true, watchedThrough: true }] })
+  await controller.go(1)
+  const changed = new Promise<void>((resolve) => controller.addEventListener('change', () => resolve(), { once: true }))
+
+  controller.edition = 'teacher'
+  await changed
+
+  expect(controller.state.index).toBe(1)
+})
+
+test('a hash index wins over a seeded reach', async () => {
+  const controller = new DeckController({ hash: null, persist: false })
+  await controller.loadDeckValue(timedDeck(4))
+  const deck = controller.state.deck
+  if (!deck) throw new Error('deck was not loaded')
+  const current = controller.state
+  const loaded = stateForDeckLoad(current, deck, false, { seek: 'furthest' }, 1, 3, false, true)
+
+  expect(loaded.index).toBe(1)
+})
+
+test('a complete seed fires complete once after its first change', async () => {
+  const { controller } = harness()
+  const events: string[] = []
+  controller.addEventListener('change', () => events.push('change'))
+  controller.addEventListener('complete', () => events.push('complete'))
+
+  await controller.loadDeckValue(timedDeck(), { watched: [{ slideId: '0', reached: true, watchedThrough: true }] })
+
+  expect(events).toEqual(['change', 'complete'])
+  expect(controller.state.watched.complete).toBe(true)
+})
+
+test('load methods keep the string base overload and validate watched options', async () => {
+  const { controller } = harness()
+  await controller.loadDeckValue(timedDeck(), 'https://example.test/decks/')
+  expect(controller.url('audio.mp3')).toBe('https://example.test/decks/audio.mp3')
+  await expect(controller.loadDeckValue(timedDeck(), { watched: [{ slideId: '0', reached: true, watchedThrough: 1 }] as never })).rejects.toThrow(
+    'watched[0].watchedThrough must be a boolean',
+  )
 })
 
 test('autoplay observes the final tick before furthest navigation ends', async () => {

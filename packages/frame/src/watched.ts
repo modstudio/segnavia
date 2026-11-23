@@ -1,3 +1,5 @@
+import type { WatchedSeed } from './watched-seed.ts'
+
 export interface Position {
   index: number
   ms: number
@@ -25,6 +27,11 @@ export interface WatchedState {
   complete: boolean
 }
 
+export interface WatchedSlideSource {
+  id: string
+  durationMs: number | null
+}
+
 export function mergeSpans(spans: readonly PlayedSpan[]): PlayedSpan[] {
   const ordered = spans
     .filter(({ startMs, endMs }) => endMs > startMs)
@@ -39,8 +46,18 @@ export function mergeSpans(spans: readonly PlayedSpan[]): PlayedSpan[] {
   return merged
 }
 
-export function createWatchedModel(durations: readonly (number | null)[]): WatchedModel {
-  return { slides: durations.map((durationMs) => ({ durationMs, spans: [], shown: false })) }
+export function createWatchedModel(sources: readonly WatchedSlideSource[], seed: WatchedSeed = []): WatchedModel {
+  const facts = new Map(seed.map((entry) => [entry.slideId, entry]))
+  return {
+    slides: sources.map(({ id, durationMs }) => {
+      const entry = facts.get(id)
+      if (durationMs === null) return { durationMs, spans: [], shown: Boolean(entry?.reached || entry?.watchedThrough) }
+      const spans = entry?.watchedThrough
+        ? mergeSpans([{ startMs: 0, endMs: durationMs }])
+        : mergeSpans((entry?.spans ?? []).map(({ startMs, endMs }) => ({ startMs: Math.min(durationMs, startMs), endMs: Math.min(durationMs, endMs) })))
+      return { durationMs, spans, shown: false }
+    }),
+  }
 }
 
 export function addWatchedSpan(model: WatchedModel, index: number, startMs: number, endMs: number): WatchedModel {

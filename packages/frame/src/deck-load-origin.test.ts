@@ -100,6 +100,18 @@ test('changing a controller edition re-resolves its retained document and report
   expect((await refused).error.message).toContain('requested edition "missing" is unknown')
 })
 
+test('changing an edition replays the retained watched seed', async () => {
+  const controller = new DeckController({ hash: null, edition: 'student' })
+  await controller.load(editionDocument(), { watched: [{ slideId: 'a', reached: true, watchedThrough: true }] })
+  expect(controller.state.watched.complete).toBe(true)
+
+  const changed = new Promise<void>((resolve) => controller.addEventListener('change', () => resolve(), { once: true }))
+  controller.edition = 'teacher'
+  await changed
+
+  expect(controller.state.watched.complete).toBe(true)
+})
+
 test('host deck inputs are never mutated for load provenance', async () => {
   const frozen = Object.freeze(input())
   const deletionRefusing = new Proxy(input(), {

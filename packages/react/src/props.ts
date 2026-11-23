@@ -67,6 +67,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   forms?: FormsOption
   origins?: SegnaviaPlayer['origins']
   resolveSlide?: ControllerOptions['resolveSlide']
+  watched?: SegnaviaPlayer['watched']
   placements?: SegnaviaPlayer['placements']
   transition?: HostTransition
   slots?: SegnaviaPlayer['slots']

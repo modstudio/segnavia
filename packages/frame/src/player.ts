@@ -2,7 +2,7 @@
 // the components itself; a host that wants none of it uses the headless stage and controller.
 // Attributes: src, theme, notes, hash, prefetch, transition,
 // transition-duration, playback, captions, presentation and fit. Properties:
-// controller, resolveSlide, css, cspExtra, forms, labels and transition. The actions
+// controller, resolveSlide, watched, css, cspExtra, forms, labels and transition. The actions
 // and below slots add host chrome. Parts expose the player, stage, notes,
 // caption, bar, controls, track segments and caption words. Data attributes mirror the state for styling: data-slide,
 // data-playing, data-word, data-shown, data-direction and data-actions.
@@ -36,11 +36,13 @@ import { PLAYER_MARKUP } from './player-markup.ts'
 import { connectPlayerRefusal } from './player-refusal.ts'
 import { PlayerSoundPlayback } from './player-sound.ts'
 import { PLAYER_CSS } from './player-style.ts'
+import { definePlayerWatchedPropertyAccessor, queuePlayerSourceLoad } from './player-watched.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaRefusal } from './refusal.ts'
 import type { SegnaviaStage } from './stage.ts'
 import { createSourceController } from './stage-source-controller.ts'
 import { CONTROLLER_STYLED_ELEMENTS, STYLED_ELEMENTS } from './styled-elements.ts'
+import type { WatchedSeed } from './watched-seed.ts'
 
 const COMPONENTS = Object.values(STYLED_ELEMENTS)
   .filter((tag) => tag !== STYLED_ELEMENTS.player)
@@ -56,6 +58,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   static {
     definePlayerForwardedPropertyAccessors(SegnaviaPlayer.prototype)
     defineEditionPropertyAccessor(SegnaviaPlayer.prototype)
+    definePlayerWatchedPropertyAccessor(SegnaviaPlayer.prototype)
   }
   static observedAttributes = PLAYER_ATTRIBUTES
   declare anchors: PlayerForwardedProperties['anchors']
@@ -68,6 +71,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   declare origins: PlayerForwardedProperties['origins']
   declare slots: PlayerForwardedProperties['slots']
   declare transition: PlayerForwardedProperties['transition']
+  declare watched: WatchedSeed | undefined
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
@@ -118,11 +122,9 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.syncAssignedActions()
     upgradeProperties(this)
   }
-
   get labels(): PlayerLabels {
     return this.words
   }
-
   // Labels are the host's to translate; every component takes them.
   set labels(labels: Partial<PlayerLabels>) {
     this.words = playerLabels(labels)
@@ -131,7 +133,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     if (this.controller.state.deck) this.update(this.controller.state)
     this.dispatchEvent(new CustomEvent('segnavia-labels'))
   }
-
   set resolveSlide(resolve: DeckController['resolveSlide']) {
     this.controller.resolveSlide = resolve
   }
@@ -139,7 +140,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.controller.serveFrame = value
     this.stage.serveFrame = value
   }
-
   get rail(): boolean {
     return this.hasAttribute('rail')
   }
@@ -223,7 +223,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     if (name === 'edition') this.controller.edition = value ?? undefined
     if (name === 'src' && value) {
       this.passPlayerOptions()
-      void this.controller.loadUrl(value).catch(() => {})
+      queuePlayerSourceLoad(this, value, (src, options) => this.controller.loadUrl(src, options))
     }
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
     if (name === 'notes' && this.controller.state.deck) {

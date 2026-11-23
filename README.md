@@ -253,9 +253,12 @@ The same controller API works with plain custom elements:
 
 ```ts
 import '@segnavia/frame/player'
-import type { DeckState, SegnaviaPlayer } from '@segnavia/frame/player'
+import type { DeckState, SegnaviaPlayer, WatchedSeed } from '@segnavia/frame/player'
 
 const player = document.querySelector<SegnaviaPlayer>('segnavia-player')!
+const savedWatched: WatchedSeed = await fetch('/api/progress').then((response) => response.json())
+player.watched = savedWatched
+player.setAttribute('src', '/deck.json')
 const controller = player.controller
 controller.setPlayerOptions({ seek: 'furthest' })
 const changed = () => {

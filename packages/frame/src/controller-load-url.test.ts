@@ -35,3 +35,47 @@ test('a non-ok response dispatches one deck refusal and preserves the rejection'
   expect(errors[0]?.error).toMatchObject({ subject: url })
   expect(errors[0]?.error.cause).toBeInstanceOf(Error)
 })
+
+test('a URL load accepts watched facts and an explicit content base', async () => {
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      Response.json({
+        type: 'document',
+        kind: 'deck',
+        title: 'Resume',
+        children: [{ type: 'slide', id: 'one', holdMs: 100, content: { kind: 'html', html: '' } }],
+      }),
+    )) as unknown as typeof fetch
+  const controller = new DeckController({ hash: null, persist: false })
+
+  await controller.loadUrl('https://example.test/deck.json', {
+    base: 'https://assets.example.test/deck/',
+    watched: [{ slideId: 'one', reached: true, watchedThrough: true }],
+  })
+
+  expect(controller.state.watched.complete).toBe(true)
+  expect(controller.url('voice.mp3')).toBe('https://assets.example.test/deck/voice.mp3')
+})
+
+test('refused watched seeds dispatch deck refusals for every load method before loading', async () => {
+  let fetches = 0
+  globalThis.fetch = (() => {
+    fetches++
+    return Promise.resolve(Response.json({}))
+  }) as unknown as typeof fetch
+  const controller = new DeckController({ hash: null, persist: false })
+  const errors: ErrorEvent[] = []
+  controller.addEventListener('error', (event) => errors.push(event as ErrorEvent))
+  const options = { watched: [{ slideId: 'one', reached: 1, watchedThrough: true }] as never }
+
+  await expect(controller.loadUrl('https://example.test/deck.json', options)).rejects.toThrow(RangeError)
+  await expect(controller.load({}, options)).rejects.toThrow(RangeError)
+  await expect(controller.loadDeckValue({}, options)).rejects.toThrow(RangeError)
+
+  expect(fetches).toBe(0)
+  expect(errors).toHaveLength(3)
+  for (const event of errors) {
+    expect(event.error).toBeInstanceOf(DeckRefusedError)
+    expect(event.error.cause).toBeInstanceOf(RangeError)
+  }
+})
