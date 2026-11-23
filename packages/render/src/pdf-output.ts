@@ -4,16 +4,18 @@ import type { RenderOptions } from './options.ts'
 import { finishPdf } from './pdf-finish.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
+import type { RenderProgressReporter } from './progress.ts'
 
 export async function finishPdfWithBrowser(
   pdf: Uint8Array,
   options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
   withTab: TabRunner,
   deadline?: RenderDeadline,
+  progress?: RenderProgressReporter,
 ): Promise<Uint8Array> {
-  if (!options.press) return finishPdf(pdf, options)
+  if (!options.press) return finishPdf(pdf, options, undefined, progress)
   return withTab(
     { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false), deadline },
-    (tab) => finishPdf(pdf, options, browserJpegDecoder(tab)),
+    (tab) => finishPdf(pdf, options, browserJpegDecoder(tab), progress),
   )
 }

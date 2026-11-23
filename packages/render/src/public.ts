@@ -36,6 +36,7 @@ export type {
 } from './options.ts'
 export { type MergedPdf, type MergePart, type PdfPartRefusal, PdfPartsRefusedError } from './pdf-merge.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
+export type { RenderProgress, RenderProgressOptions, RenderStage } from './progress.ts'
 export type { PdfPermissions, Protection } from './protection-options.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
 export {

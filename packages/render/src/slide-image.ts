@@ -14,6 +14,7 @@ import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } 
 import { outputDate } from './output-date.ts'
 import { surfacePreflight } from './preflight.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
+import { renderProgressReporter } from './progress.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { readinessRefusal, recordedLayoutRefusal, renderReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
@@ -60,7 +61,8 @@ export async function renderSlideImage(
   const resolvedLayoutScripts = await services.layoutScripts(slideHtml)
   const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
   const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, layoutScripts: resolvedLayoutScripts })
-  return services.withTab(
+  const progress = renderProgressReporter(opts.progress, ['set', 'finish'])
+  const output = await services.withTab(
     {
       viewport: deck.size,
       scripts: true,
@@ -90,8 +92,12 @@ export async function renderSlideImage(
         }),
       )
       if (watermark) await injectImageWatermark(tab, watermark, { scripts: true, origins: opts.origins }, font.fontFaceCss)
-      const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
+      const captured = await captureImage(tab, proofCaptureOptions(opts), false)
+      progress.report('set', 1, 1)
+      const image = await proofCapturedImage(tab, captured, opts)
       return enforceImageBytes(stampImage(image, outputDate([established.day])), opts.limits?.bytes)
     },
   )
+  progress.report('finish', 1, 1)
+  return output
 }

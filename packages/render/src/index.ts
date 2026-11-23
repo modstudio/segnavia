@@ -29,9 +29,7 @@ import {
   enforceDeckLimits,
   innerLimits,
   type OverflowEntry,
-  pageCompositionCount,
   parseImageRenderOptions,
-  refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { resolveRenderDayContext } from './page-as-of.ts'
@@ -48,6 +46,7 @@ import { createPdfPageImageOperation } from './pdf-page-image.ts'
 import { pagesTagged } from './pdf-tagging.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
+import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
 import { createProtectPdf } from './protect-pdf.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
@@ -138,8 +137,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       await context?.close().catch(() => {})
     }
   }
-  const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
-    finishPdfWithBrowser(pdf, options, withTab, deadline)
+  const finishWithBrowser = (
+    pdf: Uint8Array,
+    options: Parameters<typeof finishPdfWithBrowser>[1],
+    deadline?: RenderDeadline,
+    progress?: Parameters<typeof finishPdfWithBrowser>[4],
+  ) => finishPdfWithBrowser(pdf, options, withTab, deadline, progress)
   const renderer: Renderer = {
     mergePdfs: createMergePdfsOperation(acquire, release, RENDER_BOUND_MS),
     async stampPdf(bytes, opts = {}) {
@@ -155,6 +158,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
         const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
         const watermarkCopies = watermarkCopyStamper(parsedOptions, resolvedFontCss, deadline, withTab)
+        const progress = renderProgressReporter(
+          parsedOptions.progress,
+          renderProgressStages({ compose: book.mode === 'paginated', set: true, finish: true }),
+        )
         const output = await renderBrowserBookPdf(
           book,
           seededOptions,
@@ -163,7 +170,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             render: (setup, pdf, pageWidth, part) => withTab({ ...setup, deadline }, (tab) => printBookPartWithPlacedPdf(tab, pdf, pageWidth, part, options)),
             withTab: (setup, body) => withTab({ ...setup, deadline }, body),
             fontFaces: (options) => fontFaces(options.fonts),
-            finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+            finish: (pdf, options) => {
+              progress.report('set', 1, 1)
+              return finishWithBrowser(pdf, options, deadline, progress)
+            },
             watermark: parsedOptions.watermark
               ? async (pdf, pages) => {
                   const [watermarked] = await watermarkCopies.stamp([watermarkPartFromFacts(pdf, pages)])
@@ -196,9 +206,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
-        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page], parsedOptions.slots))
+        const stages = renderProgressStages({ compose: Boolean(prepared.page.printedPages), set: true, finish: true })
+        const progress = renderProgressReporter(parsedOptions.progress, stages)
         const watermarkCopies = watermarkCopyStamper(parsedOptions, prepared.fontCss, deadline, withTab)
-        const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
+        const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots, copyIndex) => {
+          const progressInput = parsedOptions.slots?.fills ? copyIndex : undefined
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, prepared.established.slots)
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
           const { value: page, slots } = await filledPage(pageWithDay, effectiveSlots, deadline.signal)
@@ -215,14 +227,16 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             resolvedLayoutScripts,
             Boolean(parsedOptions.watermark),
             pagesTagged([isPrintedHtmlPage(page)], false),
+            composeProgressReport(progress, progressInput),
           )
+          progress.report('set', 1, 1, progressInput)
           if (printed.overflow) overflows.push(printed.overflow)
           const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])
           return watermarked as Uint8Array
         })
         watermarkCopies.validate()
         const output = await withDocumentMetadata(
-          await finishWithBrowser(await addPdfOutline(bytes, prepared.outlineSource), prepared.options, deadline),
+          await finishWithBrowser(await addPdfOutline(bytes, prepared.outlineSource), prepared.options, deadline, progress),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
           printedPageDirection(prepared.page),
@@ -235,7 +249,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const parsedOptions = parsePageImageOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'screen')
-        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page]))
         return renderPreparedPageImage(prepared, parsedOptions, deadline, withTab)
       })
     },
@@ -248,7 +261,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const established = await resolveRenderDayContext(cover.page, options, deadline.signal)
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
-        refuseProgressUnlessOneComposition(options, pageCompositionCount([prepared.page]))
         return renderPreparedPageImage(prepared, options, deadline, withTab, surfacePreflight(options.preflight, 1))
       })
     },
@@ -261,7 +273,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async deckPdf(input, opts = {}) {
       const options = parseDeckPdfOptions(opts)
-      refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal, options.edition)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)
@@ -299,14 +310,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
         })
         watermarkCopies.validate()
-        const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
+        const progress = renderProgressReporter(options.progress, renderProgressStages({ set: true, impose: Boolean(options.imposition), finish: true }))
+        const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline, progress), undefined, outputDate([established.day]))
         return protectPdf(output, options, deadline)
       })
     },
 
     async slideImage(input, index, opts = {}) {
       const options = parseSlideImageOptions(opts)
-      refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal, options.edition)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)

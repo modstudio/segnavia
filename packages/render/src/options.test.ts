@@ -12,7 +12,6 @@ import {
   parseComposedRenderOptions,
   parseRenderOptions,
   type RenderOptions,
-  refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 
@@ -204,17 +203,6 @@ test('progress is normalized to one report function at the option edge', () => {
   expect(parseRenderOptions({ progress: { report } }).progress).toEqual({ report })
   expect(parseRenderOptions({}).progress).toBeUndefined()
   expect(() => parseRenderOptions({ progress: {} } as never)).toThrow('The progress option needs a report function')
-})
-
-test('progress is accepted only when a render runs one composition', () => {
-  const progress = { report: () => {} }
-  expect(() => refuseProgressUnlessOneComposition({ progress }, 1)).not.toThrow()
-  expect(() => refuseProgressUnlessOneComposition({ progress }, 2)).toThrow(
-    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
-  )
-  expect(() => refuseProgressUnlessOneComposition({ progress }, 0)).toThrow(
-    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
-  )
 })
 
 test('page composition count includes only printed pages and their output copies', () => {

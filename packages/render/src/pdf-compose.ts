@@ -67,13 +67,22 @@ function drawImposedSide(
   )
 }
 
-export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], sides: ImposedPdfSide[], markColor: MarkColor): Promise<Uint8Array> {
+export async function composeImposedPdf(
+  imposed: Imposed,
+  pieces: ImposedPdfPiece[],
+  sides: ImposedPdfSide[],
+  markColor: MarkColor,
+  progress?: (done: number, total: number) => void,
+): Promise<Uint8Array> {
   const output = await createPdf()
   const embedded = new Map<string, PDFEmbeddedPage>()
   for (const piece of pieces) embedded.set(piece.key, await embedOnePage(output, piece.bytes, piece.name))
+  const total = imposed.papers * sides.length
+  let done = 0
   for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
     for (const { boxes, marks } of sides) {
       drawImposedSide(output, imposed, embedded, pieces, paperIndex, boxes.side, boxes, marks, markColor)
+      progress?.(++done, total)
     }
   }
   return output.save()

@@ -7,6 +7,7 @@ import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
 import type { JpegDecoder } from './press/image.ts'
 import { assertPressImageOptions, DEFAULT_IMAGE_ENCODING, DEFAULT_IMAGE_QUALITY } from './press/image-options.ts'
+import type { RenderProgressReporter } from './progress.ts'
 
 async function sheets(pdf: Uint8Array): Promise<number> {
   return (await loadPdf(pdf)).getPageCount()
@@ -26,13 +27,26 @@ export function enforcePdfBytes(pdf: Uint8Array, limits: Limits | undefined): Ui
   return pdf
 }
 
-export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
+export function finishProgressTotal(options: Pick<RenderOptions, 'effects' | 'press'>): number {
+  return 1 + (options.effects === false ? 0 : 1) + (options.press ? 1 : 0)
+}
+
+export async function finishPdf(
+  pdf: Uint8Array,
+  options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
+  decodeJpeg?: JpegDecoder,
+  progress?: RenderProgressReporter,
+): Promise<Uint8Array> {
   enforcePdfBytes(pdf, options.limits)
+  const total = finishProgressTotal(options)
+  let done = 1
+  progress?.report('finish', done, total)
   let output = pdf
   if (options.effects !== false) {
     const rewritten = await rewriteEffectsPdf(output)
     output = rewritten.bytes
     options.effects?.report?.(rewritten.report)
+    progress?.report('finish', ++done, total)
   }
   if (options.press) {
     const neutralTolerance = options.press.neutralTolerance ?? DEFAULT_NEUTRAL_TOLERANCE
@@ -49,6 +63,7 @@ export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'e
     )
     output = converted.bytes
     options.press.report?.(converted.report)
+    progress?.report('finish', ++done, total)
   }
   return enforce(output, options.limits)
 }

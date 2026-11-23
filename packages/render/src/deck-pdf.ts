@@ -52,6 +52,7 @@ import { setPdfPageSize } from './pdf-page-size.ts'
 import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
 import { renderReadiness } from './render-readiness.ts'
 import type { Watermark } from './watermark-options.ts'
+import { renderProgressReporter, renderProgressStages, type RenderProgressReporter } from './progress.ts'
 
 export type DeckPdfOptions = ComposedRenderOptions & PrintOptions & { watermark?: Watermark }
 
@@ -82,6 +83,7 @@ interface DeckPdfServices {
   signal?: AbortSignal
   fontFailures?: FontFailure[]
   watermark?: DeckWatermark
+  progress?: RenderProgressReporter
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -229,6 +231,7 @@ async function regularDeckPdf(
     ),
     renderHtmlSlides(deck, opts, services, press, slideBaseCss, fontFailures, layoutScripts, preflight),
   ])
+  services.progress?.report('set', deck.slides.length, deck.slides.length)
   const output = await loadPdf(printable)
   await composeRegularSlides(output, deck, rendered, notesGeometry, pageOwners, press)
   let bytes = await output.save()
@@ -305,6 +308,7 @@ async function imposedDeckPdf(
       }
     }),
   )
+  services.progress?.report('set', deck.slides.length, deck.slides.length)
   const placements = new Map<number, Array<{ placement: (typeof imposed.placements)[number]; layout: ReturnType<typeof pagePlacementLayout> }>>()
   for (const placement of imposed.placements) {
     const fit = fitPage({ size: deck.size }, placement, imposition.fit)
@@ -319,7 +323,10 @@ async function imposedDeckPdf(
     bytes: watermarked[index] as Uint8Array,
     placements: placements.get(item.index) ?? [],
   }))
-  return services.finish(await composeImposedPdf(imposed, pieces, sides, imposition.markColor), opts)
+  return services.finish(
+    await composeImposedPdf(imposed, pieces, sides, imposition.markColor, (done, total) => services.progress?.report('impose', done, total)),
+    opts,
+  )
 }
 
 export async function renderDeckPdf(
@@ -339,10 +346,12 @@ export async function renderDeckPdf(
   const signal = services.signal ?? AbortSignal.any([])
   const resolvedFonts = await resolveDeckFonts(deck, opts, signal)
   const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', signal, day)
+  const progress = renderProgressReporter(opts.progress, renderProgressStages({ set: true, impose: Boolean(opts.imposition), finish: true }))
   const resolvedServices = {
     ...services,
     fontFailures: resolvedFonts.fontFailures,
     fontFaces: (options: RenderOptions) => `${resolvedFonts.fontCss}${services.fontFaces(options)}`,
+    progress,
   }
   const preflight = surfacePreflight(opts.preflight, deck.slides.length)
   opts = { ...opts, ...resolvedFonts.options }

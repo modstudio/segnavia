@@ -10,6 +10,7 @@ import type { prepareRenderedPage } from './page-document.ts'
 import { pageFontFacts } from './page-render.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { SurfacePreflight } from './preflight.ts'
+import { composeProgressReport, renderProgressReporter, renderProgressStages } from './progress.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
@@ -35,7 +36,11 @@ export async function renderPreparedPageImage(
   const resolvedLayoutScripts = await resolveRenderLayoutScripts(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
   const imagePage = opts.page ?? 1
-  return withTab(
+  const progress = renderProgressReporter(
+    opts.progress,
+    renderProgressStages({ compose: Boolean(page.printedPages), set: true, finish: true }),
+  )
+  const output = await withTab(
     {
       viewport,
       scripts: true,
@@ -54,7 +59,7 @@ export async function renderPreparedPageImage(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
-      progressReport: opts.progress?.report,
+      progressReport: composeProgressReport(progress),
       ...assetSetup(opts),
       ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
       preflightReport: plainPagePreflight?.capture(),
@@ -76,9 +81,13 @@ export async function renderPreparedPageImage(
         }),
       )
       if (watermark) await injectImageWatermark(tab, watermark, { scripts: true, origins: opts.origins })
-      const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
+      const captured = await captureImage(tab, proofCaptureOptions(prepared.options), false)
+      progress.report('set', 1, 1)
+      const image = await proofCapturedImage(tab, captured, prepared.options)
       const stamped = stampImage(image, outputDate([prepared.established.day]))
       return enforceImageBytes(stamped, opts.limits?.bytes)
     },
   )
+  progress.report('finish', 1, 1)
+  return output
 }
