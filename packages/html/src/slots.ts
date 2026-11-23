@@ -1,5 +1,7 @@
 import {
+  AS_OF_SLOT_DECLARATIONS,
   mergeSlotDeclarations,
+  RECORD_CONTEXT,
   Refusal,
   resolveSlotValue,
   type Scripts,
@@ -317,6 +319,15 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
   }
   const names = bindingNames('slot')
   const document = parse(html)
+  const defined = new Set([...resolved.declarations.keys(), ...AS_OF_SLOT_DECLARATIONS.map((slot) => slot.key)])
+  for (const element of elements(document.children)) {
+    const path = element.attribs[names.value]
+    if (path !== undefined && !defined.has(path) && !path.startsWith(`${RECORD_CONTEXT}.`)) {
+      throw new RangeError(
+        `data-slot-value names undefined slot path ${JSON.stringify(path)}; declare that slot or remove data-slot-value to clear this refusal`,
+      )
+    }
+  }
   const bound = elements(document.children).filter(
     (element) => element.attribs['data-slot-overflow'] !== undefined || Object.values(names).some((name) => element.attribs[name] !== undefined),
   )

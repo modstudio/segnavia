@@ -79,7 +79,71 @@ test('refuses a data-motif field on an element without data-motif', () => {
       kind: 'page',
       children: [{ type: 'page', body: { html: '<h1 data-motif-title="Held">Title</h1>' } }],
     }),
-  ).toThrow(/children\[0\]: data-motif-title needs data-motif on the same element; add data-motif or remove data-motif-title to clear this refusal/)
+  ).toThrow(/children\[0\]: <h1> data-motif-title needs data-motif on the same element; add data-motif or remove data-motif-title to clear this refusal/)
+})
+
+test('refuses retired slot paths while leaving host-declared paths for the merged slot check', () => {
+  const base = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    title: 'Book',
+    mode: 'continuous' as const,
+    children: [{ type: 'flow' as const, title: 'Section', html: '<p>Body</p>' }],
+  }
+  expect(() =>
+    Document.parse({ ...base, children: [{ type: 'flow', title: 'Section', html: '<p data-slot-value="host.path">Body</p>' }] }),
+  ).not.toThrow()
+  expect(() =>
+    Document.parse({ ...base, children: [{ type: 'flow', title: 'Section', html: '<p data-slot-value="printedPage.number">Body</p>' }] }),
+  ).toThrow(
+    /retired slot path.*printedPage\.number.*printed-page paths were replaced by folio and pages variables placed through head templates; declare a variable and place it to clear this refusal/,
+  )
+  expect(() =>
+    Document.parse({
+      ...base,
+      data: { slots: [{ key: 'person.name', label: 'Name', type: 'text' }] },
+      templates: [
+        {
+          type: 'template',
+          name: 'record',
+          html: '<p data-slot-value="record.title"></p>',
+          slots: [{ key: 'title', label: 'Title', type: 'text' }],
+        },
+      ],
+      children: [
+        {
+          type: 'flow',
+          title: 'Section',
+          html: '<p data-slot-value="person.name"></p><time data-slot-value="asOf.date"></time>',
+        },
+      ],
+    }),
+  ).not.toThrow()
+})
+
+test('checks variables and exact motif forms in parent-page regions', () => {
+  const base = {
+    type: 'document' as const,
+    kind: 'printed' as const,
+    parentRules: [{ parent: 'body' }],
+    print: { paper: 'a4' as const },
+    children: [{ type: 'page' as const, body: { html: '<p>Body</p>' } }],
+  }
+  const region = (html: string) => [
+    { type: 'parentPage' as const, name: 'body', regions: { head: { edge: 'blockStart' as const, html } } },
+  ]
+  expect(() => Document.parse({ ...base, parentPages: region('<span data-variable="missing"></span>') })).toThrow(
+    /parentPages\[0\]\.regions\.head: data-variable names undeclared variable .*missing/,
+  )
+  expect(() => Document.parse({ ...base, parentPages: region('<span data-motif-name="missing"></span>') })).toThrow(
+    /parentPages\[0\]\.regions\.head: <span> data-motif-name needs data-motif on the same element/,
+  )
+  expect(() => Document.parse({ ...base, parentPages: region('<span data-motifs-name="missing"></span>') })).toThrow(
+    /parentPages\[0\]\.regions\.head: <span> has malformed motif attribute data-motifs-name/,
+  )
+  expect(() => Document.parse({ ...base, parentPages: region('<segnavia-motif data-motif-name="x"></segnavia-motif>') })).toThrow(
+    /parentPages\[0\]\.regions\.head: <segnavia-motif> is not a document HTML element; place a motif with data-motif/,
+  )
 })
 
 test('ignores data-motif field text in comments and attribute values', () => {
@@ -152,7 +216,19 @@ test('validates head template placements and parts at parse', () => {
         },
       ],
     }),
-  ).toThrow(/placement names undeclared template.*clear this refusal/)
+  ).toThrow(/head-template placement has no data-motif-name; add data-motif-name or remove the placement to clear this refusal/)
+  expect(() =>
+    Document.parse({
+      ...base,
+      parentPages: [
+        {
+          type: 'parentPage',
+          name: 'body',
+          regions: { head: { edge: 'blockStart', html: '<span data-motif="segnavia:head-template"></span>' } },
+        },
+      ],
+    }),
+  ).toThrow(/head-template placement has no data-motif-name; add data-motif-name or remove the placement to clear this refusal/)
   expect(() =>
     Document.parse({
       ...base,

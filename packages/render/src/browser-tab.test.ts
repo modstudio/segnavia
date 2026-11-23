@@ -149,6 +149,9 @@ test('markup preflight ignores scripts-off sources and refuses unapproved images
     },
   ])
   expect(markupAssetRefusal('<img src="images/a.png">', { scripts: false })).toMatchObject([{ code: 'not-absolute', adviceFor: 'author' }])
+  expect(markupAssetRefusal('<svg><image href="images/a.png"/></svg>', { scripts: false })).toMatchObject([
+    { code: 'not-absolute', adviceFor: 'author' },
+  ])
 })
 
 test('markup asset refusals expose their asset code and structured causes', async () => {

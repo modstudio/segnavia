@@ -72,14 +72,13 @@ test('slot filling resolves assets, preserves designs, escapes markup and report
     },
   })
   const html = prepared.apply(
-    '<p data-slot-value="name">Design name</p><p data-slot-value="role">Design role</p><a data-slot-href="site">Site</a><img data-slot-src="logo"><i data-slot-value="missing">Design text</i>',
+    '<p data-slot-value="name">Design name</p><p data-slot-value="role">Design role</p><a data-slot-href="site">Site</a><img data-slot-src="logo">',
   )
   expect(html).toContain('&lt;b&gt;Ada&lt;/b&gt;')
   expect(html).not.toContain('<b>Ada</b>')
   expect(html).toContain('Role preview')
   expect(html).toContain('href="https://example.com/ada"')
   expect(html).toContain('src="data:image/png;base64,AAAA"')
-  expect(html).toContain('Design text')
   expect(report).toEqual({
     fill: 'ada',
     slots: { name: 'filled', role: 'placeholder', email: 'invalid', site: 'filled', logo: 'filled' },
@@ -214,6 +213,15 @@ test('collections merge host and item declarations once and cap each item', asyn
 test('items without slot declarations pass through byte for byte', async () => {
   const html = '<script>window.authored = true</script><p>Original</p>'
   expect((await prepareSlots([], {})).apply(html)).toBe(html)
+})
+
+test('refuses a value binding absent from the merged document and host declarations', async () => {
+  const host = await prepareSlots([], { declarations: [{ key: 'host.name', label: 'Host name', type: 'text' }] })
+  expect(host.apply('<p data-slot-value="host.name"></p>')).toBe('<p></p>')
+  expect(() => host.apply('<p data-slot-value="nope.path"></p>')).toThrow(
+    'data-slot-value names undefined slot path "nope.path"; declare that slot or remove data-slot-value to clear this refusal',
+  )
+  expect(() => host.apply('<p data-slot-value="record.name"></p>')).not.toThrow()
 })
 
 test('QR values render the level M module matrix with a four-module quiet zone and CSS color', async () => {

@@ -204,6 +204,10 @@ function assetAttribute(element: Element, attribute: string, value: string, opti
     kind = 'script'
   } else if (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href') kind = 'style'
   else if (tag === 'img' && attribute === 'src') kind = 'image'
+  else if ((tag === 'image' || tag === 'feimage') && (attribute === 'href' || attribute === 'xlink:href')) {
+    if (hrefAllowed(tag, value, undefined)) return ''
+    kind = 'image'
+  }
   else if ((tag === 'img' || (tag === 'source' && insidePicture(element))) && attribute === 'srcset')
     return srcsetAssetRefusal(value, srcsetCandidates(value), DATA_IMAGE_SRCSET.test(normalizeUrl(value)), options, safeImageSource)
   if (!kind) return undefined
