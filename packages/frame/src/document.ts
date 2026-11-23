@@ -16,6 +16,7 @@ import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
+import type { FormsOption } from './bridge.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
 import { DocumentBrandLoader } from './document-brand-resolution.ts'
 import { parseDocumentEditions, resolveDocumentEditions } from './document-edition.ts'
@@ -43,7 +44,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
   private stylesheet = ''
   private extraCsp = ''
-  declare forms: 'refuse' | undefined
+  declare forms: FormsOption | undefined
   declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []

@@ -155,7 +155,6 @@ export const ELEMENT_PROPERTIES = {
       'reloadDelay',
       'css',
       'cspExtra',
-      'forms',
       'origins',
       'slots',
       'motifs',

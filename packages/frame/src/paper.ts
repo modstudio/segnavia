@@ -18,7 +18,7 @@ import { type AsOfElementProperties, captureAsOfLoad, defineAsOfPropertyAccessor
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
-import { dispatchFontFailures, messageFrom } from './bridge.ts'
+import { dispatchFontFailures, type FormsOption, messageFrom } from './bridge.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
 import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { dispatchElementError } from './element-error.ts'
@@ -41,7 +41,11 @@ import { type PreparedSlots, slotHtml } from './slot-render.ts'
 export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side', 'edition']
   static {
-    defineStylesheetPropertyAccessors(SegnaviaPaper.prototype)
+    defineStylesheetPropertyAccessors(SegnaviaPaper.prototype, ['css', 'cspExtra', 'origins'])
+    defineStylesheetPropertyAccessors(SegnaviaPaper.prototype, ['forms'], (host) => {
+      const paper = host as SegnaviaPaper
+      if (paper.imposed) paper.paint()
+    })
     defineAsOfPropertyAccessors(SegnaviaPaper.prototype)
     defineEditionPropertyAccessor(SegnaviaPaper.prototype)
     definePaperFrameServing(SegnaviaPaper.prototype)
@@ -49,7 +53,7 @@ export class SegnaviaPaper extends HTMLElement {
   declare edition: string | undefined
   declare css: string
   declare cspExtra: string
-  declare forms: 'refuse' | undefined
+  declare forms: FormsOption | undefined
   declare origins: Iterable<OriginApproval>
   declare anchors: AsOfElementProperties['anchors']
   declare asOf: AsOfElementProperties['asOf']

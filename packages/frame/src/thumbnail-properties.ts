@@ -1,6 +1,7 @@
 import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
 import { AsOfElement } from './as-of-element.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import type { FormsOption } from './bridge.ts'
 import { THUMBNAIL_RATIOS, type ThumbnailRatio } from './fit.ts'
 import type { ServeFrame } from './frame-write.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -17,7 +18,7 @@ export class ThumbnailProperties extends AsOfElement {
   protected widthOptions: PageWidths | undefined
   protected fontOptions: FontsOptions | undefined
   protected serveFrameValue: ServeFrame | undefined
-  protected formsValue: 'refuse' | undefined
+  protected formsValue: FormsOption | undefined
   private ratioValue: ThumbnailRatio = 'natural'
 
   get ratio(): ThumbnailRatio {
@@ -115,10 +116,10 @@ export class ThumbnailProperties extends AsOfElement {
     this.serveFrameValue = value
     this.thumbnailPropertiesChanged()
   }
-  get forms(): 'refuse' | undefined {
+  get forms(): FormsOption | undefined {
     return this.formsValue
   }
-  set forms(value: 'refuse' | undefined) {
+  set forms(value: FormsOption | undefined) {
     this.formsValue = value
     this.thumbnailPropertiesChanged()
   }

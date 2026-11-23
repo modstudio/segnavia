@@ -138,8 +138,11 @@ ${observe}`
 }
 
 // The sandbox and the document policy fail closed together: only the exact
-// scripted mode admits form events, and no author frame receives same-origin.
-export function frameSandbox(scripts: Scripts | undefined, forms?: 'refuse'): string {
+// scripted mode admits form events unless the host refuses forms, and no
+// author frame receives same-origin.
+export type FormsOption = 'refuse'
+
+export function frameSandbox(scripts: Scripts | undefined, forms?: FormsOption): string {
   return scripts === 'sandboxed' && forms !== 'refuse' ? 'allow-scripts allow-forms' : 'allow-scripts'
 }
 

@@ -12,7 +12,7 @@
 import { type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { animationMessage, MESSAGE, type PageSelection } from './bridge.ts'
+import { animationMessage, type FormsOption, MESSAGE, type PageSelection } from './bridge.ts'
 import type { DeckController, DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import { editionAttribute } from './edition-property.ts'
@@ -51,7 +51,7 @@ export class SegnaviaStage extends AsOfElement {
   declare css: string
   declare edition: string | undefined
   declare cspExtra: string
-  declare forms: 'refuse' | undefined
+  declare forms: FormsOption | undefined
   declare profile: PreflightProfileInput
   declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number

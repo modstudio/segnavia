@@ -8,13 +8,6 @@ test('constructor injection installs the frame-serving seam', () => {
   expect(controller.serveFrame).toBe(serveFrame)
 })
 
-test('constructor injection installs form refusal', () => {
-  const controller = new DeckController({ hash: null, persist: false, forms: 'refuse' })
-  expect(controller.forms).toBe('refuse')
-  controller.forms = undefined
-  expect(controller.forms).toBeUndefined()
-})
-
 test('setting frame serving emits only after a deck is loaded', async () => {
   const controller = new DeckController({ hash: null, persist: false })
   let changes = 0

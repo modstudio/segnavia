@@ -28,6 +28,7 @@ import type {
   StageFrameDetail,
   StageReserve,
 } from '@segnavia/frame'
+import type { FormsOption } from '@segnavia/frame/bridge'
 import type {
   PaperPickerLabelOverrides,
   PlayerLabels,
@@ -63,7 +64,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   labels?: Partial<PlayerLabels>
   css?: string
   cspExtra?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins?: SegnaviaPlayer['origins']
   resolveSlide?: ControllerOptions['resolveSlide']
   placements?: SegnaviaPlayer['placements']
@@ -93,7 +94,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
   controller?: DeckController | null
   css?: string
   cspExtra?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins?: SegnaviaStage['origins']
   bridgeReadyTimeoutMs?: SegnaviaStage['bridgeReadyTimeoutMs']
   frameTitle?: SegnaviaStage['frameTitle']
@@ -133,7 +134,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   resolveSlide?: ControllerOptions['resolveSlide']
   base?: string
   css?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins?: SegnaviaThumbnail['origins']
   mountMargin?: number
   slots?: SegnaviaThumbnail['slots']
@@ -187,7 +188,7 @@ export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
   page?: DocumentInput | null
   css?: string
   cspExtra?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins?: SegnaviaPage['origins']
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
@@ -227,7 +228,6 @@ export interface PrintedPagesProps extends Omit<ElementProps<SegnaviaPrintedPage
   reloadDelay?: SegnaviaPrintedPages['reloadDelay']
   css?: string
   cspExtra?: string
-  forms?: 'refuse'
   origins?: SegnaviaPrintedPages['origins']
   slots?: SegnaviaPrintedPages['slots']
   motifs?: SegnaviaPrintedPages['motifs']
@@ -251,7 +251,7 @@ export interface PrintedPagesProps extends Omit<ElementProps<SegnaviaPrintedPage
 }
 
 export interface BookProps extends Omit<ElementProps<SegnaviaBook>, 'onError'> {
-  forms?: 'refuse'
+  forms?: FormsOption
   view?: SegnaviaBook['view']
   fonts?: SegnaviaBook['fonts']
   motifs?: SegnaviaBook['motifs']
@@ -281,7 +281,7 @@ export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' 
   side?: SegnaviaPaper['side']
   css?: string
   cspExtra?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins?: SegnaviaPaper['origins']
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
@@ -301,7 +301,7 @@ export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' 
 }
 
 export interface BoardProps extends ElementProps<SegnaviaBoard> {
-  forms?: 'refuse'
+  forms?: FormsOption
   edition?: string
   board?: SegnaviaBoard['board']
   motifs?: SegnaviaBoard['motifs']
@@ -340,7 +340,7 @@ export interface DocumentProps extends Omit<ElementProps<SegnaviaDocument>, 'onE
   print?: PrintInput | null
   css?: string
   cspExtra?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins?: SegnaviaDocument['origins']
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']

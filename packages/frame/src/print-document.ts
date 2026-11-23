@@ -37,7 +37,7 @@ import {
   resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
-import { buildFrameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -87,7 +87,7 @@ export interface PrintOptions {
   inline?: (src: string) => string
   baseCss?: string
   css?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   nonce?: string
   // Keeps every HTML slide's layout box but leaves its frame out.
   omitHtmlSlideFrames?: boolean
@@ -202,7 +202,7 @@ export interface PrintablePagesOptions {
   css?: string
   nonce?: string
   cspExtra?: string
-  forms?: 'refuse'
+  forms?: FormsOption
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths

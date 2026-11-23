@@ -2,6 +2,7 @@ import type { PageWidths } from '@segnavia/format'
 import { Page, type PreflightProfile } from '@segnavia/format'
 import type { EstablishedPageDay, HtmlPage } from '@segnavia/html'
 import type { BrandsOptions } from './brands.ts'
+import type { FormsOption } from './bridge.ts'
 import { installDocumentPagePreflight } from './document-page-preflight.ts'
 import { internalPageDayLoad } from './document-value-load.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
@@ -21,7 +22,7 @@ interface DocumentPageMountOptions {
   brands?: BrandsOptions
   css: string
   csp: string
-  forms?: 'refuse'
+  forms?: FormsOption
   origins: import('@segnavia/format').OriginApproval[]
   profile: PreflightProfile
   preflight(report: import('@segnavia/format').PreflightReport): void

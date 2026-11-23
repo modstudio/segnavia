@@ -1,6 +1,7 @@
 import { type OriginApproval, type PageWidths, type PreflightProfileInput, resolvePreflightProfile } from '@segnavia/format'
 import { type AsOfElementProperties, defineAsOfPropertyAccessors, HTMLElementBase } from './as-of-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { FormsOption } from './bridge.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -12,7 +13,7 @@ export abstract class BookSourcesElement extends HTMLElementBase {
     defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['forms'], (book) => (book as BookSourcesElement).sourcesChanged())
     defineAsOfPropertyAccessors(BookSourcesElement.prototype)
   }
-  declare forms: 'refuse' | undefined
+  declare forms: FormsOption | undefined
   declare origins: Iterable<OriginApproval>
   declare anchors: AsOfElementProperties['anchors']
   declare asOf: AsOfElementProperties['asOf']

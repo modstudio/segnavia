@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import type { FormsOption } from './bridge.ts'
 import type { DeckState } from './controller-types.ts'
 
 class TestElement extends EventTarget {}
@@ -39,7 +40,6 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     authoringRefusesScripts: false,
     css: '',
     cspExtra: '',
-    forms: undefined,
     frameTitle: () => '',
     bridgeReadyTimeoutMs: 10_000,
     pool: {
@@ -47,7 +47,7 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
       clear() {
         mounted = false
       },
-      update(state: DeckState, options: { forms?: 'refuse' }) {
+      update(state: DeckState, _controller: unknown, options: { forms?: FormsOption }) {
         if (state.content?.kind === 'url') rendered.push(state.content.src)
         formPolicies.push(options.forms)
         mounted = true
@@ -72,7 +72,8 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
       (state) => stage.update(state),
     ),
   })
-  return { formPolicies, rendered, stage }
+  Object.defineProperty(stage, 'forms', Object.getOwnPropertyDescriptor(SegnaviaStage.prototype, 'forms') as PropertyDescriptor)
+  return { formPolicies, rendered, stage: stage as typeof stage & { forms: FormsOption | undefined } }
 }
 
 test('a stage passes its controller form refusal to the frame pool', async () => {
@@ -81,6 +82,18 @@ test('a stage passes its controller form refusal to the frame pool', async () =>
   const { formPolicies, stage } = stageHarness(controller)
   stage.update(controller.state)
   expect(formPolicies).toEqual(['refuse'])
+})
+
+test('setting stage form refusal rebuilds a mounted frame', async () => {
+  const controller = new DeckController({ hash: null })
+  await controller.loadDeckValue({ title: 'Deck', scripts: 'sandboxed', slides: [{ id: 'shown', content: { kind: 'html', html: '<form></form>' } }] })
+  const { formPolicies, stage } = stageHarness(controller)
+  stage.update(controller.state)
+
+  stage.forms = 'refuse'
+  await Bun.sleep(0)
+
+  expect(formPolicies).toEqual([undefined, 'refuse'])
 })
 
 test('setting slots rebuilds a mounted shown frame with freshly resolved content', async () => {

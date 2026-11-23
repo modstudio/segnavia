@@ -1,4 +1,5 @@
 import { approvedSources, FETCH_KINDS, type OriginApproval, type Scripts } from '@segnavia/format'
+import type { FormsOption } from './bridge.ts'
 import type { ResolvedContent, ResolvedUrlContent } from './controller-types.ts'
 
 export interface ContentValue {
@@ -6,7 +7,7 @@ export interface ContentValue {
   scripts: Scripts
   css: string
   cspExtra: string
-  forms: 'refuse' | undefined
+  forms: FormsOption | undefined
   origins: string
 }
 
@@ -17,7 +18,7 @@ export function comparableContent(
   css: string,
   cspExtra: string,
   origins: Iterable<OriginApproval> | undefined = undefined,
-  forms?: 'refuse',
+  forms?: FormsOption,
 ): ContentValue {
   const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
   const approvals = origins === undefined ? undefined : [...origins]
