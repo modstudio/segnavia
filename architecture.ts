@@ -2,6 +2,8 @@
 // where it may run. `scripts/checks/architecture.ts` enforces it; a boundary
 // that is not written here is not a boundary.
 
+import { ADDITIONAL_DRAWING_INPUTS } from './drawing-input-paths.ts'
+
 export type Runtime = 'universal' | 'browser' | 'server'
 
 export const SOURCE_CONDITION = '@segnavia/source'
@@ -12,7 +14,7 @@ export const BUN_SUPPORTED_PACKAGES = ['render', 'format', 'layout', 'html', 'ca
 
 // Source that can change the pixels or encoding produced by pageImage, slideImage or coverImage.
 // The drawing-input check fingerprints these paths; the coverage test keeps their import boundary complete.
-export const DRAWING_INPUTS = [
+const PRIMARY_DRAWING_INPUTS = [
   'packages/frame/src/base-style.ts',
   'packages/frame/src/book-presentation.ts',
   'packages/frame/src/bridge.ts',
@@ -74,75 +76,22 @@ export const DRAWING_INPUTS = [
   'packages/render/src/slide-image.ts',
 ] as const
 
-// Reachable frame and render modules that do not decide the picture's pixels. New imports on the
-// drawing path must be classified here or in DRAWING_INPUTS before the coverage test will pass.
+// Drawing modules reached transitively from the public picture paths. The coverage test follows
+// relative, frame and layout imports, including imports made by explicitly non-drawing modules.
+
+export const DRAWING_INPUTS = [...PRIMARY_DRAWING_INPUTS, ...ADDITIONAL_DRAWING_INPUTS] as const
+
+// Reachable modules that can only report or refuse a render; changing them cannot alter a successful picture.
 export const NON_DRAWING_INPUTS = [
-  'packages/frame/src/animation-timing.ts',
-  'packages/frame/src/book-page-geometries.ts',
-  'packages/frame/src/bridge-composition.ts',
-  'packages/frame/src/bridge-cue.ts',
-  'packages/frame/src/bridge-message.ts',
-  'packages/frame/src/bridge-selection.ts',
-  'packages/frame/src/bridge-slot-fit.ts',
-  'packages/frame/src/composer-axis-policy.ts',
   'packages/frame/src/composition-failure.ts',
-  'packages/frame/src/deck-placement-resolution.ts',
-  'packages/frame/src/deck-press.ts',
   'packages/frame/src/document-brand-refusal.ts',
-  'packages/frame/src/document-slot-fit.ts',
   'packages/frame/src/embedded-preflight.ts',
-  'packages/frame/src/field-style.ts',
-  'packages/frame/src/font-load.ts',
-  'packages/frame/src/frame-message-types.ts',
-  'packages/frame/src/image-fit.ts',
-  'packages/frame/src/imposed-paper.ts',
-  'packages/frame/src/keep-pass.ts',
-  'packages/frame/src/layout.ts',
-  'packages/frame/src/line-number-style.ts',
-  'packages/frame/src/motif-expansion.ts',
-  'packages/frame/src/notes-layout.ts',
-  'packages/frame/src/page-fonts.ts',
-  'packages/frame/src/printed-page-geometry.ts',
-  'packages/frame/src/printed-parent-selection.ts',
-  'packages/frame/src/svg.ts',
   'packages/render/src/asset-refusal.ts',
-  'packages/render/src/book-destinations.ts',
-  'packages/render/src/brand.ts',
-  'packages/render/src/color/profile.ts',
-  'packages/render/src/color/proof.ts',
-  'packages/render/src/color/types.ts',
-  'packages/render/src/deck-pdf.ts',
-  'packages/render/src/document-route.ts',
   'packages/render/src/errors.ts',
-  'packages/render/src/font-faces.ts',
-  'packages/render/src/image-bytes.ts',
-  'packages/render/src/image-format.ts',
-  'packages/render/src/local-fonts.ts',
-  'packages/render/src/options.ts',
-  'packages/render/src/output-date.ts',
-  'packages/render/src/overflow-containment.ts',
-  'packages/render/src/overflow.ts',
-  'packages/render/src/page-as-of.ts',
-  'packages/render/src/page-render.ts',
-  'packages/render/src/pdf-geometry.ts',
-  'packages/render/src/pdf-load.ts',
-  'packages/render/src/pdf-marks.ts',
-  'packages/render/src/pdf-page-size.ts',
   'packages/render/src/preflight.ts',
   'packages/render/src/progress.ts',
-  'packages/render/src/proof-image-transform.ts',
   'packages/render/src/render-deadline.ts',
-  'packages/render/src/render-document-origin.ts',
-  'packages/render/src/render-layout-scripts.ts',
-  'packages/render/src/render-readiness.ts',
   'packages/render/src/renderer.ts',
-  'packages/render/src/slot-document.ts',
-  'packages/render/src/slot-fill.ts',
-  'packages/render/src/slot-fit.ts',
-  'packages/render/src/stamp-image.ts',
-  'packages/render/src/watermark-fit.ts',
-  'packages/render/src/watermark-markup.ts',
-  'packages/render/src/watermark-options.ts',
 ] as const
 export const VUE_TYPE_ENTRIES = {
   frame: { exportName: './vue', source: 'src/vue.ts' },

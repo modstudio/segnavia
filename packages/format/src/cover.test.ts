@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import drawingInputRecord from '../../../drawing-inputs.json' with { type: 'json' }
 import { withCrypto } from './crypto-test-helper.ts'
 import {
   COVER_DRAWING_VERSION,
@@ -55,8 +56,8 @@ const motif = (key: string, revision = '1'): Motif => ({
 
 describe('Cover', () => {
   test('publishes drawing versions for cover, page and slide pictures', () => {
-    expect(COVER_DRAWING_VERSION).toBe(1)
-    expect(IMAGE_DRAWING_VERSION).toBe(1)
+    expect(COVER_DRAWING_VERSION).toBe(drawingInputRecord.cover)
+    expect(IMAGE_DRAWING_VERSION).toBe(drawingInputRecord.image)
   })
 
   test('refuses a named page brand with the cover-specific remedy', () => {

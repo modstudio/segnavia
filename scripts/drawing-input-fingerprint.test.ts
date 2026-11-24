@@ -28,4 +28,10 @@ describe('drawing input fingerprint', () => {
   ])('changes when a drawing input changes', (changed) => {
     expect(drawingInputFingerprint(changed)).not.toBe(drawingInputFingerprint(input))
   })
+
+  test('normalizes Windows line endings', () => {
+    const windows = { ...input, files: input.files.map((file) => ({ ...file, text: `${file.text}\r\n` })) }
+    const unix = { ...input, files: input.files.map((file) => ({ ...file, text: `${file.text}\n` })) }
+    expect(drawingInputFingerprint(windows)).toBe(drawingInputFingerprint(unix))
+  })
 })

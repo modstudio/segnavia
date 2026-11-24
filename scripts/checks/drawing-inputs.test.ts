@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { checkDrawingInputs, recordDrawingInputs } from './drawing-inputs.ts'
+import { checkDrawingInputs, drawingBumpStatus, recordDrawingInputs } from './drawing-inputs.ts'
 
 const record = { image: 1, cover: 1, fingerprint: 'old' }
 
@@ -25,5 +25,11 @@ describe('drawing input check', () => {
 
   test('recording refuses a one-sided bump when inputs changed', () => {
     expect(() => recordDrawingInputs(record, { image: 2, cover: 1, fingerprint: 'new' })).toThrow('raise IMAGE_DRAWING_VERSION and COVER_DRAWING_VERSION')
+  })
+
+  test('uses one bump predicate for checking and recording', () => {
+    expect(drawingBumpStatus(record, record)).toBe('current')
+    expect(drawingBumpStatus(record, { image: 2, cover: 2, fingerprint: 'new' })).toBe('needs-record')
+    expect(drawingBumpStatus(record, { ...record, fingerprint: 'new' })).toBe('needs-bump')
   })
 })

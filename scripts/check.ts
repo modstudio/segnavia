@@ -32,7 +32,7 @@ import {
 import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
 import { testVacuityFindings } from './checks/test-vacuity.ts'
 import { checkVueImports } from './checks/vue-imports.ts'
-import { drawingInputState, readDrawingInputRecord } from './drawing-input-state.ts'
+import { changedDrawingInputPaths, drawingInputState, readDrawingInputRecord } from './drawing-input-state.ts'
 import { cleanGitEnv } from './review-artifact.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -221,12 +221,21 @@ function changedFiles(staged: boolean): string[] {
 
 const names = hostNames()
 const findings = structural(names)
-const drawingRecord = readDrawingInputRecord(ROOT)
-const currentDrawingWithoutChanges = drawingInputState(ROOT, [])
-const currentDrawing =
-  drawingRecord.fingerprint === currentDrawingWithoutChanges.fingerprint ? currentDrawingWithoutChanges : drawingInputState(ROOT, changedFiles(false))
-for (const message of checkDrawingInputs(drawingRecord, currentDrawing)) {
-  findings.push({ rule: 'drawing-inputs', path: 'drawing-inputs.json', message })
+try {
+  const drawingRecord = readDrawingInputRecord(ROOT)
+  const currentDrawingWithoutChanges = drawingInputState(ROOT, [])
+  let changedDrawingFiles: string[] = []
+  if (drawingRecord.fingerprint !== currentDrawingWithoutChanges.fingerprint) {
+    const changedDrawing = changedDrawingInputPaths(() => changedFiles(false))
+    changedDrawingFiles = changedDrawing.paths
+    if (changedDrawing.failure) findings.push({ rule: 'drawing-inputs', path: 'drawing-inputs.json', message: changedDrawing.failure })
+  }
+  const currentDrawing = { ...currentDrawingWithoutChanges, changedFiles: changedDrawingFiles }
+  for (const message of checkDrawingInputs(drawingRecord, currentDrawing)) {
+    findings.push({ rule: 'drawing-inputs', path: 'drawing-inputs.json', message })
+  }
+} catch (error) {
+  findings.push({ rule: 'drawing-inputs', path: 'drawing-inputs.json', message: error instanceof Error ? error.message : String(error) })
 }
 for (const finding of findings) console.error(`✗ ${finding.rule}  ${finding.path}: ${finding.message}`)
 if (names.length === 0) console.log('! host-name rule was not enforced; create host-names.local to enable it.')

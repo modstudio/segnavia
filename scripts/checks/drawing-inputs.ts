@@ -15,12 +15,19 @@ function staleRecordMessage(): string {
   return 'drawing versions changed without updating drawing-inputs.json; run bun run drawing:record.'
 }
 
-export function checkDrawingInputs(record: DrawingInputRecord, current: DrawingInputState): string[] {
-  const versionsMatch = current.image === record.image && current.cover === record.cover
-  if (current.fingerprint === record.fingerprint) return versionsMatch ? [] : [staleRecordMessage()]
+export type DrawingBumpStatus = 'current' | 'needs-record' | 'needs-bump'
 
-  const bothRose = current.image > record.image && current.cover > record.cover
-  if (bothRose) return [staleRecordMessage()]
+export function drawingBumpStatus(record: DrawingInputRecord, current: Pick<DrawingInputState, 'image' | 'cover' | 'fingerprint'>): DrawingBumpStatus {
+  if (current.fingerprint === record.fingerprint) {
+    return current.image === record.image && current.cover === record.cover ? 'current' : 'needs-record'
+  }
+  return current.image > record.image && current.cover > record.cover ? 'needs-record' : 'needs-bump'
+}
+
+export function checkDrawingInputs(record: DrawingInputRecord, current: DrawingInputState): string[] {
+  const status = drawingBumpStatus(record, current)
+  if (status === 'current') return []
+  if (status === 'needs-record') return [staleRecordMessage()]
 
   const changed = current.changedFiles.length > 0 ? current.changedFiles.join(', ') : 'the declared drawing inputs'
   return [
@@ -29,7 +36,7 @@ export function checkDrawingInputs(record: DrawingInputRecord, current: DrawingI
 }
 
 export function recordDrawingInputs(record: DrawingInputRecord, current: Omit<DrawingInputState, 'changedFiles'>): DrawingInputRecord {
-  if (current.fingerprint !== record.fingerprint && !(current.image > record.image && current.cover > record.cover)) {
+  if (drawingBumpStatus(record, current) === 'needs-bump') {
     throw new Error(
       'drawing inputs changed without raising both versions; raise IMAGE_DRAWING_VERSION and COVER_DRAWING_VERSION before running bun run drawing:record.',
     )

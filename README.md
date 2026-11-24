@@ -449,7 +449,8 @@ reach; the full `bun run check` runs in CI. The selection rules are in
 [`docs/continuous-integration.md`](docs/continuous-integration.md).
 When the drawing-input check reports a pixel-affecting change, raise
 `IMAGE_DRAWING_VERSION` and `COVER_DRAWING_VERSION` together, then run
-`bun run drawing:record`.
+`bun run drawing:record`. Its declared boundary is checked transitively from
+the page, slide and cover image roots through frame, render and layout modules.
 The commit-msg hook refuses AI attribution and a subject without the project's
 task key, whose prefix is in `.githooks/key-prefix`. `AGENTS.md` holds the rules
 every change follows.
