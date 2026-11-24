@@ -116,6 +116,10 @@ export const PACKAGES: Record<string, PackageRule> = {
       'marked',
     ],
   },
+  'html-editor': {
+    runtime: 'browser',
+    imports: ['@segnavia/frame', '@segnavia/html', '@tiptap/core', '@tiptap/starter-kit'],
+  },
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format', '@segnavia/html', '@segnavia/layout'],

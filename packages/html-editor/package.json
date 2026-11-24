@@ -1,0 +1,45 @@
+{
+  "name": "@segnavia/html-editor",
+  "description": "Profile-bound visual HTML editing for Segnavia.",
+  "version": "0.58.0",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/modstudio/segnavia.git",
+    "directory": "packages/html-editor"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "./src/html-editor.ts",
+    "./dist/html-editor.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "@segnavia/source": "./src/html-editor.ts",
+      "types": "./dist/html-editor.d.ts",
+      "default": "./dist/html-editor.js"
+    }
+  },
+  "dependencies": {
+    "@segnavia/frame": "workspace:*",
+    "@segnavia/html": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0"
+  },
+  "devDependencies": {
+    "@tiptap/core": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0"
+  }
+}

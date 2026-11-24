@@ -10,6 +10,7 @@
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
+        "@segnavia/html-editor": "workspace:*",
         "@segnavia/idml": "workspace:*",
         "@segnavia/markdown-editor": "workspace:*",
         "@segnavia/react": "workspace:*",
@@ -93,6 +94,22 @@
         "unified": "11.0.5",
         "yaml": "2.9.1",
         "zod": "^4.1.0",
+      },
+    },
+    "packages/html-editor": {
+      "name": "@segnavia/html-editor",
+      "version": "0.58.0",
+      "dependencies": {
+        "@segnavia/frame": "workspace:*",
+        "@segnavia/html": "workspace:*",
+      },
+      "devDependencies": {
+        "@tiptap/core": "3.32.0",
+        "@tiptap/starter-kit": "3.32.0",
+      },
+      "peerDependencies": {
+        "@tiptap/core": "^3.32.0",
+        "@tiptap/starter-kit": "^3.32.0",
       },
     },
     "packages/idml": {
@@ -492,6 +509,8 @@
     "@segnavia/frame": ["@segnavia/frame@workspace:packages/frame"],
 
     "@segnavia/html": ["@segnavia/html@workspace:packages/html"],
+
+    "@segnavia/html-editor": ["@segnavia/html-editor@workspace:packages/html-editor"],
 
     "@segnavia/idml": ["@segnavia/idml@workspace:packages/idml"],
 
