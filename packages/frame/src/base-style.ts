@@ -16,6 +16,7 @@ import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
 //   --segnavia-transition-duration how long a deck turn takes
 //   --segnavia-transition-scale    the canvas fit scale used for slide travel
 //   --segnavia-paper             the paper behind its placements
+//   --segnavia-mark              crop and fold marks on an imposed paper
 //   --segnavia-backdrop          the in-window presentation backdrop
 //   --segnavia-board-selection-color the selected board node outline
 //   --segnavia-board-marquee-color the board editing marquee border
@@ -123,6 +124,7 @@ export const BASE_CSS = `
 ${OUTLINE_HEADING_BASE_CSS}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
+:where(segnavia-paper:not([unstyled]) .segnavia-paper__marks){position:absolute;inset:0;inline-size:100%;block-size:100%;pointer-events:none;stroke:var(--segnavia-mark,#000);fill:none}
 :where(segnavia-document:not([unstyled])){display:block}
 :where(segnavia-document:not([unstyled]) .segnavia-document__layout){display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:var(--segnavia-document-rail-gap,20px)}
 :where(segnavia-document:not([unstyled]) .segnavia-document__rail){position:sticky;inset-block-start:0;max-block-size:100vh}

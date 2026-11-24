@@ -17,7 +17,7 @@ import { SegnaviaPrintedPages } from './printed-pages.ts'
 import { SegnaviaStage } from './stage.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
-export type { AsOfDay, ComposeProgress, DocumentInput, FontFailure, LimitExceeded, PreflightReport, PrintInput } from '@segnavia/format'
+export type { AsOfDay, ComposeProgress, DocumentInput, FontFailure, LimitExceeded, OmittedImpositionMark, PreflightReport, PrintInput } from '@segnavia/format'
 export { isLimitExceeded, LimitExceededError, paperViewport, provisionalShape, resolvedShape } from '@segnavia/format'
 export { BASE_CSS, ensureBaseStyle, ensureStyle } from './base-style.ts'
 export { SegnaviaBoard } from './board.ts'

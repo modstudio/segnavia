@@ -2,39 +2,14 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { inflateSync } from 'node:zlib'
 import { Imposition, impose, PX_PER_MM } from '@segnavia/format'
 import { PDFDocument } from 'pdf-lib'
 import { labelPages, labelsImposition, twoSidedCardImposition } from '../demo-page-fixtures.ts'
 import type { Harness } from './harness.ts'
+import { verifyPaperMarks } from './paper-marks.ts'
 import { readPpm } from './pdf-raster.ts'
+import { waitForScreenshotPixel } from './screenshot-pixel.ts'
 
-function screenshotPixel(png: Uint8Array): [number, number, number] {
-  let offset = 8
-  const compressed: Uint8Array[] = []
-  while (offset < png.length) {
-    const length = new DataView(png.buffer, png.byteOffset + offset, 4).getUint32(0)
-    const type = new TextDecoder().decode(png.subarray(offset + 4, offset + 8))
-    if (type === 'IDAT') compressed.push(png.subarray(offset + 8, offset + 8 + length))
-    offset += length + 12
-  }
-  const row = inflateSync(Buffer.concat(compressed))
-  return [row[1] ?? 0, row[2] ?? 0, row[3] ?? 0]
-}
-async function waitForScreenshotPixel(
-  screenshot: () => Promise<Uint8Array>,
-  expected: readonly [number, number, number],
-  timeoutMs = 5000,
-): Promise<[number, number, number]> {
-  const deadline = performance.now() + timeoutMs
-  let pixel: [number, number, number] = [0, 0, 0]
-  do {
-    pixel = screenshotPixel(await screenshot())
-    if (pixel.every((channel, index) => channel === expected[index])) return pixel
-    await new Promise((resolve) => setTimeout(resolve, 16))
-  } while (performance.now() < deadline)
-  return pixel
-}
 async function verifyPagePrintBackgrounds(h: Harness) {
   const { page, check } = h
   const printed = await page.evaluate(async () => {
@@ -169,6 +144,13 @@ export async function verifyPapers(h: Harness) {
     return Object.keys(expected).every((key) => Math.abs(frame[key as keyof typeof frame] - expected[key as keyof typeof expected]) <= 1)
   })
   check('a paper places its first, third and last frames at their imposed bleed boxes', geometry.frames.length === 3 && matches, JSON.stringify(geometry))
+
+  const markPixel = await verifyPaperMarks(page, labelPages[0] as NonNullable<(typeof labelPages)[number]>)
+  check(
+    'a marked imposition draws a dark mark in the paper element',
+    markPixel.every((channel) => channel < 128),
+    markPixel.join(','),
+  )
 
   const second = await page.locator('#second').evaluate((paper: HTMLElement & { papers: number }) => ({
     papers: paper.papers,

@@ -107,6 +107,7 @@ export const PrintSettingInput = closedObject(PrintSettingShape)
 export type PrintSettingInput = z.input<typeof PrintSettingInput>
 
 export const MM_PER_PT = 25.4 / 72
+export const MARK_THICKNESS_PT = 0.25
 export const MARK_LENGTH_MM = 5
 export const MARK_GAP_MM = 1
 export const FOLD_DASH_ON_MM = 2

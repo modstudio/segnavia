@@ -1,4 +1,4 @@
-import { FOLD_DASH_OFF_MM, FOLD_DASH_ON_MM, type MarkColor } from '@segnavia/format'
+import { FOLD_DASH_OFF_MM, FOLD_DASH_ON_MM, MARK_THICKNESS_PT, type MarkColor } from '@segnavia/format'
 import {
   lineTo,
   moveTo,
@@ -19,7 +19,6 @@ import { pt } from './pdf-geometry.ts'
 import { isSeparationAll } from './press/pdf-objects.ts'
 import { REGISTRATION_COLORANT } from './press/policy.ts'
 
-const MARK_THICKNESS_PT = 0.25
 const foldDashPt = () => [pt(FOLD_DASH_ON_MM), pt(FOLD_DASH_OFF_MM)]
 
 export interface PdfMarkLine {

@@ -273,6 +273,7 @@ export {
   fromMillimeters,
   MARK_GAP_MM,
   MARK_LENGTH_MM,
+  MARK_THICKNESS_PT,
   type MarkSegment,
   MM_PER_PT,
   NAMED_PAPERS,

@@ -174,7 +174,13 @@ export const ELEMENTS = {
   }),
   paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({
     ...FRAME_ELEMENTS.paper,
-    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, { asof: 'onAsof', fontfailure: 'onFontfailure', error: 'onError', change: 'onChange' }),
+    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, {
+      asof: 'onAsof',
+      fontfailure: 'onFontfailure',
+      error: 'onError',
+      change: 'onChange',
+      marksomitted: 'onMarksomitted',
+    }),
   }),
   document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({
     ...FRAME_ELEMENTS.document,
