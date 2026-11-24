@@ -183,6 +183,7 @@ export function parsePlayback(value: unknown): PlaybackMode | undefined {
 
 export const DeckShape = closedObject({
   brand: Brand.optional(),
+  brandName: z.string().optional(),
   title: z.string(),
   size: PixelSize.default(DECK_SIZE),
   layout: z.enum(['fixed', 'responsive']).default('fixed'),

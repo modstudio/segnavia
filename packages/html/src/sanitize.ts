@@ -2,7 +2,7 @@
 // in a document that a viewer renders and a renderer prints. One rule for
 // both, so a preview never shows what the printed copy refuses.
 
-import { type AssetRefusal, assetRefusalText, type FetchKind, type OriginApproval, originDecision, originSet } from '@segnavia/format'
+import { type AssetRefusal, assetRefusalText, DATA_IMAGE_MEDIA_TYPES, type FetchKind, type OriginApproval, originDecision, originSet } from '@segnavia/format'
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
@@ -34,9 +34,8 @@ export const REFUSED_ELEMENTS = new Set(Object.keys(REFUSED))
 const REFUSED_SVG_ELEMENTS = new Set(['script', 'animate', 'set', 'animatetransform', 'animatemotion', 'foreignobject'])
 const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action', 'data-segnavia-generated-contents-page', 'data-segnavia-sound'])
 const URL_ATTRIBUTES = new Set(['href', 'xlink:href', 'src', 'srcset', 'poster', 'background', 'data', 'cite', 'longdesc', 'ping'])
-const DATA_IMAGE_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
-const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')
-const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?,[^,]*$`, 'i')
+const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_MEDIA_TYPES}(?:[;,])`, 'i')
+const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_MEDIA_TYPES}(?:;[^,]*)?,[^,]*$`, 'i')
 const SRCSET_WIDTH = /^[1-9]\d*w$/
 const SRCSET_DENSITY = /^(?:\d+(?:\.\d*)?|\.\d+)x$/
 const SRCSET_CANDIDATE = /\s*((?:data:[^,\s]*,[^,\s]*)|[^,\s]+)(?:\s+([^\s,]+))?\s*(?:,|$)/iy

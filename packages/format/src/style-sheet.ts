@@ -8,7 +8,8 @@ import { Orientation, Paper } from './paper.ts'
 export const STYLE_NAME = /^[a-z][a-z0-9-]*$/
 const StyleName = z.string().regex(STYLE_NAME, 'names must start with a lowercase letter and contain only lowercase letters, digits and hyphens')
 
-const LOGO_DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp|svg\+xml)(?:[;,])/i
+export const DATA_IMAGE_MEDIA_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
+const LOGO_DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_MEDIA_TYPES}(?:[;,])`, 'i')
 
 const LogoSource = z.string().refine(
   (src) => {

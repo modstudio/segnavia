@@ -91,6 +91,7 @@ export type BookPage = z.infer<typeof BookPage>
 
 export const BookShape = closedObject({
   brand: Brand.optional(),
+  brandName: z.string().optional(),
   title: z.string(),
   authors: z.array(z.string()).optional(),
   subject: z.string().optional(),
@@ -195,6 +196,7 @@ export const BookViewPagination = closedObject({
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 
 export const BookView = BookShape.pick({ title: true, brand: true, dir: true, lang: true, scripts: true, style: true, limits: true, asOf: true }).extend({
+  brandName: BookShape.shape.brandName,
   title: BookShape.shape.title.optional(),
   html: z.string(),
   flow: z.string().optional(),
@@ -202,7 +204,6 @@ export const BookView = BookShape.pick({ title: true, brand: true, dir: true, la
 })
 export type BookView = z.infer<typeof BookView>
 export type BookViewInput = z.input<typeof BookView>
-
 const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
   for (const { entry, path } of bookSections({ ...book, body: book.body ?? book.chapters ?? [] })) {
     if (!isPlacedSection(entry)) continue

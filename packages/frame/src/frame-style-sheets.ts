@@ -1,4 +1,4 @@
-import { cssVarInvalidMessage, type PreflightEntry, type PreflightProfile, Refusal, type StyleSheet } from '@segnavia/format'
+import { type BrandLogo, brandLogo, cssVarInvalidMessage, type PreflightEntry, type PreflightProfile, Refusal, type StyleSheet } from '@segnavia/format'
 import { type CssPreflightFinding, compileStyleSheet } from '@segnavia/html'
 import { FIELD_BASE_CSS } from './field-style.ts'
 
@@ -11,6 +11,16 @@ export class StyleSheetRefusedError extends Refusal {
   constructor(message: string) {
     super('style-sheet', message)
     this.name = 'StyleSheetRefusedError'
+  }
+}
+
+export function frameBrandLogo(document: { style?: StyleSheet; brand?: StyleSheet; brandName?: string }): {
+  logo: BrandLogo | undefined
+  owner: string
+} {
+  return {
+    logo: brandLogo(document.style, document.brand),
+    owner: document.style?.logo ? "the document's style" : document.brandName ? `brand ${JSON.stringify(document.brandName)}` : "the document's brand",
   }
 }
 

@@ -1,8 +1,9 @@
 import type { AsOfDay, BookView, FontFailure, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
-import { bookViewMotifRefusal, expandFrameBookView, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
+import { bookViewMotifRefusal, expandBookViewLogoMotifs, expandFrameBookView, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { expandedBookFontCss, type ResolveFontsOptions, refuseMissingFontSource } from './page-fonts.ts'
 
 export function prepareBookViewWithoutSources(view: BookView): { view: BookView; css: string; failures: FontFailure[]; preflight: PreflightEntry[] } {
+  view = expandBookViewLogoMotifs(view)
   const refusal = bookViewMotifRefusal(view)
   if (refusal) throw refusal
   const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
@@ -21,6 +22,7 @@ export async function prepareBookView(
   profile?: PreflightProfile,
 ): Promise<{ view: BookView; css: string; failures: FontFailure[]; preflight: PreflightEntry[] }> {
   if (!motifs && !fonts && !placements) return prepareBookViewWithoutSources(view)
+  if (!motifs && !placements) view = expandBookViewLogoMotifs(view)
   if (!motifs) {
     const refusal = bookViewMotifRefusal(view)
     if (refusal) throw refusal

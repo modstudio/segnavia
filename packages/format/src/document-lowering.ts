@@ -97,6 +97,7 @@ export function bookLoweringFromDocument(document: DocumentShapeValue, brand?: B
   const value = defined({
     title: title(document),
     brand,
+    brandName: document.brand,
     authors: metadata?.authors,
     subject: metadata?.subject,
     extra: metadata?.extra,
@@ -239,6 +240,7 @@ export function pageLoweringFromDocument(document: DocumentShapeValue, brand?: B
   const value = defined({
     id: child?.id,
     brand,
+    brandName: document.brand,
     body: child?.body,
     size: document.size,
     asOf: document.asOf,
@@ -284,6 +286,7 @@ export function deckFromDocument(document: DocumentValue, brand?: Brand): DeckVa
     defined({
       title: title(document),
       brand,
+      brandName: document.brand,
       size: document.size,
       layout: document.layout,
       fit: document.fit,

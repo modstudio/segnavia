@@ -3,6 +3,7 @@ import {
   type Book,
   type BookItem,
   type BookView,
+  type BrandLogo,
   bookFromDocument,
   type DocumentInput,
   type FontReference,
@@ -14,7 +15,6 @@ import {
   type PreflightProfile,
   RECORD_CONTEXT,
   resolveBrand,
-  type StyleSheet,
 } from '@segnavia/format'
 import {
   documentLanguage,
@@ -33,6 +33,7 @@ import {
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import type { BrandsOptions } from './brands.ts'
+import { frameBrandLogo } from './frame-style-sheets.ts'
 import {
   expandedPageParents,
   expandPageLogoMotifs,
@@ -49,7 +50,6 @@ export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type { MotifsOptions } from './page-motif-expansion.ts'
 export { type ExpandedPrintedFramePage, expandPrintedFramePage } from './printed-page-expansion.ts'
 export type PlacementsOptions = AssetPlacementsOptions
-type BrandLogo = NonNullable<StyleSheet['logo']>
 export interface ExpandedFramePage {
   page: HtmlPage
   sounds: import('@segnavia/html').SoundPlacements
@@ -202,6 +202,13 @@ export function bookViewMotifRefusal(view: BookView): MotifRefusedError | undefi
   return motifSourceRefusal(viewShape(view).fields, BOOK_MOTIF_POLICY)
 }
 
+export function expandBookViewLogoMotifs(view: BookView): BookView {
+  const shape = viewShape(view)
+  const { logo, owner } = frameBrandLogo(view)
+  for (const field of shape.fields) field.replace(expandLogoMotifs(field.html, logo, owner))
+  return shape.book
+}
+
 async function expandBookHtml(
   field: BookHtmlField,
   lang: string | undefined,
@@ -210,6 +217,7 @@ async function expandBookHtml(
   signal: AbortSignal,
   day?: AsOfDay,
   logo?: BrandLogo,
+  logoBrand?: string,
 ) {
   const deferred = field.furniture ? { deferPaths: [RECORD_CONTEXT], deferLibrary: true } : {}
   return expandMotifs(field.html, {
@@ -222,6 +230,7 @@ async function expandBookHtml(
     signal,
     day,
     logo,
+    logoBrand,
     ...deferred,
   })
 }
@@ -232,8 +241,8 @@ async function expandBookShape<T extends Book | BookView>(
   signal: AbortSignal,
   day?: AsOfDay,
 ): Promise<ExpandedBook<T>> {
-  const logo = shape.book.style?.logo ?? shape.book.brand?.logo
-  const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal, day, logo)))
+  const { logo, owner } = frameBrandLogo(shape.book)
+  const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal, day, logo, owner)))
   results.forEach((result, index) => {
     shape.fields[index]?.replace(result.html)
   })
@@ -310,8 +319,8 @@ export async function expandFrameBookValue(
   const placementOptions = placements ? { ...placements, report: placementReportWithPreflight(placements.report, preflight) } : placements
   const entriesResolved = await resolveBookEntries(book, placementOptions, purpose, signal, day)
   const shape = bookShape(entriesResolved)
-  const logo = entriesResolved.style?.logo ?? entriesResolved.brand?.logo
-  for (const field of shape.fields) field.replace(expandLogoMotifs(field.html, logo))
+  const { logo, owner } = frameBrandLogo(entriesResolved)
+  for (const field of shape.fields) field.replace(expandLogoMotifs(field.html, logo, owner))
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
@@ -331,9 +340,7 @@ export async function expandFrameBookView(
   profile?: PreflightProfile,
 ): Promise<ExpandedBook<BookView>> {
   const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
-  const shape = viewShape(view)
-  const logo = view.style?.logo ?? view.brand?.logo
-  for (const field of shape.fields) field.replace(expandLogoMotifs(field.html, logo))
+  const shape = viewShape(expandBookViewLogoMotifs(view))
   const expanded = motifs ? await expandBookShape(shape, motifs, signal, day) : { book: shape.book, fonts: [] }
   return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, day, preflight)
 }

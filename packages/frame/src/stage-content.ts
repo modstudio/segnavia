@@ -8,9 +8,10 @@ import {
   type PreflightProfile,
   type Slide,
 } from '@segnavia/format'
-import { expandLogoMotifs } from '@segnavia/html'
+import { expandLogoMotifs, MotifRefusedError } from '@segnavia/html'
 import { type BuiltFrameDocument, buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
+import { frameBrandLogo } from './frame-style-sheets.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { type ServedFrameKind, type ServeFrame, writeFrameDocument } from './frame-write.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
@@ -41,7 +42,8 @@ interface StageCanvasOptions {
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): BuiltFrameDocument | undefined {
   try {
-    const expanded = expandLogoMotifs(html, deck.style?.logo ?? deck.brand?.logo)
+    const { logo, owner } = frameBrandLogo(deck)
+    const expanded = expandLogoMotifs(html, logo, owner)
     return buildFrameDocument(slotHtml(expanded, options.slots), {
       scripts: deck.scripts,
       nonce: newNonce(),
@@ -59,7 +61,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       layoutScripts: options.layoutScripts,
     })
   } catch (error) {
-    if (!(error instanceof StyleSheetRefusedError) || !options.failed) throw error
+    if (!(error instanceof StyleSheetRefusedError || error instanceof MotifRefusedError) || !options.failed) throw error
     options.failed(error)
   }
 }

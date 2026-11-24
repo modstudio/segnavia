@@ -343,37 +343,14 @@ export { SOUND_FORMATS, Sound, SoundFormat, type SoundInput } from './sound.ts'
 export { soundCover } from './sound-cover.ts'
 export { soundFace } from './sound-face.ts'
 export {
+  brandLogo,
   type MergedStyleSheet,
   type MergeStyleSheetsResult,
   mergeStyleSheets,
   type OriginEntry,
   type StyleOrigin,
 } from './style-merge.ts'
-export {
-  Brand,
-  COMPOSER_CUSTOM_PROPERTY,
-  COMPOSER_VALUES,
-  type CompositionCustomProperties,
-  Dimension,
-  HexColor,
-  HYPHENATE_CUSTOM_PROPERTY,
-  KEEP_WITH_CUSTOM_PROPERTY,
-  PageGeometry,
-  parseWordSpacing,
-  readCompositionStyle,
-  readCompositionStyleWith,
-  STYLE_NAME,
-  StyleSheet,
-  serializeWordSpacing,
-  TEXT_STYLE_PROPERTIES,
-  TextStyle,
-  type TextStyleKind,
-  type TextStyleTokenGroup,
-  TokenReference,
-  validWordSpacing,
-  WORD_SPACING_CUSTOM_PROPERTY,
-  WordSpacing,
-} from './style-sheet.ts'
+export * from './style-sheet-exports.ts'
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'
 export { plainText, RunText, TextRun } from './text-run.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
