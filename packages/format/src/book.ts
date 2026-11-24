@@ -194,7 +194,6 @@ export const BookViewPagination = closedObject({
   ),
 )
 export type BookViewPagination = z.infer<typeof BookViewPagination>
-
 export const BookView = BookShape.pick({ title: true, brand: true, dir: true, lang: true, scripts: true, style: true, limits: true, asOf: true }).extend({
   brandName: BookShape.shape.brandName,
   title: BookShape.shape.title.optional(),
