@@ -16,6 +16,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyDeckHost',
   'verifyBoard',
   'verifyMedia',
+  'verifyHtmlEditor',
   'verifyMarkdownEditor',
   'verifyPapers',
   'verifyRailAuthoring',

@@ -19,6 +19,7 @@ import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildDocumentDemo } from './build-document-demo.ts'
 import { buildFontCollectionDemo } from './build-font-collection-demo.ts'
+import { buildHtmlEditorDemo } from './build-html-editor-demo.ts'
 import { buildLayoutProviderDemo, buildLayoutProviderRenderDemo } from './build-layout-provider-demo.ts'
 import { buildMarkdownEditorDemo } from './build-markdown-editor-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
@@ -35,7 +36,6 @@ import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './de
 import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
 import { URL_SLIDE_NARRATION, urlSlideCues, urlSlideFonts, urlSlideHtml, urlSlidePlayer } from './demo-url-slide.ts'
 import { sineWav } from './sine-wav.ts'
-
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
 const SITE = path.join(OUT, 'site')
@@ -329,6 +329,7 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell, `shots/${listShot.file}`)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
+await buildHtmlEditorDemo(ROOT, SITE)
 await buildMarkdownEditorDemo(ROOT, SITE)
 await buildBookDemo(SITE)
 await buildLayoutProviderDemo(ROOT, SITE)
