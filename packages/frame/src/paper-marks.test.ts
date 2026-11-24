@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Imposition, impose, impositionMarks, MARK_THICKNESS_PT, MM_PER_PT } from '@segnavia/format'
-import { paperMarkLines } from './paper-marks.ts'
+import { paperMarkLines, paperOmittedMarks } from './paper-marks.ts'
 
 const grid = (changes: Record<string, unknown> = {}) =>
   Imposition.parse({
@@ -47,19 +47,22 @@ describe('paper mark lines', () => {
   })
 
   test('returns no lines when marks are disabled', () => {
-    expect(paperMarkLines(grid({ marks: false }), {}, 'front')).toEqual({ lines: [], omittedMarks: [] })
+    expect(paperMarkLines(grid({ marks: false }), {}, 'front')).toEqual({ lines: [] })
   })
 
   test('reports the same omitted entries as the PDF geometry', () => {
     const imposition = grid({ margin: { top: 2, right: 20, bottom: 30, left: 10 } })
-    expect(paperMarkLines(imposition, {}, 'front').omittedMarks).toEqual(impositionMarks(imposition).flatMap((side) => side.omittedMarks))
+    expect(paperOmittedMarks(imposition, {})).toEqual(impositionMarks(imposition).flatMap((side) => side.omittedMarks))
   })
 
   test('uses the shared press bleed in the same geometry as impose', () => {
     const imposition = grid()
     const press = { bleed: 3 }
-    const lines = paperMarkLines(imposition, press, 'front').lines
-    expect(lines).not.toEqual(paperMarkLines(imposition, {}, 'front').lines)
-    expect(impose(imposition, 6, press).placements[0]?.bleedBox.x).toBe(7)
+    const plainLine = paperMarkLines(imposition, {}, 'front').lines[0]
+    const bleedLine = paperMarkLines(imposition, press, 'front').lines[0]
+    const plainBox = impose(imposition, 6).placements[0]?.bleedBox
+    const bleedBox = impose(imposition, 6, press).placements[0]?.bleedBox
+    if (!plainLine || !bleedLine || !plainBox || !bleedBox) throw new Error('expected the first crop mark and placement')
+    expect(bleedLine.y2 - plainLine.y2).toBe(bleedBox.y - plainBox.y)
   })
 })

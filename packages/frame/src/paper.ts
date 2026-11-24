@@ -33,9 +33,9 @@ import { preparePaperDays } from './paper-day.ts'
 import { resolvePaperDocuments, resolvePaperPageValues } from './paper-document-load.ts'
 import { fitPaper } from './paper-fit.ts'
 import { definePaperFrameServing, writePrintablePaper } from './paper-frame-serving.ts'
-import { clampPaper, paperBoxSize } from './paper-geometry.ts'
-import { appendPaperMarks, paperMarkLines } from './paper-marks.ts'
-import { paintPaperPlaceholder } from './paper-placeholder.ts'
+import { clampPaper } from './paper-geometry.ts'
+import { paperOmittedMarks } from './paper-marks.ts'
+import { paintPaperBox, paintPaperPlaceholder } from './paper-placeholder.ts'
 import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -239,7 +239,7 @@ export class SegnaviaPaper extends HTMLElement {
     if (imposed.sides === 1) this.shownSide = 'front'
     this.reflectState()
     this.paint()
-    const omittedMarks = paperMarkLines(imposition, press, this.shownSide).omittedMarks
+    const omittedMarks = paperOmittedMarks(imposition, press)
     if (omittedMarks.length > 0) this.dispatchEvent(new CustomEvent('marksomitted', { detail: { omittedMarks } }))
     if (previousPapers !== this.papers || previousPaper !== this.paperIndex || previousSide !== this.shownSide) this.dispatchEvent(new Event('change'))
   }
@@ -363,14 +363,6 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   private paintResolved(imposition: Imposition, imposed: ReturnType<typeof impose>, pages = this.pages) {
-    const box = document.createElement('div')
-    box.className = 'segnavia-paper__paper'
-    // Positions on paper are physical and therefore left to right. This box
-    // writes no text; each page keeps its own direction inside its frame.
-    box.dir = 'ltr'
-    const paper = paperBoxSize(imposed.paper)
-    box.style.width = `${paper.width}px`
-    box.style.height = `${paper.height}px`
     const resolvedPages = pages.map((page) => ({ ...page, html: slotHtml(page.html, this.resolvedSlots) }))
     const options = {
       css: `${this.resolvedFontCss}${this.css}`,
@@ -379,15 +371,13 @@ export class SegnaviaPaper extends HTMLElement {
       origins: this.origins,
       pageWidths: this.widthOptions,
     }
-    if (this.serveFrame)
-      writePrintablePaper(box, resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide, this.serveFrame, (reason) =>
-        dispatchElementError(this, reason),
-      )
-    else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
-    appendPaperMarks(box, imposition, this.press, this.shownSide, imposed.paper)
-    this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
-    this.replaceChildren(box)
-    fitPaper(this, this.imposed)
+    paintPaperBox(this, imposition, imposed, this.press, this.shownSide, (box) => {
+      if (this.serveFrame)
+        writePrintablePaper(box, resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide, this.serveFrame, (reason) =>
+          dispatchElementError(this, reason),
+        )
+      else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
+    })
   }
 
   private onMessage = (event: MessageEvent) => {

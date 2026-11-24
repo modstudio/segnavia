@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Imposition, Page } from '@segnavia/format'
+import { Imposition, impositionMarks, Page, sharedImpositionPress } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 
 class TestElement extends EventTarget {}
@@ -61,14 +61,10 @@ test('paper refuses pieces whose press geometry disagrees', () => {
 test('paper reports every omitted mark in the same event payload as PDF rendering', () => {
   const paper = paperHarness()
   const reports: unknown[] = []
+  const pages = [resolvePageHtml(Page.parse({ html: 'page' }))]
+  const imposed = imposition({ sides: 'two' })
+  const press = sharedImpositionPress(pages)
   paper.addEventListener('marksomitted', (event: Event) => reports.push((event as CustomEvent).detail))
-  loadValues.call(paper, [resolvePageHtml(Page.parse({ html: 'page' }))], imposition())
-  expect(reports).toEqual([
-    {
-      omittedMarks: [
-        { side: 'front', edge: 'top', cutPosition: 10 },
-        { side: 'front', edge: 'top', cutPosition: 30 },
-      ],
-    },
-  ])
+  loadValues.call(paper, pages, imposed)
+  expect(reports).toEqual([{ omittedMarks: impositionMarks(imposed, press).flatMap((side) => side.omittedMarks) }])
 })

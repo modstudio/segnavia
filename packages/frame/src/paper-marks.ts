@@ -20,7 +20,6 @@ export interface PaperMarkLine {
 
 export interface PaperMarkLines {
   lines: PaperMarkLine[]
-  omittedMarks: OmittedImpositionMark[]
 }
 
 /** Projects the PDF imposition-mark geometry into SVG line values in millimeters. */
@@ -33,8 +32,12 @@ export function paperMarkLines(imposition: Imposition, press: PiecePress, side: 
       strokeWidth: MARK_THICKNESS_PT * MM_PER_PT,
       ...(mark.dashed ? { dashArray: [FOLD_DASH_ON_MM, FOLD_DASH_OFF_MM] as const } : {}),
     })),
-    omittedMarks: marks.flatMap((entry) => entry.omittedMarks),
   }
+}
+
+/** Returns the imposition-wide omitted-mark report used by PDF rendering. */
+export function paperOmittedMarks(imposition: Imposition, press: PiecePress): OmittedImpositionMark[] {
+  return impositionMarks(imposition, press).flatMap((side) => side.omittedMarks)
 }
 
 export function appendPaperMarks(

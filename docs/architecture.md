@@ -1493,6 +1493,9 @@ bleed boxes and render-only crop marks. Browser printing keeps trim-size papers
 and draws neither bleed nor marks. The `<segnavia-paper>` preview uses the
 pieces' shared press for its cells and draws the imposition marks from the same
 geometry as the PDF. Their screen color is `var(--segnavia-mark, #000)`.
+When at least one mark is omitted, the element dispatches `marksomitted` with
+the imposition-wide `{ omittedMarks }` report; it dispatches no event for an
+empty report.
 
 **Imposition marks.** `marks` on an `Imposition` defaults off. When enabled,
 `impositionMarks` returns crop-mark segments for each physical side and lists
