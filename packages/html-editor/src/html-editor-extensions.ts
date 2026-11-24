@@ -1,32 +1,61 @@
-import { HTML_PROFILE_MAPPING, type HtmlProfile } from '@segnavia/html'
+import {
+  HTML_PROFILE_DIRECTIONS,
+  HTML_PROFILE_MAPPING,
+  type HtmlProfile,
+  type HtmlProfileBlock,
+  type HtmlProfileMark,
+} from '@segnavia/html'
 import { type AnyExtension, type Attribute, Extension, getExtensionField } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 
 const STRUCTURAL_EXTENSIONS = new Set(['doc', 'text', 'undoRedo'])
 
-function admittedNames(profile: HtmlProfile): Set<string> {
-  const names = new Set(STRUCTURAL_EXTENSIONS)
-  if (profile.blocks.p || profile.blocks.ul || profile.blocks.ol) names.add('paragraph')
-  if (profile.blocks.h) names.add('heading')
-  if (profile.blocks.ul) names.add('bulletList')
-  if (profile.blocks.ol) names.add('orderedList')
-  if (profile.blocks.ul || profile.blocks.ol) names.add('listItem')
-  if (profile.blocks.hr) names.add('horizontalRule')
-  for (const mark of profile.marks) names.add(mark)
-  return names
+const TIPTAP_NAME_BY_TAG = {
+  p: 'paragraph',
+  h1: 'heading',
+  h2: 'heading',
+  h3: 'heading',
+  h4: 'heading',
+  h5: 'heading',
+  h6: 'heading',
+  ul: 'bulletList',
+  ol: 'orderedList',
+  li: 'listItem',
+  hr: 'horizontalRule',
+  strong: 'bold',
+  em: 'italic',
+  u: 'underline',
+  a: 'link',
+} as const
+
+const BLOCK_CONTRACT_NAMES: Partial<Record<HtmlProfileBlock, readonly string[]>> = {
+  ul: ['paragraph'],
+  ol: ['paragraph'],
 }
 
-function blockTypes(profile: HtmlProfile): string[] {
-  const types: string[] = []
-  if (profile.blocks.p) types.push('paragraph')
-  if (profile.blocks.h) types.push('heading')
-  if (profile.blocks.ul) types.push('bulletList', 'listItem')
-  if (profile.blocks.ol) types.push('orderedList', 'listItem')
-  return [...new Set(types)]
+function tiptapNames(tags: readonly string[]): string[] {
+  return tags.map((tag) => TIPTAP_NAME_BY_TAG[tag as keyof typeof TIPTAP_NAME_BY_TAG])
+}
+
+function profileEditorNames(profile: HtmlProfile): { admitted: Set<string>; blocks: string[] } {
+  const admitted = new Set(STRUCTURAL_EXTENSIONS)
+  const blocks = new Set<string>()
+  for (const block of Object.keys(HTML_PROFILE_MAPPING.blocks) as HtmlProfileBlock[]) {
+    if (profile.blocks[block] === undefined) continue
+    for (const name of tiptapNames(HTML_PROFILE_MAPPING.blocks[block].tags)) {
+      admitted.add(name)
+      blocks.add(name)
+    }
+    for (const name of BLOCK_CONTRACT_NAMES[block] ?? []) admitted.add(name)
+  }
+  for (const mark of profile.marks as HtmlProfileMark[]) {
+    for (const name of tiptapNames(HTML_PROFILE_MAPPING.marks[mark].tags)) admitted.add(name)
+  }
+  return { admitted, blocks: [...blocks] }
 }
 
 function profileAttributes(profile: HtmlProfile): AnyExtension | undefined {
-  const types = blockTypes(profile)
+  const types = profileEditorNames(profile).blocks
   if (types.length === 0 || (!profile.direction && !profile.align?.length)) return undefined
   return Extension.create({
     name: 'htmlProfileAttributes',
@@ -35,14 +64,20 @@ function profileAttributes(profile: HtmlProfile): AnyExtension | undefined {
       if (profile.direction) {
         attributes.dir = {
           default: null,
-          parseHTML: (element: HTMLElement) => element.getAttribute(HTML_PROFILE_MAPPING.direction.attribute),
+          parseHTML: (element: HTMLElement) => {
+            const value = element.getAttribute(HTML_PROFILE_MAPPING.direction.attribute)?.toLowerCase()
+            return value && HTML_PROFILE_DIRECTIONS.includes(value as (typeof HTML_PROFILE_DIRECTIONS)[number]) ? value : null
+          },
           renderHTML: (attrs: Record<string, unknown>) => (attrs.dir ? { [HTML_PROFILE_MAPPING.direction.attribute]: attrs.dir } : {}),
         }
       }
       if (profile.align?.length) {
         attributes.textAlign = {
           default: null,
-          parseHTML: (element: HTMLElement) => element.style.getPropertyValue(HTML_PROFILE_MAPPING.align.property) || null,
+          parseHTML: (element: HTMLElement) => {
+            const value = element.style.getPropertyValue(HTML_PROFILE_MAPPING.align.property)
+            return profile.align?.includes(value as NonNullable<HtmlProfile['align']>[number]) ? value : null
+          },
           renderHTML: (attrs: Record<string, unknown>) =>
             attrs.textAlign ? { [HTML_PROFILE_MAPPING.align.attribute]: `${HTML_PROFILE_MAPPING.align.property}:${String(attrs.textAlign)}` } : {},
         }
@@ -53,13 +88,27 @@ function profileAttributes(profile: HtmlProfile): AnyExtension | undefined {
 }
 
 export function htmlEditorExtensions(profile: HtmlProfile): AnyExtension[] {
-  const starter = StarterKit.configure({ trailingNode: false, link: { openOnClick: false } })
+  const schemes = profile.links?.schemes ?? []
+  const starter = StarterKit.configure({
+    trailingNode: false,
+    link: {
+      openOnClick: false,
+      protocols: schemes,
+      isAllowedUri: (href) => {
+        try {
+          return schemes.includes(new URL(href).protocol.replace(/:$/, '') as (typeof schemes)[number])
+        } catch {
+          return false
+        }
+      },
+    },
+  })
   const children = getExtensionField(starter, 'addExtensions', {
     name: starter.name,
     options: starter.options,
     storage: starter.storage,
   })?.() as AnyExtension[] | undefined
-  const admitted = admittedNames(profile)
+  const admitted = profileEditorNames(profile).admitted
   const extensions = (children ?? []).filter((extension) => admitted.has(extension.name))
   const heading = extensions.findIndex((extension) => extension.name === 'heading')
   const headingExtension = extensions[heading]
@@ -70,5 +119,5 @@ export function htmlEditorExtensions(profile: HtmlProfile): AnyExtension[] {
 }
 
 export function htmlEditorBlockTypes(profile: HtmlProfile): string[] {
-  return blockTypes(profile)
+  return profileEditorNames(profile).blocks
 }

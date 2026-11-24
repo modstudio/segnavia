@@ -158,7 +158,9 @@ function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Work
       : [{ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package imports ${specifier}.` }]
   }
   const name = bareName(specifier)
-  if (!workspace.rule.imports.includes(name) && !workspace.rule.bundles?.includes(name)) {
+  const testOnly = file.path.endsWith('.test.ts') || file.path.endsWith('.test-helper.ts')
+  const admittedTestImport = testOnly && workspace.rule.testImports?.includes(name)
+  if (!workspace.rule.imports.includes(name) && !workspace.rule.bundles?.includes(name) && !admittedTestImport) {
     return [{ rule: 'architecture', path: file.path, message: `${workspace.name} may not import ${name}; declare it in architecture.ts if it belongs.` }]
   }
   const target = all.get(name)

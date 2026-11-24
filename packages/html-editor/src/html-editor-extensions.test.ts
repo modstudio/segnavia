@@ -32,5 +32,23 @@ describe('HTML editor extensions', () => {
     expect(direction.parseHTML?.(element)).toBeNull()
     expect(direction.renderHTML?.({ dir: null })).toEqual({})
     expect(direction.renderHTML?.({ dir: 'rtl' })).toEqual({ dir: 'rtl' })
+    const invalid = { getAttribute: () => 'sideways' } as unknown as HTMLElement
+    expect(direction.parseHTML?.(invalid)).toBeNull()
+  })
+
+  test('parses only alignment values admitted by the profile', () => {
+    const profile = HtmlProfile.parse({ blocks: { p: true }, marks: [], align: ['center'] })
+    const extension = htmlEditorExtensions(profile).find(({ name }) => name === 'htmlProfileAttributes')
+    if (!extension) throw new Error('expected profile attributes')
+    const globals = getExtensionField(extension, 'addGlobalAttributes', {
+      name: extension.name,
+      options: extension.options,
+      storage: extension.storage,
+    })?.()
+    const alignment = globals?.[0]?.attributes.textAlign
+    if (!alignment) throw new Error('expected alignment attribute')
+    const element = (value: string) => ({ style: { getPropertyValue: () => value } }) as unknown as HTMLElement
+    expect(alignment.parseHTML?.(element('center'))).toBe('center')
+    expect(alignment.parseHTML?.(element('end'))).toBeNull()
   })
 })

@@ -114,6 +114,8 @@ same-origin audio). The frame's own policy still limits execution to its bridge.
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. Its `bundles` list records build-only imports that
 are inlined into published output and therefore belong only in devDependencies.
+Its `testImports` list records devDependencies that only `*.test.ts` and
+`*.test-helper.ts` modules may import.
 The gate also runs `checkVueDependencies`: no
 package manifest may name Vue in a dependency field, because consumers supply
 it for the types-only opt-ins. `format`, `html` and `idml` run anywhere. `idml`

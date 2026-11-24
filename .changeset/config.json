@@ -7,6 +7,7 @@
       "@segnavia/capture",
       "@segnavia/diagrams",
       "@segnavia/markdown-editor",
+      "@segnavia/html-editor",
       "@segnavia/format",
       "@segnavia/frame",
       "@segnavia/html",

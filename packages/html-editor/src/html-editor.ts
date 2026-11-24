@@ -1,12 +1,12 @@
 import { upgradeProperties } from '@segnavia/frame/element-properties'
 import { cleanHtml, type DroppedContent, HtmlProfile, type HtmlProfile as HtmlProfileValue } from '@segnavia/html'
-import type { Editor } from '@tiptap/core'
+import { Editor } from '@tiptap/core'
 import { ensureEditorStyle } from './editor-style.ts'
-import { htmlEditorCommands, runHtmlEditorCommand } from './html-editor-commands.ts'
+import { commandRefusal, htmlEditorCommands, runHtmlEditorCommand } from './html-editor-commands.ts'
 import { htmlEditorExtensions } from './html-editor-extensions.ts'
-import { attachHtmlEditor, detachHtmlEditor, HtmlProfileEditor, htmlEditorTestSeam } from './html-editor-internals.ts'
+import { attachHtmlEditor, detachHtmlEditor, htmlEditorTestSeam } from './html-editor-internals.ts'
 import { ENGLISH_HTML_EDITOR_LABELS, type HtmlEditorLabels, htmlEditorLabels } from './html-editor-labels.ts'
-import { commandRefusal, HTML_EDITOR_COMMANDS, type HtmlEditorCommand, type HtmlEditorCommands } from './html-editor-policy.ts'
+import { HTML_EDITOR_COMMANDS, type HtmlEditorCommand, type HtmlEditorCommands } from './html-editor-policy.ts'
 import { HtmlEditorStateEmitter } from './html-editor-state.ts'
 
 export const HTML_EDITOR_TAG = 'segnavia-html-editor'
@@ -137,7 +137,7 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
     if (!this.isConnected) return
     this.editor?.destroy()
     this.mount.replaceChildren()
-    this.editor = new HtmlProfileEditor(this.profileValue, {
+    this.editor = new Editor({
       element: this.mount,
       extensions: htmlEditorExtensions(this.profileValue),
       content: this.htmlValue,
@@ -152,7 +152,6 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
   private onUpdate(): void {
     if (!this.editor) return
     const cleaned = cleanHtml(this.editor.getHTML(), this.profileValue)
-    if (cleaned.html !== this.editor.getHTML()) htmlEditorTestSeam.setContent(this.editor, cleaned.html)
     if (cleaned.html === this.htmlValue) return
     this.htmlValue = cleaned.html
     this.reflectHtml(cleaned.html)

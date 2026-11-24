@@ -174,6 +174,15 @@ describe('architecture rules', () => {
     expect(checkImports(file, bundled, all)).toEqual([])
   })
 
+  test('a test-only dependency may be imported only by tests and test helpers', () => {
+    const testOnly = { ...workspace('render'), rule: { ...workspace('render').rule, testImports: ['happy-dom'] } }
+    expect(checkImports({ path: 'packages/render/src/example.test.ts', text: '', imports: ['happy-dom'] }, testOnly, all)).toEqual([])
+    expect(checkImports({ path: 'packages/render/src/example.test-helper.ts', text: '', imports: ['happy-dom'] }, testOnly, all)).toEqual([])
+    expect(checkImports({ path: 'packages/render/src/example.ts', text: '', imports: ['happy-dom'] }, testOnly, all)[0]?.message).toContain(
+      'may not import happy-dom',
+    )
+  })
+
   test('test fixtures can be imported only by tests and test helpers in package source', () => {
     const source = { path: 'packages/render/src/color/reference.ts', text: '', imports: ['../../test-fixtures/lcms/reference.ts'] }
     expect(checkImports(source, workspace('render'), all).map((finding) => finding.message)).toContain(

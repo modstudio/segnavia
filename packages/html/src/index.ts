@@ -112,11 +112,14 @@ export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export { fragmentationCss } from './fragmentation.ts'
 export {
+  HTML_PROFILE_DIRECTIONS,
   HTML_PROFILE_MAPPING,
   HtmlProfile,
   type HtmlProfileAlignment,
   type HtmlProfileBlock,
   type HtmlProfileElementMapping,
+  type HtmlProfileDirection,
+  type HtmlProfileHeadingLevel,
   type HtmlProfileLinkScheme,
   type HtmlProfileMark,
 } from './html-profile.ts'

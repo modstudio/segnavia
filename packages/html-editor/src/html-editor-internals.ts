@@ -1,19 +1,4 @@
-import { cleanHtml, type HtmlProfile } from '@segnavia/html'
-import { Editor, type EditorOptions } from '@tiptap/core'
-
-export class HtmlProfileEditor extends Editor {
-  private profileValue?: HtmlProfile
-
-  constructor(profile: HtmlProfile, options: Partial<EditorOptions>) {
-    super(options)
-    this.profileValue = profile
-  }
-
-  override getHTML(): string {
-    const html = super.getHTML()
-    return this.profileValue ? cleanHtml(html, this.profileValue).html : html
-  }
-}
+import type { Editor } from '@tiptap/core'
 
 const editors = new WeakMap<HTMLElement, Editor>()
 

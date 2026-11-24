@@ -149,6 +149,11 @@
       "types": "./dist/element-properties.d.ts",
       "default": "./dist/element-properties.js"
     },
+    "./base-style": {
+      "@segnavia/source": "./src/base-style.ts",
+      "types": "./dist/base-style.d.ts",
+      "default": "./dist/base-style.js"
+    },
     "./vue": {
       "@segnavia/source": "./src/vue.ts",
       "types": "./dist/vue.d.ts",
