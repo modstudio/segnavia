@@ -1,7 +1,14 @@
 import type { AsOfDay, FontReference, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
 import { documentLanguage, type PrintedHtmlPage, printedSectionBodies, withPrintedSectionBodies } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import { expandedPageParents, expandPageMotifs, type MotifsOptions, pageMotifRefusal, pageParentRegions } from './page-motif-expansion.ts'
+import {
+  expandedPageParents,
+  expandPageLogoMotifs,
+  expandPageMotifs,
+  type MotifsOptions,
+  pageMotifRefusal,
+  pageParentRegions,
+} from './page-motif-expansion.ts'
 import { type PlacementPreflight, resolvePrintedPagePlacements } from './placement-resolution.ts'
 
 export interface ExpandedPrintedFramePage {
@@ -21,6 +28,7 @@ export async function expandPrintedFramePage(
   profile?: PreflightProfile,
 ): Promise<ExpandedPrintedFramePage> {
   const preflight: PlacementPreflight | undefined = profile ? { profile, entries: [] } : undefined
+  page = expandPageLogoMotifs(page)
   const regions = pageParentRegions(page)
   const bodies = page.printedPages.sections.flatMap(printedSectionBodies)
   if (!motifs) {

@@ -1,6 +1,7 @@
 import type { FontManifest } from './fonts.ts'
 import type { Motif } from './motif.ts'
 import {
+  type BrandLogo,
   type Dimension,
   type HexColor,
   type PageGeometry,
@@ -17,6 +18,7 @@ export interface OriginEntry<T> {
 }
 
 export interface MergedStyleSheet {
+  logo?: BrandLogo
   tokens: {
     colors: Record<string, OriginEntry<HexColor>>
     dimensions: Record<string, OriginEntry<Dimension>>
@@ -99,6 +101,7 @@ function validateTokens(sheet: MergedStyleSheet): MergeStyleSheetsResult | undef
 
 export function mergeStyleSheets(brand: StyleSheet | undefined, document: StyleSheet): MergeStyleSheetsResult {
   const sheet: MergedStyleSheet = {
+    logo: document.logo ?? brand?.logo,
     tokens: {
       colors: mergeRecord(brand?.tokens?.colors, document.tokens?.colors),
       dimensions: mergeRecord(brand?.tokens?.dimensions, document.tokens?.dimensions),

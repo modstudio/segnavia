@@ -1,10 +1,13 @@
 import {
   AS_OF_CONTEXT,
   type AsOfDay,
+  type BrandLogo,
   chooseMotifVersion,
   type FontReference,
   HEAD_TEMPLATE_MOTIF,
   LIBRARY_MOTIF_PREFIX,
+  LOGO_MOTIF,
+  LOGO_VERSION_ATTRIBUTE,
   MOTIF_ATTRIBUTE,
   type Motif,
   type MotifPlacement,
@@ -35,6 +38,7 @@ export interface ExpandMotifsOptions {
   day?: AsOfDay
   deferPaths?: Iterable<string>
   deferLibrary?: boolean
+  logo?: BrandLogo
 }
 
 export interface PlacedMotif extends MotifPlacement {
@@ -86,7 +90,7 @@ function motifElements(html: string): Element[] {
 export function libraryMotifPlacementRefusal(html: string, allowHeadTemplate = false): string | undefined {
   const placed = motifElements(html).find((element) => {
     const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
-    return key.startsWith(LIBRARY_MOTIF_PREFIX) && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
+    return key.startsWith(LIBRARY_MOTIF_PREFIX) && key !== LOGO_MOTIF && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
   })
   if (!placed) return undefined
   if (placed.attribs[MOTIF_ATTRIBUTE] === HEAD_TEMPLATE_MOTIF) {
@@ -171,6 +175,42 @@ function replaceChildren(element: Element, html: string): void {
   element.children = children
 }
 
+function expandLogoElement(element: Element, logo: BrandLogo | undefined): void {
+  const versionName = element.attribs[LOGO_VERSION_ATTRIBUTE]
+  if (!logo) {
+    throw new MotifRefusedError(
+      `${placementName(element)} could not establish the brand logo; add a logo to the brand or remove the placement to clear this refusal.`,
+    )
+  }
+  const version = versionName === undefined ? undefined : logo.versions?.[versionName]
+  if (versionName !== undefined && version === undefined) {
+    throw new MotifRefusedError(
+      `${placementName(element)} could not establish brand logo version ${JSON.stringify(versionName)}; add that version to the brand logo or remove the placement to clear this refusal.`,
+    )
+  }
+  const selected = version ?? logo
+  const alt = version?.alt ?? logo.alt
+  const attributes = {
+    src: selected.src,
+    alt,
+    ...(selected.lang === undefined ? {} : { lang: selected.lang }),
+    dir: selected.dir ?? resolveDirection(undefined, selected.lang, alt),
+  }
+  const image = parse('<img>').children.find(isTag)
+  if (!image) throw new Error('The library logo motif could not create its image element.')
+  image.attribs = attributes
+  image.parent = element
+  element.children = [image]
+}
+
+export function expandLogoMotifs(html: string, logo: BrandLogo | undefined): string {
+  const document = parse(html)
+  for (const element of elements(document.children)) {
+    if (element.attribs[MOTIF_ATTRIBUTE] === LOGO_MOTIF) expandLogoElement(element, logo)
+  }
+  return serialize(document)
+}
+
 function needsHostData(html: string, options: ExpandMotifsOptions): boolean {
   const deferred = new Set(options.deferPaths ?? [])
   const names = new Set(Object.values(bindingNames(options.prefix)))
@@ -235,6 +275,10 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
   state.placements += 1
   if (state.placements > MOTIF_PLACEMENT_LIMIT) {
     refuse(state, element, `at most ${MOTIF_PLACEMENT_LIMIT} expanded motif placements`, 'reduce the number of motif placements')
+    return
+  }
+  if (element.attribs[MOTIF_ATTRIBUTE] === LOGO_MOTIF) {
+    expandLogoElement(element, state.options.logo)
     return
   }
   const motif = await motifFor(element, state)

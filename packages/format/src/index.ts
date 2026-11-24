@@ -61,7 +61,7 @@ export {
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
-export { type DesignTokens, exportDesignTokens, importDesignTokens } from './design-tokens.ts'
+export { type DesignTokens, exportDesignTokens, importBrandLogo, importDesignTokens } from './design-tokens.ts'
 export { deterministicNewId } from './deterministic-id.ts'
 export {
   Direction,

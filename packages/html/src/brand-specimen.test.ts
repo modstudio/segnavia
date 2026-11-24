@@ -3,6 +3,11 @@ import { Document } from '@segnavia/format'
 import { brandSpecimen } from './brand-specimen.ts'
 
 const brand = {
+  logo: {
+    src: 'https://assets.example/logo.svg',
+    alt: 'House',
+    versions: { mono: { src: 'data:image/svg+xml,%3Csvg/%3E' }, reversed: { src: 'https://assets.example/reversed.svg' } },
+  },
   tokens: {
     colors: { ink: '#112233' },
     fontFamilies: { body: ['Noto Sans'] },
@@ -18,12 +23,16 @@ describe('brandSpecimen', () => {
     expect(specimen.mode).toBe('continuous')
     expect(specimen.brand).toBeUndefined()
     expect(specimen.settings?.dir).toBe(lang === 'he' ? 'rtl' : 'ltr')
+    expect(specimen.style).toEqual(brand)
     const flow = specimen.children[0]
     expect(flow?.type).toBe('flow')
     const html = flow?.type === 'flow' ? flow.html : ''
     expect(html).toContain('var(--segnavia-color-ink)')
     expect(html).toContain('var(--segnavia-family-body)')
     expect(html).toContain('segnavia-style-heading')
+    expect(html).toContain('data-motif="segnavia:logo"')
+    expect(html).toContain('data-motif-version="mono"')
+    expect(html).toContain('data-motif-version="reversed"')
     expect(html).toContain('dir="ltr"')
     expect(html).toContain(`dir="rtl">${HEBREW}`)
   })

@@ -12,6 +12,8 @@ export const LIBRARY_MOTIF_ELEMENT = 'segnavia-motif'
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
 export const HEAD_TEMPLATE_MOTIF = 'segnavia:head-template'
 export const HEAD_TEMPLATE_NAME_ATTRIBUTE = motifFieldAttribute('name')
+export const LOGO_MOTIF = 'segnavia:logo'
+export const LOGO_VERSION_ATTRIBUTE = motifFieldAttribute('version')
 
 export const headTemplatePlacement = (name: string): Record<string, string> => ({
   [MOTIF_ATTRIBUTE]: HEAD_TEMPLATE_MOTIF,

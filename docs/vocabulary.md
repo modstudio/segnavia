@@ -74,7 +74,8 @@ something else.
 | **Motif** | Reusable designed HTML and CSS that a host supplies by key and a page places in its own markup. It may declare fields, fonts and language versions. |
 | **App font** | A face the host ships, named by the host (`serif`). Page and motif CSS write `var(--segnavia-font-<name>)` and never spell the family. The library defines that property from the host's `FontSource`. |
 | **Local font** | A face installed on the author's machine, named by its family with an app-font fallback. The page's named faces may be sent with one server render as JSON-safe base64; they are never kept, cached, logged or served. A viewer without the face sees the fallback and is told, never blocked. The notice is the host's chrome and is never printed into the page or the PDF. |
-| **Brand** | A host-kept `StyleSheet` that a document names by `brand` and the host resolves through `BrandSource`. It is layered under the document's own style and is never stored in the document. A board's brand is the default for each item that names none. |
+| **Brand** | A host-kept `StyleSheet`, including its logo, that a document names by `brand` and the host resolves through `BrandSource`. It is layered under the document's own style and is never stored in the document. A board's brand is the default for each item that names none. |
+| **Logo** | A brand's primary image and optional flat map of host-named versions, such as mono, reversed, mark, stacked and wordmark. `data-motif="segnavia:logo"` draws the merged brand or document logo, and `data-motif-version` selects a version. |
 | **Font manifest** | The fonts a document declares, at `style.fonts`, keyed by font name: an app font with the faces it is set in (a weight or an inclusive weight range, style, Unicode range, and `script: 'hebrew'` for a Hebrew face), or a local font with its app-font fallback. |
 | **Font failure** | The font, family, and weight, style and range that supplied faces leave uncovered. `unsupplied` means no supplied face covers the region; `unloaded` means the frame did not establish coverage. It is reported and composition continues at the fallback. |
 | **Motif placement** | An element with `data-motif` and optional motif field attributes. Expansion keeps the element and replaces its children with the chosen motif version. |
@@ -82,6 +83,26 @@ something else.
 | **Placeholder** | The plain bordered image drawn when a placed asset is invalid, missing, refused or fails to resolve. |
 | **Imposition placement** | The physical position where one page lands on a printing paper. |
 | **Motif version** | One rendition of a motif, keyed by values of its choice fields and chosen by most-specific match. |
+
+A host may model a full logo grid without imposing separate form and color axes:
+
+```json
+{
+  "logo": {
+    "src": "https://assets.example/primary.svg",
+    "alt": "Example",
+    "versions": {
+      "mono": { "src": "https://assets.example/mono.svg" },
+      "reversed": { "src": "https://assets.example/reversed.svg" },
+      "mark": { "src": "https://assets.example/mark.svg" },
+      "mark-mono": { "src": "https://assets.example/mark-mono.svg" },
+      "mark-reversed": { "src": "https://assets.example/mark-reversed.svg" },
+      "stacked": { "src": "https://assets.example/stacked.svg" },
+      "wordmark": { "src": "https://assets.example/wordmark.svg" }
+    }
+  }
+}
+```
 | **Parent page** | Named inherited print geometry and named furniture regions on any logical page edge, chosen for each page by the first matching parent rule. Parent-page `data-segnavia-region` boxes are distinct from template `data-region` content targets. |
 | **Printed page** | One physical page produced by fragmenting a flowing page; it has a side, parent page, formatted number and total. |
 

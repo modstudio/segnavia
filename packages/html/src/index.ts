@@ -136,6 +136,7 @@ export {
   documentLanguage,
   type ExpandedMotifs,
   type ExpandMotifsOptions,
+  expandLogoMotifs,
   expandMotifs,
   hasHostMotifPlacement,
   hasMotifPlacement,

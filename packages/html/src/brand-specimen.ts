@@ -12,6 +12,15 @@ function escaped(value: string): string {
 }
 
 function specimenHtml(brand: BrandValue): string {
+  const logos = brand.logo
+    ? [
+        '<figure><div class="logo" data-motif="segnavia:logo"></div><figcaption>primary</figcaption></figure>',
+        ...Object.keys(brand.logo.versions ?? {}).map(
+          (name) =>
+            `<figure><div class="logo" data-motif="segnavia:logo" data-motif-version="${escaped(name)}"></div><figcaption>${escaped(name)}</figcaption></figure>`,
+        ),
+      ].join('')
+    : ''
   const colors = Object.keys(brand.tokens?.colors ?? {})
     .map(
       (name) =>
@@ -30,7 +39,7 @@ function specimenHtml(brand: BrandValue): string {
         `<section><h3>${escaped(name)}</h3><p class="segnavia-style-${escaped(name)}" dir="ltr">${LATIN}</p><p class="segnavia-style-${escaped(name)}" dir="rtl">${HEBREW}</p></section>`,
     )
     .join('')
-  return `<style>main{max-width:60rem;margin:auto;padding:2rem}h2{margin-block-start:2rem}.colors{display:flex;flex-wrap:wrap;gap:1rem}.swatch{display:block;width:6rem;height:4rem;border:1px solid currentColor}figure{margin:0}</style><main><h1>Brand specimen</h1><h2>Colors</h2><div class="colors">${colors}</div><h2>Font families</h2>${families}<h2>Text styles</h2>${styles}</main>`
+  return `<style>main{max-width:60rem;margin:auto;padding:2rem}h2{margin-block-start:2rem}.logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:1rem}.logo img{display:block;max-inline-size:100%;max-block-size:8rem}.colors{display:flex;flex-wrap:wrap;gap:1rem}.swatch{display:block;width:6rem;height:4rem;border:1px solid currentColor}figure{margin:0}</style><main><h1>Brand specimen</h1>${logos ? `<h2>Logo</h2><div class="logos">${logos}</div>` : ''}<h2>Colors</h2><div class="colors">${colors}</div><h2>Font families</h2>${families}<h2>Text styles</h2>${styles}</main>`
 }
 
 export function brandSpecimen(input: BrandValue, options: BrandSpecimenOptions): DocumentValue {
@@ -41,6 +50,7 @@ export function brandSpecimen(input: BrandValue, options: BrandSpecimenOptions):
     title: 'Brand specimen',
     mode: 'continuous',
     settings: { scripts: 'refuse', dir: options.lang === 'he' ? 'rtl' : 'ltr', lang: options.lang },
+    style: brand,
     children: [{ type: 'flow', title: 'Brand specimen', html: specimenHtml(brand) }],
   })
 }

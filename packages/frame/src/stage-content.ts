@@ -8,6 +8,7 @@ import {
   type PreflightProfile,
   type Slide,
 } from '@segnavia/format'
+import { expandLogoMotifs } from '@segnavia/html'
 import { type BuiltFrameDocument, buildFrameDocument, type FormsOption, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -40,7 +41,8 @@ interface StageCanvasOptions {
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): BuiltFrameDocument | undefined {
   try {
-    return buildFrameDocument(slotHtml(html, options.slots), {
+    const expanded = expandLogoMotifs(html, deck.style?.logo ?? deck.brand?.logo)
+    return buildFrameDocument(slotHtml(expanded, options.slots), {
       scripts: deck.scripts,
       nonce: newNonce(),
       dir: deck.dir,

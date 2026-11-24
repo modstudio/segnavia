@@ -1,12 +1,15 @@
 import { AS_OF_CONTEXT, type AsOfDay, type MotifSource, RECORD_CONTEXT } from '@segnavia/format'
 import {
   type ExpandedMotifs,
+  expandLogoMotifs,
   expandMotifs,
   type HtmlPage,
   hasHostMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
+  printedSectionBodies,
   type PrintedHtmlPage,
+  withPrintedSectionBodies,
 } from '@segnavia/html'
 
 export const PARENT_MOTIF_SOURCE_REFUSAL = 'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.'
@@ -30,6 +33,34 @@ export function pageParentRegions(page: HtmlPage | PrintedHtmlPage): ParentRegio
       Object.entries(parent.regions).map(([region, value]) => ({ name: parent.name, region, html: value.html })),
     ) ?? []
   )
+}
+
+export function expandPageLogoMotifs<T extends HtmlPage | PrintedHtmlPage>(page: T): T {
+  const logo = page.style?.logo ?? page.brand?.logo
+  const printedPages = page.printedPages
+    ? {
+        ...page.printedPages,
+        ...('sections' in page.printedPages
+          ? {
+              sections: page.printedPages.sections.map((section) =>
+                withPrintedSectionBodies(
+                  section,
+                  printedSectionBodies(section).map((html) => expandLogoMotifs(html, logo)),
+                ),
+              ),
+            }
+          : {}),
+        parents: page.printedPages.parents.map((parent) => ({
+          ...parent,
+          regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: expandLogoMotifs(region.html, logo) }])),
+        })),
+      }
+    : undefined
+  return {
+    ...page,
+    ...('html' in page ? { html: expandLogoMotifs(page.html, logo) } : {}),
+    ...(printedPages ? { printedPages } : {}),
+  } as T
 }
 
 export function pageMotifRefusal(bodyHtml: readonly string[], regions: readonly ParentRegion[]): MotifRefusedError | undefined {
@@ -74,6 +105,7 @@ export async function expandPageMotifs(
       linkOrigins: motifs.linkOrigins,
       signal,
       day,
+      logo: page.style?.logo ?? page.brand?.logo,
       deferPaths: furniture ? [RECORD_CONTEXT, AS_OF_CONTEXT] : [AS_OF_CONTEXT],
     })
   const bodyResults = await Promise.all(bodies.map((body) => expand(body.html, body.lang, false)))

@@ -1,4 +1,5 @@
 import type { Deck, OriginApproval } from '@segnavia/format'
+import { expandLogoMotifs } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 
@@ -16,7 +17,7 @@ export function htmlSlideDocument(
     layoutScripts?: readonly LoadedLayoutScript[]
   },
 ): string {
-  return frameDocument(html, {
+  return frameDocument(expandLogoMotifs(html, deck.style?.logo ?? deck.brand?.logo), {
     scripts: deck.scripts,
     nonce: options.nonce,
     dir: deck.dir,
