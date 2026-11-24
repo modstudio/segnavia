@@ -1,5 +1,5 @@
 import { type ChildNode, Element, isComment, isTag, isText } from 'domhandler'
-import { HTML_PROFILE_DIRECTIONS, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
+import { HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
 import { linkAllowed, type ResolvedLinkPolicy, urlParserText } from './link-policy.ts'
 import { parse, REFUSED_ELEMENTS, refusedAttribute, refusedElement, serialize } from './sanitize.ts'
 
@@ -64,12 +64,18 @@ const HTML_BLOCK_ELEMENTS = new Set([
   'ul',
 ])
 
-function schemeName(value: string): string {
+// These elements can contain source text, but that text is not document text
+// and must not become visible when the element itself is removed.
+const NON_RENDERED_CONTENT_ELEMENTS = new Set(['style', 'title', 'template', 'noscript', 'head'])
+
+const PHRASING_CONTAINER_ELEMENTS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'u', 'a'])
+
+function schemeName(value: string): string | undefined {
   const normalized = urlParserText(value)
   try {
     return new URL(normalized).protocol.replace(/:$/, '').toLowerCase()
   } catch {
-    return normalized.split(':', 1)[0]?.toLowerCase() || normalized
+    return undefined
   }
 }
 
@@ -110,11 +116,12 @@ function cleanStyle(
   if (style === undefined) return
   let alignment: string | undefined
   for (const declaration of styleDeclarations(style)) {
-    if (admitted.has('style') && declaration.name === 'text-align' && alignments.has(declaration.value)) alignment = declaration.value
-    else drop({ kind: 'style', name: declaration.name, path })
+    if (admitted.has('style') && declaration.name === HTML_PROFILE_MAPPING.align.property && alignments.has(declaration.value)) {
+      alignment = declaration.value
+    } else drop({ kind: 'style', name: declaration.name, path })
   }
   if (alignment === undefined) delete element.attribs.style
-  else element.attribs.style = `text-align:${alignment}`
+  else element.attribs.style = `${HTML_PROFILE_MAPPING.align.property}:${alignment}`
 }
 
 function cleanDirection(element: Element, path: string, admitted: ReadonlySet<string>, drop: (content: DroppedContent) => void): void {
@@ -135,7 +142,8 @@ function cleanRefusedAttributes(element: Element, path: string, sourceName: stri
     if (sourceName === 'a' && attribute === 'href' && (!state.links || !linkAllowed(value, state.links))) {
       delete element.attribs[name]
       unwrapLink = true
-      state.drop({ kind: 'scheme', name: schemeName(value), path })
+      const scheme = schemeName(value)
+      state.drop(scheme === undefined ? { kind: 'attribute', name: 'href', path } : { kind: 'scheme', name: scheme, path })
       continue
     }
     if (refusedAttribute(element, name, value, state.links, {}) === undefined) continue
@@ -158,7 +166,6 @@ function cleanProfileAttributes(element: Element, path: string, admitted: Readon
 
 function hasNonWhitespaceContent(node: ChildNode): boolean {
   if (isText(node)) return node.data.trim().length > 0
-  if (isTag(node)) return node.children.some(hasNonWhitespaceContent)
   return true
 }
 
@@ -180,20 +187,35 @@ function paragraphsAroundInlineRuns(children: ChildNode[], attributes: Record<st
   return flattened
 }
 
-function cleanElement(element: Element, path: string, state: CleanerState): ChildNode[] {
+function cleanElement(element: Element, path: string, state: CleanerState, insidePhrasingContainer: boolean): ChildNode[] {
   const sourceName = element.name.toLowerCase()
   if (refusedElement(element, REFUSED_ELEMENTS, false)) {
     state.drop({ kind: 'element', name: sourceName, path })
     return []
   }
+  if (NON_RENDERED_CONTENT_ELEMENTS.has(sourceName)) {
+    state.drop({ kind: 'element', name: sourceName, path })
+    return []
+  }
 
-  const admittedName = state.admittedElements[sourceName] ? sourceName : HTML_BLOCK_ELEMENTS.has(sourceName) && state.admittedElements.p ? 'p' : undefined
+  const childInsidePhrasingContainer = insidePhrasingContainer || PHRASING_CONTAINER_ELEMENTS.has(sourceName)
+  if (insidePhrasingContainer && HTML_BLOCK_ELEMENTS.has(sourceName)) {
+    state.drop({ kind: 'element', name: sourceName, path })
+    cleanRefusedAttributes(element, path, sourceName, state)
+    cleanProfileAttributes(element, path, new Set(), state)
+    element.children = cleanNodes(element.children, path, state, childInsidePhrasingContainer)
+    return element.children
+  }
+
+  const sourceAdmitted = Object.hasOwn(state.admittedElements, sourceName)
+  const paragraphAdmitted = Object.hasOwn(state.admittedElements, 'p')
+  const admittedName = sourceAdmitted ? sourceName : HTML_BLOCK_ELEMENTS.has(sourceName) && paragraphAdmitted ? 'p' : undefined
   const admittedAttributes = new Set(admittedName ? state.admittedElements[admittedName] : [])
-  const elementDropped = !state.admittedElements[sourceName]
+  const elementDropped = !sourceAdmitted
   if (elementDropped) state.drop({ kind: 'element', name: sourceName, path })
   const unwrapLink = cleanRefusedAttributes(element, path, sourceName, state)
   cleanProfileAttributes(element, path, admittedAttributes, state)
-  element.children = cleanNodes(element.children, path, state)
+  element.children = cleanNodes(element.children, path, state, childInsidePhrasingContainer)
 
   if (!elementDropped && !unwrapLink) return [element]
   if (!admittedName || unwrapLink) return element.children
@@ -202,7 +224,7 @@ function cleanElement(element: Element, path: string, state: CleanerState): Chil
   return [element]
 }
 
-function cleanNodes(nodes: ChildNode[], parentPath: string, state: CleanerState): ChildNode[] {
+function cleanNodes(nodes: ChildNode[], parentPath: string, state: CleanerState, insidePhrasingContainer = false): ChildNode[] {
   const siblingIndexes = new Map<string, number>()
   const cleaned: ChildNode[] = []
   for (const node of nodes) {
@@ -218,7 +240,7 @@ function cleanNodes(nodes: ChildNode[], parentPath: string, state: CleanerState)
     const index = (siblingIndexes.get(name) ?? 0) + 1
     siblingIndexes.set(name, index)
     const path = `${parentPath ? `${parentPath}/` : ''}${name}[${index}]`
-    cleaned.push(...cleanElement(node, path, state))
+    cleaned.push(...cleanElement(node, path, state, insidePhrasingContainer))
   }
   return cleaned
 }
