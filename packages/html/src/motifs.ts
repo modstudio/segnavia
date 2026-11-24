@@ -1,10 +1,13 @@
 import {
   AS_OF_CONTEXT,
   type AsOfDay,
+  type BrandLogo,
   chooseMotifVersion,
   type FontReference,
   HEAD_TEMPLATE_MOTIF,
   LIBRARY_MOTIF_PREFIX,
+  LOGO_MOTIF,
+  LOGO_VERSION_ATTRIBUTE,
   MOTIF_ATTRIBUTE,
   type Motif,
   type MotifPlacement,
@@ -35,6 +38,8 @@ export interface ExpandMotifsOptions {
   day?: AsOfDay
   deferPaths?: Iterable<string>
   deferLibrary?: boolean
+  logo?: BrandLogo
+  logoBrand?: string
 }
 
 export interface PlacedMotif extends MotifPlacement {
@@ -86,7 +91,7 @@ function motifElements(html: string): Element[] {
 export function libraryMotifPlacementRefusal(html: string, allowHeadTemplate = false): string | undefined {
   const placed = motifElements(html).find((element) => {
     const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
-    return key.startsWith(LIBRARY_MOTIF_PREFIX) && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
+    return key.startsWith(LIBRARY_MOTIF_PREFIX) && key !== LOGO_MOTIF && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
   })
   if (!placed) return undefined
   if (placed.attribs[MOTIF_ATTRIBUTE] === HEAD_TEMPLATE_MOTIF) {
@@ -171,6 +176,55 @@ function replaceChildren(element: Element, html: string): void {
   element.children = children
 }
 
+function expandLogoElement(element: Element, logo: BrandLogo | undefined, logoBrand = "the document's brand", state?: ExpansionState): void {
+  const versionName = element.attribs[LOGO_VERSION_ATTRIBUTE]
+  if (!logo) {
+    const problem = `the logo of ${logoBrand}`
+    const remedy = `add a logo to ${logoBrand} or remove the placement`
+    if (state) {
+      refuse(state, element, problem, remedy)
+      return
+    }
+    throw new MotifRefusedError(refusal(element, problem, remedy))
+  }
+  const versions = logo.versions ?? {}
+  const version = versionName !== undefined && Object.hasOwn(versions, versionName) ? versions[versionName] : undefined
+  if (versionName !== undefined && version === undefined) {
+    const problem = `logo version ${JSON.stringify(versionName)} of ${logoBrand}`
+    const remedy = `add that version to the logo of ${logoBrand} or remove the placement`
+    if (state) {
+      refuse(state, element, problem, remedy)
+      return
+    }
+    throw new MotifRefusedError(refusal(element, problem, remedy))
+  }
+  const selected = version ?? logo
+  const inheritsText = version !== undefined && version.alt === undefined
+  const alt = version?.alt ?? logo.alt
+  const lang = version === undefined || inheritsText ? logo.lang : version.lang
+  const dir = version === undefined || inheritsText ? logo.dir : version.dir
+  const attributes = {
+    src: selected.src,
+    alt,
+    ...(lang === undefined ? {} : { lang }),
+    dir: dir ?? resolveDirection(undefined, lang, alt),
+  }
+  const image = parse('<img>').children.find(isTag)
+  if (!image) throw new Error('The library logo motif could not create its image element.')
+  image.attribs = attributes
+  image.parent = element
+  element.children = [image]
+}
+
+export function expandLogoMotifs(html: string, logo: BrandLogo | undefined, logoBrand?: string): string {
+  if (!html.includes(LOGO_MOTIF)) return html
+  const document = parse(html)
+  const placements = elements(document.children).filter((element) => element.attribs[MOTIF_ATTRIBUTE] === LOGO_MOTIF)
+  if (placements.length === 0) return html
+  for (const element of placements) expandLogoElement(element, logo, logoBrand)
+  return serialize(document)
+}
+
 function needsHostData(html: string, options: ExpandMotifsOptions): boolean {
   const deferred = new Set(options.deferPaths ?? [])
   const names = new Set(Object.values(bindingNames(options.prefix)))
@@ -237,6 +291,10 @@ async function expandPlacement(element: Element, inheritedLang: string | undefin
     refuse(state, element, `at most ${MOTIF_PLACEMENT_LIMIT} expanded motif placements`, 'reduce the number of motif placements')
     return
   }
+  if (element.attribs[MOTIF_ATTRIBUTE] === LOGO_MOTIF) {
+    expandLogoElement(element, state.options.logo, state.options.logoBrand, state)
+    return
+  }
   const motif = await motifFor(element, state)
   if (!motif) return
   if (stack.includes(motif.key)) {
@@ -292,7 +350,7 @@ async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined
     if (
       Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) &&
       node.attribs[MOTIF_ATTRIBUTE] !== HEAD_TEMPLATE_MOTIF &&
-      !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+      !(state.options.deferLibrary && node.attribs[MOTIF_ATTRIBUTE] !== LOGO_MOTIF && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
     )
       await expandPlacement(node, inheritedLang, stack, state)
     else await expandNodes(node.children, inheritedLang, stack, state)

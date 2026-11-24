@@ -937,7 +937,7 @@ this adds no inbound frame message.
 | `readSelection()` | `<segnavia-page>`, `<segnavia-stage>` | The reader's current selection string and the document's `innerText` from a page or the stage's shown slide whose author scripts are refused. On a page, a read already posted to a document that slot filling replaces is cancelled, while a read still waiting is answered by the replacing document once it has loaded and reported ready. A stage read is refused during a pending turn and a pending read is cancelled when the shown slide changes. For a stage URL slide, resolved content declares `bridge: true` and `scripts: 'refuse'` to vouch that the host served it through `frameDocument` with author scripts refused. The bridge answers only a request from its parent. Both strings keep their document order without reordering for direction. |
 | `scrollToHeading()` | `<segnavia-page>` | Scrolls to an id returned by `markdownOutline(page.body)`, resolves false for an unknown id, and refuses host-served pages and pages whose author scripts run. |
 | `AnchorSource`, `anchors`; `asOf`; `moment`; `slots.resolve` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, `<segnavia-stage>`, `<segnavia-player>`, `<segnavia-thumbnail>`, live `<segnavia-board>` items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`, `slideImage`, `bookPdf`, `bookPlan` | The host offers named anchors and resolves one from the surface moment, current calendar day and zone. The slots resolver receives the one established `AsOfDay` and returns the fill for that preview, print or render load. Missing, unoffered, null and invalid anchor answers refuse with the anchor and requested day. |
-| `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
+| `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand host motif placements; their library `segnavia:logo` placement needs no source and does expand. |
 | Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds designed pages, flowing sections and records in author order. A section may name a geometry from `style.pageGeometries`, so the document can compose several papers. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply binding-relative logical margins and inherited named regions on `blockStart`, `blockEnd`, `inlineStart` (binding) or `inlineEnd` (outer). The built-in `head` and `foot` names use the two block edges. Each region becomes a `data-segnavia-region` box; this parent-page furniture is distinct from a template's `data-region` content target. The composer measures content in each section's paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
 | `css` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style. |
 | `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>` | The host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |
@@ -1624,6 +1624,16 @@ whose `scripts` is not `refuse` may place only motif versions without live data.
 Save-time validation and expansion both refuse a live-data motif on such a page.
 The `segnavia:` motif-key prefix is reserved for library furniture. Host motif
 placements and `MotifSource` results must use keys outside that prefix.
+`data-motif="segnavia:logo"` is the library placement for the merged style
+sheet's logo. `data-motif-version` selects one host-named version; the placement
+refuses when the logo or version is absent. Expansion keeps the placement's
+attributes and replaces its children with one image whose alternative text,
+language and direction come from the selected logo value. A version without
+alternative text inherits the primary logo's text with its language and
+direction. Pages, HTML slides, books and parent-page regions expand it without a
+`MotifSource`. An https logo remains an
+ordinary image fetch, so server rendering answers it only through `assets` under
+an approved `image` origin.
 
 `<segnavia-item-settings>` edits those fills beside the item. The host sets
 `declarations`, `fills`, the selected fill id, per-design `overrides`, an optional source fill and the
@@ -2272,7 +2282,7 @@ one physical mapping for imposition. Direction uses the shared `Direction` and
 `TextDirection` values rather than inline enums.
 
 The target style layer combines a host-resolved `Brand` with the document's
-partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
+partial `StyleSheet`. A style sheet contains an optional brand logo, typed tokens, a font-face manifest
 with first-class Hebrew faces, named paragraph and character styles with
 `basedOn`, named page geometries, furniture motifs and free CSS. Its token
 schema is compatible with a W3C design-tokens subset.
@@ -2284,9 +2294,12 @@ as px at 96 px per inch, with the authored value and unit under
 naming the token. `importDesignTokens` flattens group paths with `-`, resolves
 `{group.token}` aliases, and refuses a cycle, an unresolved alias, `$ref`, an
 unknown `$type` or a non-sRGB color space, naming the token path. Other
-`$extensions` are not kept on import. Text styles, page geometries, motifs,
-fonts and free CSS are not exchanged. `brandSpecimen(brand, { lang })` returns
-a continuous book that shows a brand's colors, font families and text styles in
+`$extensions` are not kept on token import. `exportDesignTokens(tokens, { logo })`
+writes the logo under the root `$extensions["org.segnavia"].logo`, and
+`importBrandLogo` reads and revalidates it independently; `importDesignTokens`
+remains tokens-only. Text styles, page geometries, motifs, fonts and free CSS are
+not exchanged. `brandSpecimen(brand, { lang })` returns a continuous book that
+shows a brand's logo and named versions, colors, font families and text styles in
 Latin and Hebrew samples. The compiler produces one sheet in cascade-layer order:
 `segnavia.base`, `segnavia.brand`, `segnavia.document`, then
 `segnavia.author`. Tokens become `--segnavia-*` custom properties and named

@@ -8,6 +8,33 @@ import { Orientation, Paper } from './paper.ts'
 export const STYLE_NAME = /^[a-z][a-z0-9-]*$/
 const StyleName = z.string().regex(STYLE_NAME, 'names must start with a lowercase letter and contain only lowercase letters, digits and hyphens')
 
+export const DATA_IMAGE_MEDIA_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
+const LOGO_DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_MEDIA_TYPES}(?:[;,])`, 'i')
+
+const LogoSource = z.string().refine(
+  (src) => {
+    if (LOGO_DATA_IMAGE.test(src.trim())) return true
+    try {
+      return new URL(src).protocol === 'https:'
+    } catch {
+      return false
+    }
+  },
+  { message: 'logo src must be a safe data:image/ or an absolute https URL' },
+)
+
+const LogoText = {
+  alt: z.string(),
+  lang: z.string().optional(),
+  dir: z.enum(['ltr', 'rtl']).optional(),
+} as const
+
+export const LogoVersion = closedObject({ src: LogoSource, ...LogoText }).partial({ alt: true })
+export type LogoVersion = z.infer<typeof LogoVersion>
+
+export const BrandLogo = closedObject({ src: LogoSource, ...LogoText, versions: z.record(StyleName, LogoVersion).optional() })
+export type BrandLogo = z.infer<typeof BrandLogo>
+
 export const HexColor = z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i, 'colors must be #rgb, #rrggbb or #rrggbbaa')
 export type HexColor = z.infer<typeof HexColor>
 
@@ -164,6 +191,7 @@ export type PageGeometry = z.infer<typeof PageGeometry>
 const NamedRecord = <T extends z.ZodType>(value: T) => z.record(StyleName, value)
 
 export const StyleSheet = closedObject({
+  logo: BrandLogo.optional(),
   tokens: closedObject({
     colors: NamedRecord(HexColor).optional(),
     dimensions: NamedRecord(Dimension).optional(),

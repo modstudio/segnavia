@@ -3,6 +3,7 @@ import {
   type Book,
   type BookItem,
   type BookView,
+  type BrandLogo,
   bookFromDocument,
   type DocumentInput,
   type FontReference,
@@ -17,6 +18,7 @@ import {
 } from '@segnavia/format'
 import {
   documentLanguage,
+  expandLogoMotifs,
   expandMotifs,
   type HtmlPage,
   hasHostMotifPlacement,
@@ -31,8 +33,10 @@ import {
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import type { BrandsOptions } from './brands.ts'
+import { frameBrandLogo } from './frame-style-sheets.ts'
 import {
   expandedPageParents,
+  expandPageLogoMotifs,
   expandPageMotifs,
   type MotifsOptions,
   motifSummary,
@@ -198,6 +202,13 @@ export function bookViewMotifRefusal(view: BookView): MotifRefusedError | undefi
   return motifSourceRefusal(viewShape(view).fields, BOOK_MOTIF_POLICY)
 }
 
+export function expandBookViewLogoMotifs(view: BookView): BookView {
+  const shape = viewShape(view)
+  const { logo, owner } = frameBrandLogo(view)
+  for (const field of shape.fields) field.replace(expandLogoMotifs(field.html, logo, owner))
+  return shape.book
+}
+
 async function expandBookHtml(
   field: BookHtmlField,
   lang: string | undefined,
@@ -205,6 +216,8 @@ async function expandBookHtml(
   motifs: MotifsOptions,
   signal: AbortSignal,
   day?: AsOfDay,
+  logo?: BrandLogo,
+  logoBrand?: string,
 ) {
   const deferred = field.furniture ? { deferPaths: [RECORD_CONTEXT], deferLibrary: true } : {}
   return expandMotifs(field.html, {
@@ -216,6 +229,8 @@ async function expandBookHtml(
     linkOrigins: motifs.linkOrigins,
     signal,
     day,
+    logo,
+    logoBrand,
     ...deferred,
   })
 }
@@ -226,7 +241,8 @@ async function expandBookShape<T extends Book | BookView>(
   signal: AbortSignal,
   day?: AsOfDay,
 ): Promise<ExpandedBook<T>> {
-  const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal, day)))
+  const { logo, owner } = frameBrandLogo(shape.book)
+  const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal, day, logo, owner)))
   results.forEach((result, index) => {
     shape.fields[index]?.replace(result.html)
   })
@@ -303,10 +319,12 @@ export async function expandFrameBookValue(
   const placementOptions = placements ? { ...placements, report: placementReportWithPreflight(placements.report, preflight) } : placements
   const entriesResolved = await resolveBookEntries(book, placementOptions, purpose, signal, day)
   const shape = bookShape(entriesResolved)
+  const { logo, owner } = frameBrandLogo(entriesResolved)
+  for (const field of shape.fields) field.replace(expandLogoMotifs(field.html, logo, owner))
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
-    return resolveBookShape({ book: entriesResolved, fonts: [], preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, day, preflight)
+    return resolveBookShape({ book: shape.book, fonts: [], preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, day, preflight)
   }
   const expanded = await expandBookShape(shape, motifs, signal, day)
   return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, day, preflight)
@@ -322,7 +340,8 @@ export async function expandFrameBookView(
   profile?: PreflightProfile,
 ): Promise<ExpandedBook<BookView>> {
   const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
-  const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal, day) : { book: view, fonts: [] }
+  const shape = viewShape(expandBookViewLogoMotifs(view))
+  const expanded = motifs ? await expandBookShape(shape, motifs, signal, day) : { book: shape.book, fonts: [] }
   return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, day, preflight)
 }
 
@@ -337,6 +356,7 @@ export async function expandFramePage(
   profile?: PreflightProfile,
 ): Promise<ExpandedFramePage> {
   const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
+  page = expandPageLogoMotifs(page)
   const regions = pageParentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)

@@ -1,4 +1,4 @@
-import { STYLE_NAME, type StyleSheet } from './style-sheet.ts'
+import { BrandLogo, type BrandLogo as BrandLogoValue, STYLE_NAME, type StyleSheet } from './style-sheet.ts'
 
 export type DesignTokens = NonNullable<StyleSheet['tokens']>
 type JsonObject = Record<string, unknown>
@@ -55,13 +55,26 @@ const GROUPS = {
 
 const GROUP_TYPES = new Set(Object.values(GROUPS).map((group) => group.$type))
 
-export function exportDesignTokens(tokens: DesignTokens): JsonObject {
-  return Object.fromEntries(
-    Object.entries(GROUPS).map(([name, group]) => [
-      name,
-      { $type: group.$type, ...Object.fromEntries(Object.entries(group.values(tokens) ?? {}).map(([key, value]) => [key, group.encode(key, value)])) },
-    ]),
-  )
+export function exportDesignTokens(tokens: DesignTokens, options: { logo?: BrandLogoValue } = {}): JsonObject {
+  return {
+    ...Object.fromEntries(
+      Object.entries(GROUPS).map(([name, group]) => [
+        name,
+        { $type: group.$type, ...Object.fromEntries(Object.entries(group.values(tokens) ?? {}).map(([key, value]) => [key, group.encode(key, value)])) },
+      ]),
+    ),
+    ...(options.logo === undefined ? {} : { $extensions: { [SEGNAVIA_EXTENSION]: { logo: BrandLogo.parse(options.logo) } } }),
+  }
+}
+
+export function importBrandLogo(json: unknown): BrandLogoValue | undefined {
+  const root = objectAt(json, '')
+  if (root.$extensions === undefined) return undefined
+  const extensions = objectAt(root.$extensions, '$extensions')
+  if (extensions[SEGNAVIA_EXTENSION] === undefined) return undefined
+  const extension = objectAt(extensions[SEGNAVIA_EXTENSION], `$extensions.${SEGNAVIA_EXTENSION}`)
+  if (extension.logo === undefined) return undefined
+  return BrandLogo.parse(extension.logo)
 }
 
 interface HeldToken {

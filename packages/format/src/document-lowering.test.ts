@@ -199,7 +199,7 @@ describe('Document lowering', () => {
       children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
     })
     const brand = { tokens: { colors: { ink: '#112233' } } }
-    expect(pageFromDocument(document, brand).brand).toEqual(brand)
+    expect(pageFromDocument(document, brand)).toMatchObject({ brand, brandName: 'house' })
     expect(document.brand).toBe('house')
   })
 

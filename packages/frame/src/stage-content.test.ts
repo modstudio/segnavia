@@ -94,6 +94,20 @@ describe('stageCanvas', () => {
     expect(errors[0]?.message).toContain('textStyles.body.basedOn')
   })
 
+  test('reports a logo motif refusal without mounting a partial frame', () => {
+    const refused = Deck.parse({
+      ...deck,
+      brandName: 'house',
+      slides: [{ id: 'logo', content: { kind: 'html', html: '<div data-motif="segnavia:logo"></div>' } }],
+    })
+    const slide = refused.slides[0]
+    if (!slide) throw new Error('Expected the logo slide.')
+    const errors: Error[] = []
+    const canvas = stageCanvas(controller, refused, slide, slide.content as ResolvedContent, { ...options, failed: (error) => errors.push(error) })
+    expect(canvas.querySelector('iframe')).toBeNull()
+    expect(errors[0]?.message).toContain('the logo of brand "house"')
+  })
+
   test('reports an image load failure without exposing its resolved URL', () => {
     const selected = Deck.parse({ title: 'Image', slides: [{ id: 'image', content: { kind: 'image', src: 'missing.png', alt: 'Missing' } }] })
     const slide = selected.slides[0]

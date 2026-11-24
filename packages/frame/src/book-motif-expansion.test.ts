@@ -129,6 +129,42 @@ test('preserves library furniture motifs while expanding host motifs around them
   expect(bookMotifRefusal(libraryOnly)).toBeUndefined()
 })
 
+test('expands a logo placed by a host motif in book furniture', async () => {
+  const logo = { src: 'data:image/svg+xml,%3Csvg/%3E', alt: 'House' }
+  const book = parseBookFixture({
+    title: 'Furniture logo',
+    mode: 'continuous',
+    brand: { logo },
+    parentPages: [
+      {
+        name: 'held',
+        regions: { head: { edge: 'blockStart', html: '<header data-motif="masthead"></header>' } },
+        margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
+      },
+    ],
+    chapters: [{ title: 'One', html: '<p></p>' }],
+  })
+  const expanded = await expandFrameBook(
+    book,
+    {
+      source: {
+        motif: async (key) => ({
+          key,
+          revision: 'one',
+          label: key,
+          fields: [],
+          versions: [{ lang: 'en', html: '<span data-motif="segnavia:logo"></span>' }],
+          fonts: [],
+        }),
+      },
+    },
+    signal,
+  )
+  expect(expanded.book.parentPages[0]?.regions.head?.html).toContain(
+    '<span data-motif="segnavia:logo"><img src="data:image/svg+xml,%3Csvg/%3E" alt="House" dir="ltr"></span>',
+  )
+})
+
 test('refuses non-head-template library motifs in parent furniture', () => {
   const book = parseBookFixture({
     title: 'Reserved furniture',

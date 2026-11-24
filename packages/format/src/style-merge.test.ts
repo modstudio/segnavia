@@ -11,6 +11,15 @@ function refusal(brand: unknown, document: unknown): string {
 }
 
 describe('mergeStyleSheets', () => {
+  test('replaces a brand logo as one value', () => {
+    const result = mergeStyleSheets(
+      sheet({ logo: { src: 'https://brand.example/logo.svg', alt: 'Brand', versions: { mono: { src: 'https://brand.example/mono.svg' } } } }),
+      sheet({ logo: { src: 'data:image/png;base64,AAAA', alt: 'Document' } }),
+    )
+    expect(result).toMatchObject({ ok: true, sheet: { logo: { src: 'data:image/png;base64,AAAA', alt: 'Document' } } })
+    if (result.ok) expect(result.sheet.logo?.versions).toBeUndefined()
+  })
+
   test('replaces keyed values whole, preserves origins and unions fonts', () => {
     const result = mergeStyleSheets(
       sheet({

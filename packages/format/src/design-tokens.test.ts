@@ -1,7 +1,31 @@
 import { describe, expect, test } from 'bun:test'
-import { exportDesignTokens, importDesignTokens } from './design-tokens.ts'
+import { exportDesignTokens, importBrandLogo, importDesignTokens } from './design-tokens.ts'
 
 describe('W3C design-token exchange', () => {
+  test('round-trips a brand logo through the Segnavia root extension', () => {
+    const logo = {
+      src: 'https://assets.example/logo.svg',
+      alt: 'House',
+      versions: { reversed: { src: 'data:image/svg+xml,%3Csvg/%3E', alt: 'House reversed' } },
+    }
+    const exported = exportDesignTokens({}, { logo })
+    expect(exported).toMatchObject({ $extensions: { 'org.segnavia': { logo } } })
+    expect(importBrandLogo(exported)).toEqual(logo)
+  })
+
+  test('omits and imports an absent logo independently of tokens', () => {
+    const exported = exportDesignTokens({})
+    expect(exported).not.toHaveProperty('$extensions')
+    expect(importBrandLogo(exported)).toBeUndefined()
+    expect(importDesignTokens(exported)).toEqual({ colors: {}, dimensions: {}, fontFamilies: {} })
+  })
+
+  test('revalidates an imported logo', () => {
+    expect(() => importBrandLogo({ $extensions: { 'org.segnavia': { logo: { src: 'logo.svg', alt: 'House' } } } })).toThrow(
+      /logo src must be a safe data:image\/ or an absolute https URL/,
+    )
+  })
+
   test('round-trips colors, dimensions and font families', () => {
     const tokens = {
       colors: { ink: '#123456', wash: '#abcdef80' },

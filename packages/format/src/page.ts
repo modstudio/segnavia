@@ -45,6 +45,7 @@ export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): Re
 
 const PageShape = closedObject({
   brand: Brand.optional(),
+  brandName: z.string().optional(),
   id: z.string().optional(),
   body: PageBody.optional(),
   html: z.string().optional(),

@@ -1,13 +1,17 @@
 import { AS_OF_CONTEXT, type AsOfDay, type MotifSource, RECORD_CONTEXT } from '@segnavia/format'
 import {
   type ExpandedMotifs,
+  expandLogoMotifs,
   expandMotifs,
   type HtmlPage,
   hasHostMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
   type PrintedHtmlPage,
+  printedSectionBodies,
+  withPrintedSectionBodies,
 } from '@segnavia/html'
+import { frameBrandLogo } from './frame-style-sheets.ts'
 
 export const PARENT_MOTIF_SOURCE_REFUSAL = 'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.'
 
@@ -30,6 +34,36 @@ export function pageParentRegions(page: HtmlPage | PrintedHtmlPage): ParentRegio
       Object.entries(parent.regions).map(([region, value]) => ({ name: parent.name, region, html: value.html })),
     ) ?? []
   )
+}
+
+export function expandPageLogoMotifs<T extends HtmlPage | PrintedHtmlPage>(page: T): T {
+  const { logo, owner } = frameBrandLogo(page)
+  const printedPages = page.printedPages
+    ? {
+        ...page.printedPages,
+        ...(page.printedPages.sections !== undefined
+          ? {
+              sections: page.printedPages.sections.map((section) =>
+                withPrintedSectionBodies(
+                  section,
+                  printedSectionBodies(section).map((html) => expandLogoMotifs(html, logo, owner)),
+                ),
+              ),
+            }
+          : {}),
+        parents: page.printedPages.parents.map((parent) => ({
+          ...parent,
+          regions: Object.fromEntries(
+            Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: expandLogoMotifs(region.html, logo, owner) }]),
+          ),
+        })),
+      }
+    : undefined
+  return {
+    ...page,
+    ...('html' in page ? { html: expandLogoMotifs(page.html, logo, owner) } : {}),
+    ...(printedPages ? { printedPages } : {}),
+  } as T
 }
 
 export function pageMotifRefusal(bodyHtml: readonly string[], regions: readonly ParentRegion[]): MotifRefusedError | undefined {
@@ -64,6 +98,7 @@ export async function expandPageMotifs(
   signal: AbortSignal,
   day?: AsOfDay,
 ) {
+  const { logo, owner } = frameBrandLogo(page)
   const expand = (html: string, lang: string | undefined, furniture: boolean) =>
     expandMotifs(html, {
       source: motifs.source,
@@ -74,6 +109,8 @@ export async function expandPageMotifs(
       linkOrigins: motifs.linkOrigins,
       signal,
       day,
+      logo,
+      logoBrand: owner,
       deferPaths: furniture ? [RECORD_CONTEXT, AS_OF_CONTEXT] : [AS_OF_CONTEXT],
     })
   const bodyResults = await Promise.all(bodies.map((body) => expand(body.html, body.lang, false)))

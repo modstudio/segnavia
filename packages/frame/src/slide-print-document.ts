@@ -1,11 +1,13 @@
 import type { Deck, OriginApproval } from '@segnavia/format'
+import { expandLogoMotifs } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
+import { frameBrandLogo } from './frame-style-sheets.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 
 export const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
 
 export function htmlSlideDocument(
-  deck: Pick<Deck, 'scripts' | 'dir' | 'lang' | 'style' | 'brand' | 'title'>,
+  deck: Pick<Deck, 'scripts' | 'dir' | 'lang' | 'style' | 'brand' | 'brandName' | 'title'>,
   html: string,
   options: {
     baseCss?: string
@@ -16,7 +18,8 @@ export function htmlSlideDocument(
     layoutScripts?: readonly LoadedLayoutScript[]
   },
 ): string {
-  return frameDocument(html, {
+  const { logo, owner } = frameBrandLogo(deck)
+  return frameDocument(expandLogoMotifs(html, logo, owner), {
     scripts: deck.scripts,
     nonce: options.nonce,
     dir: deck.dir,
