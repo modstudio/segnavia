@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import drawingInputRecord from '../../../drawing-inputs.json' with { type: 'json' }
 import { withCrypto } from './crypto-test-helper.ts'
 import {
   COVER_DRAWING_VERSION,
@@ -55,7 +54,8 @@ const motif = (key: string, revision = '1'): Motif => ({
 })
 
 describe('Cover', () => {
-  test('publishes drawing versions for cover, page and slide pictures', () => {
+  test('publishes drawing versions for cover, page and slide pictures', async () => {
+    const drawingInputRecord = (await Bun.file(new URL('../../../drawing-inputs.json', import.meta.url)).json()) as { image: number; cover: number }
     expect(COVER_DRAWING_VERSION).toBe(drawingInputRecord.cover)
     expect(IMAGE_DRAWING_VERSION).toBe(drawingInputRecord.image)
   })
