@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { DRAWING_INPUTS } from '../architecture.ts'
+import { DRAWING_INPUTS } from '../drawing-input-paths.ts'
 import { COVER_DRAWING_VERSION, IMAGE_DRAWING_VERSION } from '../packages/format/src/index.ts'
 import { NO_NETWORK_ARGS } from '../packages/render/src/no-network-args.ts'
 import type { DrawingInputRecord, DrawingInputState } from './checks/drawing-inputs.ts'

@@ -1410,9 +1410,10 @@ content digest, `IMAGE_DRAWING_VERSION`, and the browser build it chose through
 `executablePath`. The content digest covers the document, slots, media and
 fonts. The drawing version covers the library's lowering, frame document and
 Chromium settings; the browser build remains a host fact. `COVER_DRAWING_VERSION`
-uses the same drawing-input boundary. `drawing-inputs.json` fingerprints that
-boundary, the pinned `playwright-core` version and the offline Chromium
-arguments. The boundary test walks the transitive frame, render and layout
+uses the same drawing-input boundary. `drawing-input-paths.ts` declares the
+drawing and non-drawing sides of that boundary. `drawing-inputs.json`
+fingerprints the drawing side, the pinned `playwright-core` version and the
+offline Chromium arguments. The boundary test walks the transitive frame, render and layout
 graph from the page, slide and cover image roots; HTML and format remain
 limited to the declared sanitizer boundary. When the drawing-input check fails, raise both versions and run
 `bun run drawing:record` after deciding that the changed source can alter the

@@ -2,7 +2,7 @@
 // where it may run. `scripts/checks/architecture.ts` enforces it; a boundary
 // that is not written here is not a boundary.
 
-import { ADDITIONAL_DRAWING_INPUTS } from './drawing-input-paths.ts'
+export { DRAWING_INPUTS, NON_DRAWING_INPUTS } from './drawing-input-paths.ts'
 
 export type Runtime = 'universal' | 'browser' | 'server'
 
@@ -12,85 +12,6 @@ export const REACT_PACKAGE_ALLOWLIST = new Set(['@segnavia/react'])
 // The verify-render Bun leg proves Bun support for these packages.
 export const BUN_SUPPORTED_PACKAGES = ['render', 'format', 'layout', 'html', 'capture'] as const
 
-// Source that can change the pixels or encoding produced by pageImage, slideImage or coverImage.
-// The drawing-input check fingerprints these paths; the coverage test keeps their import boundary complete.
-const PRIMARY_DRAWING_INPUTS = [
-  'packages/frame/src/base-style.ts',
-  'packages/frame/src/book-presentation.ts',
-  'packages/frame/src/bridge.ts',
-  'packages/frame/src/composer-dress.ts',
-  'packages/frame/src/composer-decoration.ts',
-  'packages/frame/src/composer-fill.ts',
-  'packages/frame/src/composer-fill-policy.ts',
-  'packages/frame/src/composer-fit.ts',
-  'packages/frame/src/composer-fit-policy.ts',
-  'packages/frame/src/composer-hj-violations.ts',
-  'packages/frame/src/composer-inline-overflow.ts',
-  'packages/frame/src/composer-line-labels-embed.ts',
-  'packages/frame/src/composer-line-label-measure.ts',
-  'packages/frame/src/composer-line-labels.ts',
-  'packages/frame/src/composer-line-range.ts',
-  'packages/frame/src/composer-margin.ts',
-  'packages/frame/src/composer-margin-embed.ts',
-  'packages/frame/src/composer-measure-embed.ts',
-  'packages/frame/src/composer-measure.ts',
-  'packages/frame/src/composer-page-dom.ts',
-  'packages/frame/src/composer-paragraph.ts',
-  'packages/frame/src/composer-paragraph-box.ts',
-  'packages/frame/src/composer-paragraph-dom.ts',
-  'packages/frame/src/composer-paragraph-measure.ts',
-  'packages/frame/src/composer-paragraph-performance.ts',
-  'packages/frame/src/composer-paragraph-policy.ts',
-  'packages/frame/src/composer-preflight.ts',
-  'packages/frame/src/composer-progress.ts',
-  'packages/frame/src/composer-properties-embed.ts',
-  'packages/frame/src/composer-properties-policy.ts',
-  'packages/frame/src/composer-properties.ts',
-  'packages/frame/src/composer-regions.ts',
-  'packages/frame/src/composer-side-note-measure.ts',
-  'packages/frame/src/composer-source-staging.ts',
-  'packages/frame/src/composer-stage-policy.ts',
-  'packages/frame/src/composer-table-measure.ts',
-  'packages/frame/src/composer-tags.ts',
-  'packages/frame/src/composer-title-values.ts',
-  'packages/frame/src/composer-window-placement.ts',
-  'packages/frame/src/composer.ts',
-  'packages/frame/src/frame-style-sheets.ts',
-  'packages/frame/src/layout-runtime.ts',
-  'packages/frame/src/layout-settle.ts',
-  'packages/frame/src/print-document.ts',
-  'packages/frame/src/printed-page-document.ts',
-  'packages/frame/src/slide-print-document.ts',
-  'packages/html/src/sanitize.ts',
-  'packages/layout/src/index.ts',
-  'packages/render/src/browser-tab.ts',
-  'packages/render/src/capture-image.ts',
-  'packages/render/src/image-watermark.ts',
-  'packages/render/src/no-network-args.ts',
-  'packages/render/src/page-document.ts',
-  'packages/render/src/page-image-render.ts',
-  'packages/render/src/page-paper.ts',
-  'packages/render/src/page-viewport.ts',
-  'packages/render/src/printed-page-render.ts',
-  'packages/render/src/proof-image.ts',
-  'packages/render/src/slide-image.ts',
-] as const
-
-// Drawing modules reached transitively from the public picture paths. The coverage test follows
-// relative, frame and layout imports, including imports made by explicitly non-drawing modules.
-
-export const DRAWING_INPUTS = [...PRIMARY_DRAWING_INPUTS, ...ADDITIONAL_DRAWING_INPUTS] as const
-
-// Reachable modules that can only report or refuse a render; changing them cannot alter a successful picture.
-export const NON_DRAWING_INPUTS = [
-  'packages/frame/src/composition-failure.ts',
-  'packages/frame/src/document-brand-refusal.ts',
-  'packages/render/src/asset-refusal.ts',
-  'packages/render/src/errors.ts',
-  'packages/render/src/progress.ts',
-  'packages/render/src/render-deadline.ts',
-  'packages/render/src/renderer.ts',
-] as const
 export const VUE_TYPE_ENTRIES = {
   frame: { exportName: './vue', source: 'src/vue.ts' },
   'markdown-editor': { exportName: './vue', source: 'src/vue.ts' },

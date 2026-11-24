@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { DRAWING_INPUTS, NON_DRAWING_INPUTS } from '../../architecture.ts'
+import { DRAWING_INPUTS, NON_DRAWING_INPUTS } from '../../drawing-input-paths.ts'
 
 const ROOT = path.resolve(import.meta.dir, '../..')
 const transpiler = new Bun.Transpiler({ loader: 'ts' })
