@@ -185,7 +185,7 @@ export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, approv
   return linkAllowed(value, linkPolicyFromConverter(MARKDOWN_CONVERTER_POLICY.urls, linkOrigins === undefined ? undefined : originSet(linkOrigins)))
 }
 
-function refusedElement(element: Element, refused: ReadonlySet<string>, keepScripts: boolean): boolean {
+export function refusedElement(element: Element, refused: ReadonlySet<string>, keepScripts: boolean): boolean {
   const name = element.name.toLowerCase()
   if (name === 'script') return !keepScripts
   if (name === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet') return false
@@ -219,7 +219,13 @@ function assetAttribute(element: Element, attribute: string, value: string, opti
   return decision.allowed ? '' : decision.refusal
 }
 
-function refusedAttribute(element: Element, name: string, value: string, links: ResolvedLinkPolicy, options: SanitizeOptions): string | undefined {
+export function refusedAttribute(
+  element: Element,
+  name: string,
+  value: string,
+  links: ResolvedLinkPolicy | undefined,
+  options: SanitizeOptions,
+): string | undefined {
   const attribute = name.toLowerCase()
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const asset = assetAttribute(element, attribute, value, options)

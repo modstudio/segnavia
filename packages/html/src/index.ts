@@ -79,6 +79,7 @@ export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPri
 export { bookPrintPart, headingLabel, numberedHeadingLabel } from './book/types.ts'
 export { sanitizeBookCss } from './book-css.ts'
 export { type BrandSpecimenOptions, brandSpecimen } from './brand-specimen.ts'
+export { cleanHtml, type DroppedContent } from './clean-html.ts'
 export { type CompositionStyle, type CustomPropertyValues, readCompositionStyle } from './composition-style.ts'
 export { asOfValues, slotsForDay, slotsOptionsRefusal, slotsWithDay } from './day-slots.ts'
 export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
