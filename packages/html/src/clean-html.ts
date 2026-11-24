@@ -190,7 +190,7 @@ function paragraphsAroundInlineRuns(children: ChildNode[], attributes: Record<st
 function normalizeListItemParagraph(element: Element, path: string, state: CleanerState): boolean {
   if (element.name.toLowerCase() !== 'li' || element.children.length !== 1) return false
   const paragraph = element.children[0]
-  if (!isTag(paragraph) || paragraph.name.toLowerCase() !== 'p') return false
+  if (!paragraph || !isTag(paragraph) || paragraph.name.toLowerCase() !== 'p') return false
   const paragraphPath = `${path}/p[1]`
   const admitted = new Set(Object.hasOwn(state.admittedElements, 'p') ? state.admittedElements.p : [])
   cleanRefusedAttributes(paragraph, paragraphPath, 'p', state)

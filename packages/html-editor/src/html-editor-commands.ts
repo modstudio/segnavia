@@ -34,11 +34,11 @@ function markDefinition(
   }
 }
 
-function hrefAdmitted(profile: HtmlProfile, href: unknown): boolean {
+function linkAdmitted(profile: HtmlProfile, args?: Record<string, unknown>): boolean {
   if (!profile.marks.includes('link') || !profile.links) return false
-  if (href === undefined) return true
+  if (args === undefined) return true
   try {
-    const scheme = new URL(String(href)).protocol.replace(/:$/, '')
+    const scheme = new URL(String(args.href)).protocol.replace(/:$/, '')
     return profile.links.schemes.includes(scheme as (typeof profile.links.schemes)[number])
   } catch {
     return false
@@ -62,16 +62,30 @@ const COMMAND_DEFINITIONS = {
     (editor) => editor.can().toggleUnderline(),
   ),
   link: {
-    profileField: (profile, args) => (profile.marks.includes('link') && !profile.links ? 'links.schemes' : args?.href === undefined ? 'marks.link' : 'links.schemes'),
-    admitted: (profile, args) => hrefAdmitted(profile, args?.href),
-    run: (editor, _profile, args) => editor.chain().focus().extendMarkRange('link').setLink({ href: String(args?.href) }).run(),
+    profileField: (profile) => (profile.marks.includes('link') ? 'links.schemes' : 'marks.link'),
+    admitted: linkAdmitted,
+    run: (editor, _profile, args) =>
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange('link')
+        .setLink({ href: String(args?.href) })
+        .run(),
     active: (editor) => editor.isActive('link'),
     canRun: (editor, profile) => editor.can().setLink({ href: `${profile.links?.schemes[0] ?? 'https'}://example.invalid` }),
   },
   heading: {
     profileField: () => 'blocks.h',
-    admitted: (profile, args) => args === undefined || args.level === undefined ? profile.blocks.h !== undefined : profile.blocks.h?.includes(Number(args.level) as HtmlProfileHeadingLevel) ?? false,
-    run: (editor, _profile, args) => editor.chain().focus().toggleHeading({ level: Number(args?.level) as HtmlProfileHeadingLevel }).run(),
+    admitted: (profile, args) =>
+      args === undefined || args.level === undefined
+        ? profile.blocks.h !== undefined
+        : (profile.blocks.h?.includes(Number(args.level) as HtmlProfileHeadingLevel) ?? false),
+    run: (editor, _profile, args) =>
+      editor
+        .chain()
+        .focus()
+        .toggleHeading({ level: Number(args?.level) as HtmlProfileHeadingLevel })
+        .run(),
     active: (editor) => editor.isActive('heading'),
     canRun: (editor, profile) => editor.can().toggleHeading({ level: profile.blocks.h?.[0] ?? 1 }),
   },
@@ -91,7 +105,8 @@ const COMMAND_DEFINITIONS = {
   },
   align: {
     profileField: () => 'align',
-    admitted: (profile, args) => args === undefined ? profile.align !== undefined : profile.align?.includes(String(args.value) as HtmlProfileAlignment) ?? false,
+    admitted: (profile, args) =>
+      args === undefined ? profile.align !== undefined : (profile.align?.includes(String(args.value) as HtmlProfileAlignment) ?? false),
     run: (editor, profile, args) => updateCurrentBlock(editor, profile, { textAlign: String(args?.value) }),
     active: (editor, profile) => {
       const block = currentBlockType(editor, profile)
@@ -101,7 +116,10 @@ const COMMAND_DEFINITIONS = {
   },
   direction: {
     profileField: () => 'direction',
-    admitted: (profile, args) => args === undefined ? profile.direction === true : profile.direction === true && HTML_PROFILE_DIRECTIONS.includes(String(args.value) as (typeof HTML_PROFILE_DIRECTIONS)[number]),
+    admitted: (profile, args) =>
+      args === undefined
+        ? profile.direction === true
+        : profile.direction === true && HTML_PROFILE_DIRECTIONS.includes(String(args.value) as (typeof HTML_PROFILE_DIRECTIONS)[number]),
     run: (editor, profile, args) => updateCurrentBlock(editor, profile, { dir: String(args?.value) }),
     active: (editor, profile) => {
       const block = currentBlockType(editor, profile)

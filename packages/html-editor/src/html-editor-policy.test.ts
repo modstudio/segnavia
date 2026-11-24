@@ -30,7 +30,9 @@ describe('HTML editor command policy', () => {
   test('requires both the link mark and an admitted href scheme', () => {
     const links = { ...profile, marks: [...profile.marks, 'link' as const] }
     expect(commandAdmitted(links, 'link')).toBe(true)
+    expect(commandRefusal(links, 'link')?.message).toContain('profile.links.schemes')
     expect(commandRefusal(links, 'link', { href: 'mailto:x@example.com' })?.message).toContain('profile.links.schemes')
+    expect(commandRefusal(profile, 'link', { href: 'https://example.com' })?.message).toContain('profile.marks.link')
     expect(commandRefusal({ ...links, links: undefined }, 'link', { href: 'https://example.com' })?.message).toContain('profile.links.schemes')
   })
 })

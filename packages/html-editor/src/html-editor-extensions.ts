@@ -1,10 +1,4 @@
-import {
-  HTML_PROFILE_DIRECTIONS,
-  HTML_PROFILE_MAPPING,
-  type HtmlProfile,
-  type HtmlProfileBlock,
-  type HtmlProfileMark,
-} from '@segnavia/html'
+import { HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, type HtmlProfileBlock, type HtmlProfileMark } from '@segnavia/html'
 import { type AnyExtension, type Attribute, Extension, getExtensionField } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 
