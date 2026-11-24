@@ -14,10 +14,11 @@ export async function buildHtmlEditorDemo(root: string, site: string): Promise<v
   writeFileSync(
     path.join(site, 'html-editor.html'),
     `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:system-ui;margin:24px}segnavia-html-editor{display:block;block-size:240px}</style></head><body>
-      <segnavia-html-editor id="editor"></segnavia-html-editor>
+      <div id="mount"></div>
       <script type="module">
-        import './segnavia-html-editor.js'
-        const editor = document.getElementById('editor')
+        const { SegnaviaHtmlEditor } = await import('./segnavia-html-editor.js')
+        const editor = new SegnaviaHtmlEditor()
+        editor.id = 'editor'
         globalThis.htmlEditorEvents = { changes: [], dropped: [], states: [], errors: [] }
         editor.addEventListener('segnavia-html-change', event => globalThis.htmlEditorEvents.changes.push(event.detail.html))
         editor.addEventListener('segnavia-html-dropped', event => globalThis.htmlEditorEvents.dropped.push(event.detail.dropped))
@@ -29,6 +30,7 @@ export async function buildHtmlEditorDemo(root: string, site: string): Promise<v
           atoms: { pattern: 'double-brace' },
         }
         editor.html = '<p>Welcome {{first_name}}</p>'
+        document.getElementById('mount').append(editor)
       </script>
     </body></html>`,
   )

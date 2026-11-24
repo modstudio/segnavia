@@ -25,7 +25,7 @@ export async function verifyHtmlEditor(h: Harness): Promise<void> {
       atomEditable: atom?.contentEditable,
     }
   })
-  check('HTML editor types and returns bold profile HTML', result.html === '<p><strong>Welcome {{first_name}} friend</strong></p>', result.html)
+  check('HTML editor types and returns bold profile HTML', result.html === '<p><strong>Welcome {{first_name}}&nbsp;friend</strong></p>', result.html)
   check(
     'HTML editor keeps one atom whole',
     result.atomCount === 1 && result.atomName === 'first_name' && result.atomEditable === 'false',
