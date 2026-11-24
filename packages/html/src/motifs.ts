@@ -1,7 +1,6 @@
 import {
   AS_OF_CONTEXT,
   type AsOfDay,
-  type BrandLogo,
   chooseMotifVersion,
   type FontReference,
   HEAD_TEMPLATE_MOTIF,
@@ -17,6 +16,7 @@ import {
   Refusal,
   resolveDirection,
   type Scripts,
+  type StyleSheet,
 } from '@segnavia/format'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { bindingNames, bindingRoot, fill, hasBindings } from './bindings.ts'
@@ -24,6 +24,7 @@ import { elements, parse, sanitize, serialize } from './sanitize.ts'
 
 export const MOTIF_DEPTH_LIMIT = 8
 export const MOTIF_PLACEMENT_LIMIT = 256
+type BrandLogo = NonNullable<StyleSheet['logo']>
 
 export interface ExpandMotifsOptions {
   source: MotifSource

@@ -7,8 +7,8 @@ import {
   hasHostMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
-  printedSectionBodies,
   type PrintedHtmlPage,
+  printedSectionBodies,
   withPrintedSectionBodies,
 } from '@segnavia/html'
 
@@ -40,7 +40,7 @@ export function expandPageLogoMotifs<T extends HtmlPage | PrintedHtmlPage>(page:
   const printedPages = page.printedPages
     ? {
         ...page.printedPages,
-        ...('sections' in page.printedPages
+        ...(page.printedPages.sections !== undefined
           ? {
               sections: page.printedPages.sections.map((section) =>
                 withPrintedSectionBodies(

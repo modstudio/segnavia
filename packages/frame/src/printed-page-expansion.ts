@@ -1,14 +1,7 @@
 import type { AsOfDay, FontReference, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
 import { documentLanguage, type PrintedHtmlPage, printedSectionBodies, withPrintedSectionBodies } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import {
-  expandedPageParents,
-  expandPageLogoMotifs,
-  expandPageMotifs,
-  type MotifsOptions,
-  pageMotifRefusal,
-  pageParentRegions,
-} from './page-motif-expansion.ts'
+import { expandedPageParents, expandPageLogoMotifs, expandPageMotifs, type MotifsOptions, pageMotifRefusal, pageParentRegions } from './page-motif-expansion.ts'
 import { type PlacementPreflight, resolvePrintedPagePlacements } from './placement-resolution.ts'
 
 export interface ExpandedPrintedFramePage {

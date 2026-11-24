@@ -3,7 +3,6 @@ import {
   type Book,
   type BookItem,
   type BookView,
-  type BrandLogo,
   bookFromDocument,
   type DocumentInput,
   type FontReference,
@@ -15,6 +14,7 @@ import {
   type PreflightProfile,
   RECORD_CONTEXT,
   resolveBrand,
+  type StyleSheet,
 } from '@segnavia/format'
 import {
   documentLanguage,
@@ -49,6 +49,7 @@ export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type { MotifsOptions } from './page-motif-expansion.ts'
 export { type ExpandedPrintedFramePage, expandPrintedFramePage } from './printed-page-expansion.ts'
 export type PlacementsOptions = AssetPlacementsOptions
+type BrandLogo = NonNullable<StyleSheet['logo']>
 export interface ExpandedFramePage {
   page: HtmlPage
   sounds: import('@segnavia/html').SoundPlacements
