@@ -36,6 +36,7 @@ import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './de
 import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
 import { URL_SLIDE_NARRATION, urlSlideCues, urlSlideFonts, urlSlideHtml, urlSlidePlayer } from './demo-url-slide.ts'
 import { sineWav } from './sine-wav.ts'
+
 const ROOT = path.resolve(import.meta.dir, '..')
 const OUT = path.join(ROOT, 'out')
 const SITE = path.join(OUT, 'site')
@@ -101,10 +102,8 @@ const listShot = publish('classes.list')
 const formShot = publish('classes.create.form')
 const published: PublishedShot = { src: formShot.file, shot: formShot }
 writeFileSync(path.join(SITE, 'shots', 'classes.create.form.json'), JSON.stringify(published))
-
 const card = (title: string, body: string) =>
   `<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-content:center;font-family:system-ui,sans-serif;background:#1f3a8a;color:#fff;text-align:center"><h1 style="font-size:64px;margin:0 0 16px">${title}</h1><p style="font-size:28px;margin:0;opacity:.85">${body}</p><script>document.body.style.background = 'red'</script></body></html>`
-
 const summary = fill(
   `<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-content:center;font-family:system-ui,sans-serif;background:#0f766e;color:#fff"><h1 style="font-size:56px;margin:0 0 24px">Your classes: <span data-demo-value="count"></span></h1><ul style="font-size:28px"><li data-demo-each="classes"><span data-demo-value="name"></span>, grade <span data-demo-value="grade"></span></li></ul></body></html>`,
   {
