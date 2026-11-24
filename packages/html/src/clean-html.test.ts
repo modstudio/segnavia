@@ -77,6 +77,26 @@ describe('cleanHtml', () => {
     })
   })
 
+  test('flattens nested unadmitted blocks into admitted paragraph siblings', () => {
+    for (const source of ['<div><div>x</div></div>', '<table><tbody><tr><td>x</td></tr></tbody></table>']) {
+      const once = cleanHtml(source, profile)
+      expect(once.html).toBe('<p>x</p>')
+      expect(cleanHtml(once.html, profile)).toEqual({ html: once.html, dropped: [] })
+    }
+
+    expect(cleanHtml('<div>a<p>b</p>c</div>', profile)).toEqual({
+      html: '<p>a</p><p>b</p><p>c</p>',
+      dropped: [{ kind: 'element', name: 'div', path: 'div[1]' }],
+    })
+  })
+
+  test('removes comments and reports their parent path', () => {
+    expect(cleanHtml('<p>a<!-- note -->b</p>', profile)).toEqual({
+      html: '<p>ab</p>',
+      dropped: [{ kind: 'element', name: '#comment', path: 'p[1]' }],
+    })
+  })
+
   test('round-trips Hebrew direction when admitted', () => {
     expect(cleanHtml('<p dir="rtl">שלום</p>', profile)).toEqual({ html: '<p dir="rtl">שלום</p>', dropped: [] })
   })

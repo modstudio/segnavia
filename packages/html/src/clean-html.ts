@@ -1,4 +1,4 @@
-import { type ChildNode, type Element, isTag } from 'domhandler'
+import { type ChildNode, Element, isComment, isTag, isText } from 'domhandler'
 import { HTML_PROFILE_DIRECTIONS, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
 import { linkAllowed, type ResolvedLinkPolicy, urlParserText } from './link-policy.ts'
 import { parse, REFUSED_ELEMENTS, refusedAttribute, refusedElement, serialize } from './sanitize.ts'
@@ -156,6 +156,30 @@ function cleanProfileAttributes(element: Element, path: string, admitted: Readon
   }
 }
 
+function hasNonWhitespaceContent(node: ChildNode): boolean {
+  if (isText(node)) return node.data.trim().length > 0
+  if (isTag(node)) return node.children.some(hasNonWhitespaceContent)
+  return true
+}
+
+function paragraphsAroundInlineRuns(children: ChildNode[], attributes: Record<string, string>): ChildNode[] {
+  const flattened: ChildNode[] = []
+  let inlineRun: ChildNode[] = []
+  const flushInlineRun = () => {
+    if (inlineRun.some(hasNonWhitespaceContent)) flattened.push(new Element('p', { ...attributes }, inlineRun))
+    inlineRun = []
+  }
+
+  for (const child of children) {
+    if (isTag(child) && HTML_BLOCK_ELEMENTS.has(child.name.toLowerCase())) {
+      flushInlineRun()
+      flattened.push(child)
+    } else inlineRun.push(child)
+  }
+  flushInlineRun()
+  return flattened
+}
+
 function cleanElement(element: Element, path: string, state: CleanerState): ChildNode[] {
   const sourceName = element.name.toLowerCase()
   if (refusedElement(element, REFUSED_ELEMENTS, false)) {
@@ -173,6 +197,7 @@ function cleanElement(element: Element, path: string, state: CleanerState): Chil
 
   if (!elementDropped && !unwrapLink) return [element]
   if (!admittedName || unwrapLink) return element.children
+  if (admittedName === 'p' && HTML_BLOCK_ELEMENTS.has(sourceName)) return paragraphsAroundInlineRuns(element.children, element.attribs)
   element.name = admittedName
   return [element]
 }
@@ -181,6 +206,10 @@ function cleanNodes(nodes: ChildNode[], parentPath: string, state: CleanerState)
   const siblingIndexes = new Map<string, number>()
   const cleaned: ChildNode[] = []
   for (const node of nodes) {
+    if (isComment(node)) {
+      state.drop({ kind: 'element', name: '#comment', path: parentPath })
+      continue
+    }
     if (!isTag(node)) {
       cleaned.push(node)
       continue
