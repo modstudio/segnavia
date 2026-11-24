@@ -1,5 +1,38 @@
 # @segnavia/frame
 
+## 0.58.0
+
+### Minor Changes
+
+- 5dae2d6: Let a style sheet carry a primary logo and host-named versions, draw it in pages, slides and parent furniture with `segnavia:logo`, and exchange it through the Segnavia design-token extension.
+- 2f388da: Expose the segmented slide track as one slider instead of buttons in a list, with direction-aware keyboard navigation and the current slide title in its announced value.
+- 10cdfd4: Draw imposition crop and fold marks in `segnavia-paper`, using the pieces' shared press so bleed and cell placement match PDF output. Report omitted marks with a `marksomitted` event, exposed to Vue and as React `onMarksomitted`. Export the shared mark thickness from format and keep render output on that value.
+- 53efe2d: Give slides optional titles that label their rail and segmented-track controls for assistive technology.
+- a67bb3b: Let hosts set `forms: 'refuse'` on frame surfaces, controllers and print options to omit `allow-forms` from sandboxed author frames.
+- 1fb1cbd: Let hosts opt into serving library-built page, book, slide, printed-page and bridged-thumbnail documents from single-use HTTP(S) URLs so their bridges work under a strict parent Content Security Policy.
+- 19bac8e: Let font sources return approved URL faces, route them through offline render assets, and let stages, players, controllers and slide thumbnails resolve a deck's fonts without copying URL-backed font bytes into every frame.
+- 58aa2a5: Allow a host-served URL slide to declare an annotation count and receive its shown cue indexes through the host bridge.
+- 6e0d9ff: Let `--segnavia-radius` scale every styled control corner, including track segments, fills, and lines. Rail and document-rail thumbnails now use five sixths of the host value; their unset default remains 10px.
+- cff264d: Seed a deck load from saved per-slide watched facts and pass a one-shot seed through the player.
+
+### Patch Changes
+
+- 6987b12: Break tall paginated flows through nested block wrappers at any depth.
+- Updated dependencies [5dae2d6]
+- Updated dependencies [e7d824d]
+- Updated dependencies [b1b1694]
+- Updated dependencies [10cdfd4]
+- Updated dependencies [2db9010]
+- Updated dependencies [53efe2d]
+- Updated dependencies [8d0c1e2]
+- Updated dependencies [d61d20c]
+- Updated dependencies [19bac8e]
+- Updated dependencies [58aa2a5]
+- Updated dependencies [6987b12]
+  - @segnavia/format@0.58.0
+  - @segnavia/html@0.58.0
+  - @segnavia/layout@0.58.0
+
 ## 0.57.0
 
 ### Minor Changes

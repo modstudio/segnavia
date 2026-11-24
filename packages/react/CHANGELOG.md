@@ -1,5 +1,28 @@
 # @segnavia/react
 
+## 0.58.0
+
+### Minor Changes
+
+- 10cdfd4: Draw imposition crop and fold marks in `segnavia-paper`, using the pieces' shared press so bleed and cell placement match PDF output. Report omitted marks with a `marksomitted` event, exposed to Vue and as React `onMarksomitted`. Export the shared mark thickness from format and keep render output on that value.
+- a67bb3b: Let hosts set `forms: 'refuse'` on frame surfaces, controllers and print options to omit `allow-forms` from sandboxed author frames.
+- 1fb1cbd: Let hosts opt into serving library-built page, book, slide, printed-page and bridged-thumbnail documents from single-use HTTP(S) URLs so their bridges work under a strict parent Content Security Policy.
+
+### Patch Changes
+
+- Updated dependencies [5dae2d6]
+- Updated dependencies [2f388da]
+- Updated dependencies [10cdfd4]
+- Updated dependencies [53efe2d]
+- Updated dependencies [a67bb3b]
+- Updated dependencies [1fb1cbd]
+- Updated dependencies [19bac8e]
+- Updated dependencies [58aa2a5]
+- Updated dependencies [6e0d9ff]
+- Updated dependencies [6987b12]
+- Updated dependencies [cff264d]
+  - @segnavia/frame@0.58.0
+
 ## 0.57.0
 
 ### Minor Changes

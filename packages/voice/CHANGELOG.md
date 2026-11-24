@@ -1,5 +1,25 @@
 # @segnavia/voice
 
+## 0.58.0
+
+### Minor Changes
+
+- 88da8bd: Let voice providers declare an inline IPA form and preview lexicon phoneme entries before publishing a pronunciation dictionary.
+
+### Patch Changes
+
+- Updated dependencies [5dae2d6]
+- Updated dependencies [e7d824d]
+- Updated dependencies [10cdfd4]
+- Updated dependencies [2db9010]
+- Updated dependencies [53efe2d]
+- Updated dependencies [8d0c1e2]
+- Updated dependencies [d61d20c]
+- Updated dependencies [19bac8e]
+- Updated dependencies [58aa2a5]
+- Updated dependencies [6987b12]
+  - @segnavia/format@0.58.0
+
 ## 0.57.0
 
 ### Minor Changes

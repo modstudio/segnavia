@@ -1,5 +1,30 @@
 # @segnavia/html
 
+## 0.58.0
+
+### Minor Changes
+
+- 5dae2d6: Let a style sheet carry a primary logo and host-named versions, draw it in pages, slides and parent furniture with `segnavia:logo`, and exchange it through the Segnavia design-token extension.
+- 8d0c1e2: Refuse undefined document slot paths and malformed motif placements, apply image asset approval to SVG image references, and let prepared slots accept record-template keys scoped to one HTML string.
+- 19bac8e: Let font sources return approved URL faces, route them through offline render assets, and let stages, players, controllers and slide thumbnails resolve a deck's fonts without copying URL-backed font bytes into every frame.
+
+### Patch Changes
+
+- b1b1694: Resolve content text variables in continuous-book print furniture from their printed target destinations.
+- Updated dependencies [5dae2d6]
+- Updated dependencies [e7d824d]
+- Updated dependencies [b1b1694]
+- Updated dependencies [10cdfd4]
+- Updated dependencies [2db9010]
+- Updated dependencies [53efe2d]
+- Updated dependencies [8d0c1e2]
+- Updated dependencies [d61d20c]
+- Updated dependencies [19bac8e]
+- Updated dependencies [58aa2a5]
+- Updated dependencies [6987b12]
+  - @segnavia/format@0.58.0
+  - @segnavia/layout@0.58.0
+
 ## 0.57.0
 
 ### Minor Changes
