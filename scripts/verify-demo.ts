@@ -14,6 +14,7 @@ import { verifyDocuments } from './verify/documents.ts'
 import { verifyFontCollection } from './verify/font-collection.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
+import { verifyHtmlEditor } from './verify/html-editor.ts'
 import { verifyImageFit } from './verify/image-fit.ts'
 import { verifyLayoutProviders } from './verify/layout-providers.ts'
 import { verifyMarkdownEditor } from './verify/markdown-editor.ts'
@@ -66,6 +67,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyCssSanitizer', run: () => verifyCssSanitizer(h) },
   { name: 'verifyDeckHost', run: () => verifyDeckHost(h) },
   { name: 'verifyMedia', run: () => verifyMedia(h) },
+  { name: 'verifyHtmlEditor', run: () => verifyHtmlEditor(h) },
   { name: 'verifyMarkdownEditor', run: () => verifyMarkdownEditor(h) },
   { name: 'verifyResponsive', run: () => verifyResponsive(h) },
   { name: 'verifyVue', run: () => verifyVue(h) },

@@ -19,6 +19,7 @@ import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildDocumentDemo } from './build-document-demo.ts'
 import { buildFontCollectionDemo } from './build-font-collection-demo.ts'
+import { buildHtmlEditorDemo } from './build-html-editor-demo.ts'
 import { buildLayoutProviderDemo, buildLayoutProviderRenderDemo } from './build-layout-provider-demo.ts'
 import { buildMarkdownEditorDemo } from './build-markdown-editor-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
@@ -101,10 +102,8 @@ const listShot = publish('classes.list')
 const formShot = publish('classes.create.form')
 const published: PublishedShot = { src: formShot.file, shot: formShot }
 writeFileSync(path.join(SITE, 'shots', 'classes.create.form.json'), JSON.stringify(published))
-
 const card = (title: string, body: string) =>
   `<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-content:center;font-family:system-ui,sans-serif;background:#1f3a8a;color:#fff;text-align:center"><h1 style="font-size:64px;margin:0 0 16px">${title}</h1><p style="font-size:28px;margin:0;opacity:.85">${body}</p><script>document.body.style.background = 'red'</script></body></html>`
-
 const summary = fill(
   `<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-content:center;font-family:system-ui,sans-serif;background:#0f766e;color:#fff"><h1 style="font-size:56px;margin:0 0 24px">Your classes: <span data-demo-value="count"></span></h1><ul style="font-size:28px"><li data-demo-each="classes"><span data-demo-value="name"></span>, grade <span data-demo-value="grade"></span></li></ul></body></html>`,
   {
@@ -329,6 +328,7 @@ writeFileSync(path.join(SITE, 'unstyled.html'), shell('<segnavia-stage id="bare"
 buildThumbnailDemo(SITE, shell, `shots/${listShot.file}`)
 writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.json" notes theme="light" hash="step-"></segnavia-player>'))
 buildPageDemo(SITE, (body) => shell(body))
+await buildHtmlEditorDemo(ROOT, SITE)
 await buildMarkdownEditorDemo(ROOT, SITE)
 await buildBookDemo(SITE)
 await buildLayoutProviderDemo(ROOT, SITE)

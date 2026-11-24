@@ -822,10 +822,17 @@ merge field is stored as plain token text: `{{name}}`, where the name is a
 letter or `_` followed by letters, digits, `_`, `-` or `.`.
 `DOUBLE_BRACE_ATOM_NAME` and `DOUBLE_BRACE_ATOM_TOKEN` export that one grammar
 for the cleaner and the editor. Spaces just inside the braces are dropped;
-anything else in braces, or a token split by markup, stays text. Every removal is a
-`DroppedContent` entry (element, attribute, scheme or style) with a 1-based
-sibling path, capped at the first 256. Cleaning the output again changes
-nothing.
+anything else in braces, or a token split by markup, stays text. Every removal
+is a `DroppedContent` entry shaped as
+`{ kind: 'element' | 'attribute' | 'scheme' | 'style', name, path }`, with a
+1-based sibling path and the report capped at the first 256 entries. Cleaning
+the output again changes nothing.
+
+An HTML profile and the sanitizer answer different questions. The sanitizer
+refuses active or otherwise unsafe content for every host. A profile narrows
+that safe set to the content one host stores. It composes with the sanitizer
+rather than replacing it: a profile can never admit an element, attribute,
+style or link scheme that the sanitizer refuses.
 
 `@segnavia/html-editor` is the browser-only package that defines
 `<segnavia-html-editor>`, a headless visual editor bound to a profile. Like
@@ -847,7 +854,11 @@ returns `cleanHtml` of the editor's serialization, so opening HTML and reading
 it back equals `cleanHtml` of the input. The `html` attribute is reflected,
 including after edits. Each real edit fires `segnavia-html-change` with the
 new HTML; a change in command state fires `segnavia-editor-state` with the
-`commands` record. `run(command, args)` runs `bold`, `italic`, `underline`,
+`commands` record. The full event surface is `segnavia-html-change`,
+`segnavia-html-dropped`, `segnavia-editor-state` and `error`. The first three
+bubble and cross the shadow boundary. `error` is a non-bubbling `ErrorEvent`
+from a failed `drawAtom`; the editor falls back to its default atom drawing.
+`run(command, args)` runs `bold`, `italic`, `underline`,
 `link`, `heading`, `bullet-list`, `ordered-list`, `align`, `direction`,
 `undo` or `redo`. A command or value outside the profile throws a refusal
 naming the profile field that admits it, and its `commands` entry is
@@ -865,6 +876,13 @@ surrounding `dir`, then `lang`, then the name. Changing `labels` or `drawAtom`
 redraws the atoms in place, keeping selection and undo history. A `drawAtom`
 that throws falls back to the default drawing, and the element fires a
 non-bubbling `error` event naming the atom.
+
+The editor is headless. Its zero-specificity base CSS supplies only geometry:
+the host is a block, `part="editor"` can shrink and scroll, and its
+`.ProseMirror` fills the block and removes the browser outline. `unstyled`
+removes those rules. Hosts style the open shadow root through `part="editor"`
+and default atoms through `part="atom"`; the package defines no public custom
+properties.
 
 ### As-of: the day a document's data is for
 
