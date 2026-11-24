@@ -1,5 +1,4 @@
-// <segnavia-paper>: shows one paper of an imposition, scaled to the element's
-// width. It brings no appearance, only geometry, which a host can override.
+// <segnavia-paper> shows one paper of an imposition, scaled to its width, with only host-overridable geometry.
 
 import {
   type Document,
@@ -330,12 +329,12 @@ export class SegnaviaPaper extends HTMLElement {
     if (!this.motifOptions) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
-        paintPaperPlaceholder(this, imposition, imposed, this.press, this.shownSide)
+        this.paintPlaceholder(imposition, imposed)
         report(motifRefusal, false)
         return
       }
     }
-    paintPaperPlaceholder(this, imposition, imposed, this.press, this.shownSide)
+    this.paintPlaceholder(imposition, imposed)
     void preparePaperDays(pages, asOfLoad, {
       slots: this.slotOptions,
       motifs: this.motifOptions,
@@ -352,6 +351,10 @@ export class SegnaviaPaper extends HTMLElement {
         commit(prepared.pages, prepared.slots, prepared.css)
       })
       .catch(report)
+  }
+
+  private paintPlaceholder(imposition: Imposition, imposed: ReturnType<typeof impose>) {
+    paintPaperPlaceholder(this, imposition, imposed, this.press, this.shownSide)
   }
 
   private cancelSlotPreparation() {
