@@ -110,6 +110,15 @@ export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export { fragmentationCss } from './fragmentation.ts'
+export {
+  HTML_PROFILE_MAPPING,
+  HtmlProfile,
+  type HtmlProfileAlignment,
+  type HtmlProfileBlock,
+  type HtmlProfileElementMapping,
+  type HtmlProfileLinkScheme,
+  type HtmlProfileMark,
+} from './html-profile.ts'
 export { KEEP_WITH_VALUES } from './keep-with.ts'
 export type { LinkPolicy } from './link-policy.ts'
 export {
