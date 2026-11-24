@@ -41,14 +41,28 @@ export interface VoiceSynthesisOptions {
   signal?: AbortSignal
 }
 
+export type InlineIpaForm = 'phoneme-tag' | 'slashes'
+
 export interface VoiceProvider {
   id: string
+  inlineIpa?: InlineIpaForm
   synthesize(text: string, voice?: string, options?: VoiceSynthesisOptions): Promise<Speech>
 }
 
 export interface PronunciationDictionary {
   id: string
   versionId?: string
+}
+
+// ElevenLabs documents phoneme tags as compatible only with eleven_flash_v2,
+// while Eleven v4 accepts IPA between slashes. Its models page calls
+// eleven_turbo_v2 functionally equivalent to Flash v2, contradicting the
+// narrower tag statement, so turbo remains absent until its support is clear.
+// https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices
+// https://elevenlabs.io/docs/overview/models
+const ELEVENLABS_INLINE_IPA: Readonly<Partial<Record<string, InlineIpaForm>>> = {
+  eleven_flash_v2: 'phoneme-tag',
+  eleven_v4: 'slashes',
 }
 
 // Characters with start and end times (what ElevenLabs returns) folded into
@@ -96,6 +110,7 @@ export function elevenLabsProvider(options: {
   model?: string
   pronunciationDictionaries?: readonly PronunciationDictionary[]
 }): VoiceProvider {
+  const model = options.model ?? 'eleven_multilingual_v2'
   // Built once, so the id and every request say the same thing even if the
   // caller changes its array afterwards.
   const locators = (options.pronunciationDictionaries ?? []).map(({ id, versionId }) => ({
@@ -103,10 +118,11 @@ export function elevenLabsProvider(options: {
     ...(versionId === undefined ? {} : { version_id: versionId }),
   }))
   if (locators.length > 3) throw new Error(`ElevenLabs accepts at most 3 pronunciation dictionaries; received ${locators.length}.`)
-  const baseId = `elevenlabs-${options.model ?? 'eleven_multilingual_v2'}-${options.voice}`
+  const baseId = `elevenlabs-${model}-${options.voice}`
   const dictionaryId = locators.length > 0 ? `-${JSON.stringify(locators)}` : ''
   return {
     id: `${baseId}${dictionaryId}`,
+    ...(ELEVENLABS_INLINE_IPA[model] === undefined ? {} : { inlineIpa: ELEVENLABS_INLINE_IPA[model] }),
     async synthesize(text, voice = options.voice, synthesisOptions) {
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`, {
         method: 'POST',
@@ -114,7 +130,7 @@ export function elevenLabsProvider(options: {
         headers: { 'xi-api-key': options.apiKey(), 'content-type': 'application/json' },
         body: JSON.stringify({
           text,
-          model_id: options.model ?? 'eleven_multilingual_v2',
+          model_id: model,
           ...(locators.length > 0 ? { pronunciation_dictionary_locators: locators } : {}),
           ...(synthesisOptions?.voiceSettings === undefined ? {} : { voice_settings: synthesisOptions.voiceSettings }),
         }),
@@ -140,11 +156,13 @@ export function elevenLabsProvider(options: {
 // without timestamps. Both halves are the host's.
 export function alignedProvider(options: {
   id: string
+  inlineIpa?: InlineIpaForm
   speak: (text: string, voice?: string, options?: VoiceSynthesisOptions) => Promise<{ bytes: Uint8Array; extension: string; durationMs: number }>
   align: (audio: Uint8Array, text: string) => Promise<Word[]>
 }): VoiceProvider {
   return {
     id: options.id,
+    ...(options.inlineIpa === undefined ? {} : { inlineIpa: options.inlineIpa }),
     async synthesize(text, voice, synthesisOptions) {
       const audio = await options.speak(text, voice, synthesisOptions)
       const words = await options.align(audio.bytes, text)

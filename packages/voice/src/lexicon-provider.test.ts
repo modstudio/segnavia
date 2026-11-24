@@ -77,4 +77,97 @@ describe('lexicon provider', () => {
     }
     expect((await lexiconProvider(inner, lexicon).synthesize('route')).words.map((word) => word.text)).toEqual(['two', 'sounds'])
   })
+
+  test('writes a single-word IPA as a phoneme tag and keeps the script caption', async () => {
+    const received: string[] = []
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'phoneme-tag',
+      async synthesize(text) {
+        received.push(text)
+        return {
+          words: [
+            { text: 'take', startMs: 0, endMs: 80 },
+            { text: 'this', startMs: 100, endMs: 180 },
+            { text: 'root', startMs: 200, endMs: 280 },
+          ],
+          durationMs: 300,
+          audio: null,
+        }
+      },
+    }
+    const provider = lexiconProvider(inner, { entries: [{ term: 'route', say: 'root', ipa: 'ruːt' }] }, { phonemes: true })
+
+    const speech = await provider.synthesize('take this route')
+
+    expect(received).toEqual(['take this <phoneme alphabet="ipa" ph="ruːt">route</phoneme>'])
+    expect(speech.words).toEqual([
+      { text: 'take', startMs: 0, endMs: 80 },
+      { text: 'this', startMs: 100, endMs: 180 },
+      { text: 'route', startMs: 200, endMs: 280 },
+    ])
+    expect(provider.id).toBe(`voice-lexicon-${lexiconVersion({ entries: [{ term: 'route', say: 'root', ipa: 'ruːt' }] })}-ipa`)
+  })
+
+  test('writes IPA between slashes and groups a multi-word script caption', async () => {
+    const received: string[] = []
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'slashes',
+      async synthesize(text) {
+        received.push(text)
+        return { words: [{ text, startMs: 0, endMs: 80 }], durationMs: 100, audio: null }
+      },
+    }
+
+    const speech = await lexiconProvider(inner, { entries: [{ term: 'Yom Tov', say: 'YomTov', ipa: 'jɔm tɔv' }] }, { phonemes: true }).synthesize('Yom Tov')
+
+    expect(received).toEqual(['/jɔm tɔv/'])
+    expect(speech.words).toEqual([{ text: 'Yom Tov', startMs: 0, endMs: 80 }])
+  })
+
+  test('still respells an entry without IPA in phoneme preview', async () => {
+    const received: string[] = []
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'slashes',
+      async synthesize(text) {
+        received.push(text)
+        return { words: [{ text, startMs: 0, endMs: 80 }], durationMs: 100, audio: null }
+      },
+    }
+
+    await lexiconProvider(inner, lexicon, { phonemes: true }).synthesize('route')
+
+    expect(received).toEqual(['root'])
+  })
+
+  test('refuses phoneme preview when the provider declares no inline form', () => {
+    const inner: VoiceProvider = { id: 'voice', synthesize: async () => ({ words: [], durationMs: 0, audio: null }) }
+    expect(() => lexiconProvider(inner, lexicon, { phonemes: true })).toThrow(
+      'provider voice declares no inline IPA form; use a model that reads inline IPA (eleven_flash_v2 or eleven_v4) or preview the respelling without phonemes',
+    )
+  })
+
+  test('refuses a multi-word phoneme tag before synthesis', () => {
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'phoneme-tag',
+      synthesize: async () => ({ words: [], durationMs: 0, audio: null }),
+    }
+    expect(() => lexiconProvider(inner, { entries: [{ term: 'Yom Tov', say: 'YomTov', ipa: 'jɔm tɔv' }] }, { phonemes: true })).toThrow(
+      'cannot write inline IPA for multi-word term "Yom Tov" as a phoneme tag; split the term or use a provider that reads slashes',
+    )
+  })
+
+  test.each(['bad<ipa', 'bad>ipa', 'bad"ipa', 'bad/ipa', 'bad\nipa', 'bad\u0000ipa'])('refuses unsafe inline IPA %j', (ipa) => {
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'slashes',
+      synthesize: async () => ({ words: [], durationMs: 0, audio: null }),
+    }
+    expect(() => lexiconProvider(inner, { entries: [{ term: 'route', say: 'root', ipa }] }, { phonemes: true })).toThrow(
+      'cannot write inline IPA for term "route" because its IPA contains a control character or one of <, >, ", /; remove that character',
+    )
+  })
 })
