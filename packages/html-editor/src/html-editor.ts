@@ -1,9 +1,10 @@
 import { upgradeProperties } from '@segnavia/frame/element-properties'
 import { cleanHtml, type DroppedContent, HtmlProfile, type HtmlProfile as HtmlProfileValue } from '@segnavia/html'
-import { Editor } from '@tiptap/core'
+import type { Editor } from '@tiptap/core'
 import { ensureEditorStyle } from './editor-style.ts'
 import { htmlEditorCommands, runHtmlEditorCommand } from './html-editor-commands.ts'
 import { htmlEditorExtensions } from './html-editor-extensions.ts'
+import { attachHtmlEditor, detachHtmlEditor, HtmlProfileEditor, htmlEditorTestSeam } from './html-editor-internals.ts'
 import { ENGLISH_HTML_EDITOR_LABELS, type HtmlEditorLabels, htmlEditorLabels } from './html-editor-labels.ts'
 import { commandRefusal, HTML_EDITOR_COMMANDS, type HtmlEditorCommand, type HtmlEditorCommands } from './html-editor-policy.ts'
 import { HtmlEditorStateEmitter } from './html-editor-state.ts'
@@ -58,6 +59,7 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
   disconnectedCallback(): void {
     this.editor?.destroy()
     this.editor = null
+    detachHtmlEditor(this)
   }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
@@ -126,7 +128,7 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
     this.htmlValue = cleaned.html
     this.droppedValue = cleaned.dropped
     this.reflectHtml(cleaned.html)
-    if (this.editor && this.editor.getHTML() !== cleaned.html) this.editor.commands.setContent(cleaned.html, { emitUpdate: false })
+    if (this.editor && this.editor.getHTML() !== cleaned.html) htmlEditorTestSeam.setContent(this.editor, cleaned.html)
     if (cleaned.dropped.length > 0) this.emit('segnavia-html-dropped', { dropped: this.droppedValue })
     this.updateCommands()
   }
@@ -135,7 +137,7 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
     if (!this.isConnected) return
     this.editor?.destroy()
     this.mount.replaceChildren()
-    this.editor = new Editor({
+    this.editor = new HtmlProfileEditor(this.profileValue, {
       element: this.mount,
       extensions: htmlEditorExtensions(this.profileValue),
       content: this.htmlValue,
@@ -143,13 +145,14 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
       onSelectionUpdate: () => this.updateCommands(),
       onTransaction: () => this.updateCommands(),
     })
+    attachHtmlEditor(this, this.editor)
     this.updateCommands()
   }
 
   private onUpdate(): void {
     if (!this.editor) return
     const cleaned = cleanHtml(this.editor.getHTML(), this.profileValue)
-    if (cleaned.html !== this.editor.getHTML()) this.editor.commands.setContent(cleaned.html, { emitUpdate: false })
+    if (cleaned.html !== this.editor.getHTML()) htmlEditorTestSeam.setContent(this.editor, cleaned.html)
     if (cleaned.html === this.htmlValue) return
     this.htmlValue = cleaned.html
     this.reflectHtml(cleaned.html)
