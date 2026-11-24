@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { afterAll, expect, test } from 'bun:test'
 import { Deck, Page, type SlotsOptions } from '@segnavia/format'
 import { resolvePageHtml, SlotFillRefusedError } from '@segnavia/html'
 import { expandFramePage } from './motif-expansion.ts'
@@ -16,7 +16,9 @@ Object.assign(globalThis, {
 const { SegnaviaStage } = await import('./stage.ts')
 const { SegnaviaPage } = await import('./page.ts')
 const { SegnaviaPaper } = await import('./paper.ts')
-const { thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
+const { installThumbnailSlotTestGlobals, thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
+const restoreThumbnailSlotTestGlobals = installThumbnailSlotTestGlobals()
+afterAll(restoreThumbnailSlotTestGlobals)
 const writeDocument = (SegnaviaPage.prototype as unknown as { writeDocument(iframe: HTMLIFrameElement, srcdoc: string): void }).writeDocument
 const resetDocumentReadiness = (SegnaviaPage.prototype as unknown as { resetDocumentReadiness(): void }).resetDocumentReadiness
 const loadPageValue = (SegnaviaPage.prototype as unknown as { loadValue(page: Page): void }).loadValue

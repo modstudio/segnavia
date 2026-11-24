@@ -1,3 +1,4 @@
+import './prosemirror-environment.test-helper.ts'
 import { describe, expect, test } from 'bun:test'
 import { HtmlProfile } from '@segnavia/html'
 import { commandAdmitted, commandRefusal } from './html-editor-commands.ts'
