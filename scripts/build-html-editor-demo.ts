@@ -19,11 +19,8 @@ export async function buildHtmlEditorDemo(root: string, site: string): Promise<v
         const { SegnaviaHtmlEditor } = await import('./segnavia-html-editor.js')
         const editor = new SegnaviaHtmlEditor()
         editor.id = 'editor'
-        globalThis.htmlEditorEvents = { changes: [], dropped: [], states: [], errors: [] }
+        globalThis.htmlEditorEvents = { changes: [] }
         editor.addEventListener('segnavia-html-change', event => globalThis.htmlEditorEvents.changes.push(event.detail.html))
-        editor.addEventListener('segnavia-html-dropped', event => globalThis.htmlEditorEvents.dropped.push(event.detail.dropped))
-        editor.addEventListener('segnavia-editor-state', event => globalThis.htmlEditorEvents.states.push(event.detail))
-        editor.addEventListener('error', event => globalThis.htmlEditorEvents.errors.push(event.message))
         editor.profile = {
           blocks: { p: true },
           marks: ['bold'],

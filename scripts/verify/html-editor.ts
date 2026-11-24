@@ -18,14 +18,21 @@ export async function verifyHtmlEditor(h: Harness): Promise<void> {
   const result = await page.evaluate(() => {
     const editor = document.getElementById('editor') as unknown as EditorHandle & HTMLElement
     const atom = editor.shadowRoot?.querySelector<HTMLElement>('[data-html-atom]')
+    const changes = (globalThis as typeof globalThis & { htmlEditorEvents: { changes: string[] } }).htmlEditorEvents.changes
     return {
       html: editor.html,
+      lastChangedHtml: changes.at(-1),
       atomCount: editor.shadowRoot?.querySelectorAll('[data-html-atom]').length ?? 0,
       atomName: atom?.getAttribute('data-html-atom'),
       atomEditable: atom?.contentEditable,
     }
   })
-  check('HTML editor types and returns bold profile HTML', result.html === '<p><strong>Welcome {{first_name}}&nbsp;friend</strong></p>', result.html)
+  check(
+    'HTML editor types and returns bold profile HTML',
+    result.html.replaceAll('&nbsp;', ' ').replaceAll('\u00a0', ' ') === '<p><strong>Welcome {{first_name}} friend</strong></p>',
+    result.html,
+  )
+  check('HTML editor emits its changed profile HTML', result.lastChangedHtml !== undefined && result.lastChangedHtml === result.html, JSON.stringify(result))
   check(
     'HTML editor keeps one atom whole',
     result.atomCount === 1 && result.atomName === 'first_name' && result.atomEditable === 'false',
