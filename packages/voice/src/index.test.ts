@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { pacedProvider, wordsFromCharacters } from './index.ts'
+import { alignedProvider, elevenLabsProvider, pacedProvider, wordsFromCharacters } from './index.ts'
 
 describe('voice', () => {
   test('character alignment folds into words spanning first start to last end', () => {
@@ -24,8 +24,6 @@ describe('voice', () => {
   })
 })
 
-import { alignedProvider } from './index.ts'
-
 describe('aligned provider', () => {
   test('an aligner that loses a word is refused rather than shifting every cue after it', async () => {
     const provider = alignedProvider({
@@ -34,6 +32,19 @@ describe('aligned provider', () => {
       align: async () => [{ text: 'one', startMs: 0, endMs: 100 }],
     })
     await expect(provider.synthesize('one two')).rejects.toThrow('placed 1 words; the narration has 2')
+  })
+})
+
+describe('inline IPA capabilities', () => {
+  const apiKey = () => 'secret'
+
+  test.each([
+    ['eleven_flash_v2', 'phoneme-tag'],
+    ['eleven_v4', 'slashes'],
+    ['eleven_turbo_v2', undefined],
+    ['eleven_multilingual_v2', undefined],
+  ] as const)('declares %s as %s', (model, inlineIpa) => {
+    expect(elevenLabsProvider({ voice: 'voice', model, apiKey }).inlineIpa).toBe(inlineIpa)
   })
 })
 
@@ -53,7 +64,7 @@ import { afterEach, beforeEach } from 'bun:test'
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { elevenLabsProvider, narrate, type VoiceProvider } from './index.ts'
+import { narrate, type VoiceProvider } from './index.ts'
 
 describe('ElevenLabs provider', () => {
   const realFetch = globalThis.fetch

@@ -326,6 +326,12 @@ respells the script before synthesis. Captions
 keep the script's spelling: when the engine's aligned word count matches the
 script, each word takes the script's text and keeps its timing.
 
+**IPA is inline for preview and a dictionary rule for production.** A provider
+declares the inline IPA form its model reads. The lexicon wrapper uses that
+form to let a host hear an IPA entry before publishing, while the published
+pronunciation dictionary remains the production reading. This avoids creating
+and archiving a provider dictionary for every preview.
+
 **Synthesis cancellation crosses provider wrappers.** Narration forwards the
 host's abort signal and checks it after synthesis, before writing cached audio
 or timings. `alignedProvider` forwards the signal to synthesis only because its
