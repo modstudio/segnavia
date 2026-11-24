@@ -42,7 +42,7 @@ function profileAttributes(profile: HtmlProfile): AnyExtension | undefined {
       if (profile.align?.length) {
         attributes.textAlign = {
           default: null,
-          parseHTML: (element: HTMLElement) => element.style[HTML_PROFILE_MAPPING.align.property] || null,
+          parseHTML: (element: HTMLElement) => element.style.getPropertyValue(HTML_PROFILE_MAPPING.align.property) || null,
           renderHTML: (attrs: Record<string, unknown>) =>
             attrs.textAlign ? { [HTML_PROFILE_MAPPING.align.attribute]: `${HTML_PROFILE_MAPPING.align.property}:${String(attrs.textAlign)}` } : {},
         }
