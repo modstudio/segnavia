@@ -115,6 +115,7 @@ export {
   HtmlProfile,
   type HtmlProfileAlignment,
   type HtmlProfileBlock,
+  type HtmlProfileElementMapping,
   type HtmlProfileLinkScheme,
   type HtmlProfileMark,
 } from './html-profile.ts'
