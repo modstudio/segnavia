@@ -85,10 +85,8 @@ export const DRAWING_INPUTS = [...PRIMARY_DRAWING_INPUTS, ...ADDITIONAL_DRAWING_
 export const NON_DRAWING_INPUTS = [
   'packages/frame/src/composition-failure.ts',
   'packages/frame/src/document-brand-refusal.ts',
-  'packages/frame/src/embedded-preflight.ts',
   'packages/render/src/asset-refusal.ts',
   'packages/render/src/errors.ts',
-  'packages/render/src/preflight.ts',
   'packages/render/src/progress.ts',
   'packages/render/src/render-deadline.ts',
   'packages/render/src/renderer.ts',
