@@ -1629,8 +1629,9 @@ sheet's logo. `data-motif-version` selects one host-named version; the placement
 refuses when the logo or version is absent. Expansion keeps the placement's
 attributes and replaces its children with one image whose alternative text,
 language and direction come from the selected logo value. A version without
-alternative text inherits the primary logo's text. Pages, HTML slides and
-parent-page regions expand it without a `MotifSource`. An https logo remains an
+alternative text inherits the primary logo's text with its language and
+direction. Pages, HTML slides, books and parent-page regions expand it without a
+`MotifSource`. An https logo remains an
 ordinary image fetch, so server rendering answers it only through `assets` under
 an approved `image` origin.
 
