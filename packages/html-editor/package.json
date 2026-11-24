@@ -1,7 +1,7 @@
 {
   "name": "@segnavia/html-editor",
   "description": "Profile-bound visual HTML editing for Segnavia.",
-  "version": "0.58.0",
+  "version": "0.59.0",
   "type": "module",
   "license": "MIT",
   "repository": {

@@ -1,5 +1,20 @@
 # @segnavia/html
 
+## 0.59.0
+
+### Minor Changes
+
+- 9072044: Add `cleanHtml(html, profile)`, which reduces any HTML to what an `HtmlProfile` admits and reports each removed element, attribute, link scheme and style as `DroppedContent`, at most 256 entries with their paths. Its output is stable when cleaned again. `IMAGE_DRAWING_VERSION` and `COVER_DRAWING_VERSION` rise to 4 because the sanitizer they fingerprint changed; drawn pictures are unchanged, so hosts redraw kept pictures once.
+- 4551106: Add `HtmlProfile`, one validated value naming what a stored HTML fragment may contain: blocks, marks, link schemes, alignment, direction and merge-token atoms, with the fixed semantic-to-tag mapping in `HTML_PROFILE_MAPPING`.
+
+### Patch Changes
+
+- df08514: Document how a host uses one HTML profile for server cleaning and the visual editor, including the drop report.
+- 2df9821: Add the profile-bound HTML editor element with merge-field atoms, normalize editor list markup and merge-field tokens in `cleanHtml`, export the merge-field token grammar, and expose the shared style installer through a browser entry point.
+- Updated dependencies [9072044]
+  - @segnavia/format@0.59.0
+  - @segnavia/layout@0.59.0
+
 ## 0.58.0
 
 ### Minor Changes

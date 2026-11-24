@@ -1,7 +1,7 @@
 {
   "name": "@segnavia/format",
   "description": "Shared document models, validation, and JSON Schema for Segnavia.",
-  "version": "0.58.0",
+  "version": "0.59.0",
   "type": "module",
   "license": "MIT",
   "repository": {

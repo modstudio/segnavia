@@ -1,5 +1,12 @@
 # @segnavia/layout
 
+## 0.59.0
+
+### Patch Changes
+
+- Updated dependencies [9072044]
+  - @segnavia/format@0.59.0
+
 ## 0.58.0
 
 ### Patch Changes
