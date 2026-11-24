@@ -1,5 +1,40 @@
 # @segnavia/render
 
+## 0.58.0
+
+### Minor Changes
+
+- 5dae2d6: Let a style sheet carry a primary logo and host-named versions, draw it in pages, slides and parent furniture with `segnavia:logo`, and exchange it through the Segnavia design-token extension.
+- 10cdfd4: Draw imposition crop and fold marks in `segnavia-paper`, using the pieces' shared press so bleed and cell placement match PDF output. Report omitted marks with a `marksomitted` event, exposed to Vue and as React `onMarksomitted`. Export the shared mark thickness from format and keep render output on that value.
+- b7ec5d5: Name every refused `pagesPdf` input by index and document id, and allow explicit omission through `skipRefused` with a required report.
+- 19bac8e: Let font sources return approved URL faces, route them through offline render assets, and let stages, players, controllers and slide thumbnails resolve a deck's fonts without copying URL-backed font bytes into every frame.
+- acb205d: Report `compose`, `set`, `impose` and `finish` progress for PDF and image renders, including original input indexes for `pagesPdf`. This replaces compose progress `{ pages, total }` with render progress `{ stage, stages, done, total, input? }`; hosts must read `done` instead of `pages`.
+
+### Patch Changes
+
+- b1b1694: Resolve content text variables in continuous-book print furniture from their printed target destinations.
+- d61d20c: Apply a book document's resolved page limit when validating saved and composed plans.
+- Updated dependencies [5dae2d6]
+- Updated dependencies [e7d824d]
+- Updated dependencies [2f388da]
+- Updated dependencies [b1b1694]
+- Updated dependencies [10cdfd4]
+- Updated dependencies [2db9010]
+- Updated dependencies [53efe2d]
+- Updated dependencies [a67bb3b]
+- Updated dependencies [8d0c1e2]
+- Updated dependencies [d61d20c]
+- Updated dependencies [1fb1cbd]
+- Updated dependencies [19bac8e]
+- Updated dependencies [58aa2a5]
+- Updated dependencies [6e0d9ff]
+- Updated dependencies [6987b12]
+- Updated dependencies [cff264d]
+  - @segnavia/format@0.58.0
+  - @segnavia/html@0.58.0
+  - @segnavia/frame@0.58.0
+  - @segnavia/layout@0.58.0
+
 ## 0.57.0
 
 ### Minor Changes

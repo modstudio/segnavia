@@ -1,5 +1,23 @@
 # @segnavia/format
 
+## 0.58.0
+
+### Minor Changes
+
+- 5dae2d6: Let a style sheet carry a primary logo and host-named versions, draw it in pages, slides and parent furniture with `segnavia:logo`, and exchange it through the Segnavia design-token extension.
+- e7d824d: Publish `IMAGE_DRAWING_VERSION` so hosts can invalidate kept page and slide pictures only when their drawing inputs change.
+- 10cdfd4: Draw imposition crop and fold marks in `segnavia-paper`, using the pieces' shared press so bleed and cell placement match PDF output. Report omitted marks with a `marksomitted` event, exposed to Vue and as React `onMarksomitted`. Export the shared mark thickness from format and keep render output on that value.
+- 2db9010: Make page totals with `of: 'numbering'` follow the page's own numbering run, including section and record restarts and division boundaries. Saved book plans are now version 9 and must be recomputed.
+- 53efe2d: Give slides optional titles that label their rail and segmented-track controls for assistive technology.
+- 8d0c1e2: Refuse undefined document slot paths and malformed motif placements, apply image asset approval to SVG image references, and let prepared slots accept record-template keys scoped to one HTML string.
+- 19bac8e: Let font sources return approved URL faces, route them through offline render assets, and let stages, players, controllers and slide thumbnails resolve a deck's fonts without copying URL-backed font bytes into every frame.
+- 58aa2a5: Allow a host-served URL slide to declare an annotation count and receive its shown cue indexes through the host bridge.
+
+### Patch Changes
+
+- d61d20c: Apply a book document's resolved page limit when validating saved and composed plans.
+- 6987b12: Break tall paginated flows through nested block wrappers at any depth.
+
 ## 0.57.0
 
 ### Minor Changes
