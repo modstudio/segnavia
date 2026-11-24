@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Lexicon } from '@segnavia/format'
 import { lexiconVersion } from '@segnavia/format'
-import { lexiconProvider, type VoiceProvider } from './index.ts'
+import { alignedProvider, lexiconProvider, splitWords, type VoiceProvider } from './index.ts'
 
 const lexicon: Lexicon = { entries: [{ term: 'route', say: 'root' }] }
 
@@ -80,22 +80,17 @@ describe('lexicon provider', () => {
 
   test('writes a single-word IPA as a phoneme tag and keeps the script caption', async () => {
     const received: string[] = []
-    const inner: VoiceProvider = {
+    const inner = alignedProvider({
       id: 'voice',
       inlineIpa: 'phoneme-tag',
-      async synthesize(text) {
+      async speak(text) {
         received.push(text)
-        return {
-          words: [
-            { text: 'take', startMs: 0, endMs: 80 },
-            { text: 'this', startMs: 100, endMs: 180 },
-            { text: 'root', startMs: 200, endMs: 280 },
-          ],
-          durationMs: 300,
-          audio: null,
-        }
+        return { bytes: new Uint8Array([1]), extension: 'wav', durationMs: 500 }
       },
-    }
+      async align(_audio, text) {
+        return splitWords(text).map((word, index) => ({ text: word, startMs: index * 100, endMs: index * 100 + 80 }))
+      },
+    })
     const provider = lexiconProvider(inner, { entries: [{ term: 'route', say: 'root', ipa: 'ruːt' }] }, { phonemes: true })
 
     const speech = await provider.synthesize('take this route')
@@ -104,26 +99,34 @@ describe('lexicon provider', () => {
     expect(speech.words).toEqual([
       { text: 'take', startMs: 0, endMs: 80 },
       { text: 'this', startMs: 100, endMs: 180 },
-      { text: 'route', startMs: 200, endMs: 280 },
+      { text: 'route', startMs: 200, endMs: 480 },
     ])
     expect(provider.id).toBe(`voice-lexicon-${lexiconVersion({ entries: [{ term: 'route', say: 'root', ipa: 'ruːt' }] })}-ipa`)
   })
 
   test('writes IPA between slashes and groups a multi-word script caption', async () => {
     const received: string[] = []
-    const inner: VoiceProvider = {
+    const inner = alignedProvider({
       id: 'voice',
       inlineIpa: 'slashes',
-      async synthesize(text) {
+      async speak(text) {
         received.push(text)
-        return { words: [{ text, startMs: 0, endMs: 80 }], durationMs: 100, audio: null }
+        return { bytes: new Uint8Array([1]), extension: 'wav', durationMs: 300 }
       },
-    }
+      async align(_audio, text) {
+        return splitWords(text).map((word, index) => ({ text: word, startMs: index * 100, endMs: index * 100 + 80 }))
+      },
+    })
 
-    const speech = await lexiconProvider(inner, { entries: [{ term: 'Yom Tov', say: 'YomTov', ipa: 'jɔm tɔv' }] }, { phonemes: true }).synthesize('Yom Tov')
+    const speech = await lexiconProvider(inner, { entries: [{ term: 'Yom Tov', say: 'YomTov', ipa: 'jɔm tɔv' }] }, { phonemes: true }).synthesize(
+      'Yom Tov sameach',
+    )
 
-    expect(received).toEqual(['/jɔm tɔv/'])
-    expect(speech.words).toEqual([{ text: 'Yom Tov', startMs: 0, endMs: 80 }])
+    expect(received).toEqual(['/jɔm tɔv/ sameach'])
+    expect(speech.words).toEqual([
+      { text: 'Yom Tov', startMs: 0, endMs: 180 },
+      { text: 'sameach', startMs: 200, endMs: 280 },
+    ])
   })
 
   test('still respells an entry without IPA in phoneme preview', async () => {
@@ -145,7 +148,20 @@ describe('lexicon provider', () => {
   test('refuses phoneme preview when the provider declares no inline form', () => {
     const inner: VoiceProvider = { id: 'voice', synthesize: async () => ({ words: [], durationMs: 0, audio: null }) }
     expect(() => lexiconProvider(inner, lexicon, { phonemes: true })).toThrow(
-      'provider voice declares no inline IPA form; use a model that reads inline IPA (eleven_flash_v2 or eleven_v4) or preview the respelling without phonemes',
+      'provider voice declares no inline IPA form; use a provider whose model reads inline IPA (see the voice docs) or preview the respelling without phonemes',
+    )
+  })
+
+  test('does not advertise the inner provider capability through a lexicon wrapper', () => {
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'slashes',
+      synthesize: async () => ({ words: [], durationMs: 0, audio: null }),
+    }
+    const wrapped = lexiconProvider(inner, lexicon)
+    expect(wrapped.inlineIpa).toBeUndefined()
+    expect(() => lexiconProvider(wrapped, { entries: [{ term: 'Yom Tov', say: 'YomTov', ipa: 'jɔm tɔv' }] }, { phonemes: true })).toThrow(
+      `provider ${wrapped.id} declares no inline IPA form; use a provider whose model reads inline IPA (see the voice docs) or preview the respelling without phonemes`,
     )
   })
 
@@ -168,6 +184,28 @@ describe('lexicon provider', () => {
     }
     expect(() => lexiconProvider(inner, { entries: [{ term: 'route', say: 'root', ipa }] }, { phonemes: true })).toThrow(
       'cannot write inline IPA for term "route" because its IPA contains a control character or one of <, >, ", /; remove that character',
+    )
+  })
+
+  test('refuses an ampersand in phoneme-tag IPA', () => {
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'phoneme-tag',
+      synthesize: async () => ({ words: [], durationMs: 0, audio: null }),
+    }
+    expect(() => lexiconProvider(inner, { entries: [{ term: 'route', say: 'root', ipa: 'a&b' }] }, { phonemes: true })).toThrow(
+      'cannot write inline IPA for term "route" because its IPA contains a control character or one of <, >, &, ", /; remove that character',
+    )
+  })
+
+  test.each(['bad<term', 'bad>term', 'bad&term', 'bad"term', 'bad\nterm', 'bad\u0000term'])('refuses unsafe phoneme-tag term %j', (term) => {
+    const inner: VoiceProvider = {
+      id: 'voice',
+      inlineIpa: 'phoneme-tag',
+      synthesize: async () => ({ words: [], durationMs: 0, audio: null }),
+    }
+    expect(() => lexiconProvider(inner, { entries: [{ term, say: 'root', ipa: 'ruːt' }] }, { phonemes: true })).toThrow(
+      `cannot write inline IPA for term "${term}" as a phoneme tag because the term contains a control character or one of <, >, &, "; remove that character or use a provider that reads slashes`,
     )
   })
 })

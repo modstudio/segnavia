@@ -33,16 +33,6 @@ describe('aligned provider', () => {
     })
     await expect(provider.synthesize('one two')).rejects.toThrow('placed 1 words; the narration has 2')
   })
-
-  test('declares the host engine inline IPA form', () => {
-    const provider = alignedProvider({
-      id: 'test',
-      inlineIpa: 'slashes',
-      speak: async () => ({ bytes: new Uint8Array([1]), extension: 'wav', durationMs: 1000 }),
-      align: async () => [],
-    })
-    expect(provider.inlineIpa).toBe('slashes')
-  })
 })
 
 describe('inline IPA capabilities', () => {
