@@ -1,6 +1,7 @@
 import './prosemirror-environment.test-helper.ts'
 import { describe, expect, test } from 'bun:test'
 import { HtmlProfile } from '@segnavia/html'
+import { getExtensionField } from '@tiptap/core'
 import { htmlEditorExtensions } from './html-editor-extensions.ts'
 
 describe('HTML editor extensions', () => {
@@ -14,5 +15,22 @@ describe('HTML editor extensions', () => {
     expect(names).toContain('htmlProfileAttributes')
     expect(names).not.toContain('italic')
     expect(names).not.toContain('bulletList')
+  })
+
+  test('keeps an absent direction absent and writes an explicit direction', () => {
+    const profile = HtmlProfile.parse({ blocks: { p: true }, marks: [], direction: true })
+    const extension = htmlEditorExtensions(profile).find(({ name }) => name === 'htmlProfileAttributes')
+    if (!extension) throw new Error('expected profile attributes')
+    const globals = getExtensionField(extension, 'addGlobalAttributes', {
+      name: extension.name,
+      options: extension.options,
+      storage: extension.storage,
+    })?.()
+    const direction = globals?.[0]?.attributes.dir
+    if (!direction) throw new Error('expected direction attribute')
+    const element = { getAttribute: () => null } as unknown as HTMLElement
+    expect(direction.parseHTML?.(element)).toBeNull()
+    expect(direction.renderHTML?.({ dir: null })).toEqual({})
+    expect(direction.renderHTML?.({ dir: 'rtl' })).toEqual({ dir: 'rtl' })
   })
 })

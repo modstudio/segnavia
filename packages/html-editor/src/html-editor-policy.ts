@@ -1,4 +1,7 @@
-import type { HtmlProfile, HtmlProfileAlignment, HtmlProfileDirection, HtmlProfileHeadingLevel } from '@segnavia/html'
+import type { HtmlProfile, HtmlProfileAlignment } from '@segnavia/html'
+
+type HtmlProfileDirection = 'auto' | 'rtl' | 'ltr'
+type HtmlProfileHeadingLevel = NonNullable<HtmlProfile['blocks']['h']>[number]
 
 export const HTML_EDITOR_COMMANDS = [
   'bold',

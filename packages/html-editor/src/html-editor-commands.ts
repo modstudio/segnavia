@@ -1,4 +1,4 @@
-import type { HtmlProfile, HtmlProfileDirection } from '@segnavia/html'
+import type { HtmlProfile } from '@segnavia/html'
 import type { Editor } from '@tiptap/core'
 import { htmlEditorBlockTypes } from './html-editor-extensions.ts'
 import { commandAdmitted, HTML_EDITOR_COMMANDS, type HtmlEditorCommand, type HtmlEditorCommands } from './html-editor-policy.ts'
@@ -28,7 +28,7 @@ export function runHtmlEditorCommand(editor: Editor, profile: HtmlProfile, comma
   if (command === 'bullet-list') return editor.chain().focus().toggleBulletList().run()
   if (command === 'ordered-list') return editor.chain().focus().toggleOrderedList().run()
   if (command === 'align') return updateCurrentBlock(editor, profile, { textAlign: String(args?.value) })
-  if (command === 'direction') return updateCurrentBlock(editor, profile, { dir: String(args?.value) as HtmlProfileDirection })
+  if (command === 'direction') return updateCurrentBlock(editor, profile, { dir: String(args?.value) })
   if (command === 'undo') return editor.chain().focus().undo().run()
   return editor.chain().focus().redo().run()
 }
@@ -46,7 +46,7 @@ function commandActive(editor: Editor, profile: HtmlProfile, command: HtmlEditor
   }
   if (command === 'direction') {
     const block = currentBlockType(editor, profile)
-    return Boolean(block && editor.getAttributes(block).dir !== 'auto')
+    return Boolean(block && (editor.getAttributes(block).dir ?? 'auto') !== 'auto')
   }
   return editor.isActive(name)
 }

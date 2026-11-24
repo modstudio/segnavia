@@ -1,5 +1,5 @@
-import type { HtmlProfile } from '@segnavia/html'
-import { type AnyExtension, Extension, getExtensionField } from '@tiptap/core'
+import { HTML_PROFILE_MAPPING, type HtmlProfile } from '@segnavia/html'
+import { type AnyExtension, type Attribute, Extension, getExtensionField } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 
 const STRUCTURAL_EXTENSIONS = new Set(['doc', 'text', 'undoRedo'])
@@ -31,19 +31,20 @@ function profileAttributes(profile: HtmlProfile): AnyExtension | undefined {
   return Extension.create({
     name: 'htmlProfileAttributes',
     addGlobalAttributes() {
-      const attributes: Record<string, unknown> = {}
+      const attributes: Record<string, Attribute> = {}
       if (profile.direction) {
         attributes.dir = {
-          default: 'auto',
-          parseHTML: (element: HTMLElement) => element.getAttribute('dir') ?? 'auto',
-          renderHTML: (attrs: Record<string, unknown>) => ({ dir: attrs.dir ?? 'auto' }),
+          default: null,
+          parseHTML: (element: HTMLElement) => element.getAttribute(HTML_PROFILE_MAPPING.direction.attribute),
+          renderHTML: (attrs: Record<string, unknown>) => (attrs.dir ? { [HTML_PROFILE_MAPPING.direction.attribute]: attrs.dir } : {}),
         }
       }
       if (profile.align?.length) {
         attributes.textAlign = {
           default: null,
-          parseHTML: (element: HTMLElement) => element.style.textAlign || null,
-          renderHTML: (attrs: Record<string, unknown>) => (attrs.textAlign ? { style: `text-align:${String(attrs.textAlign)}` } : {}),
+          parseHTML: (element: HTMLElement) => element.style[HTML_PROFILE_MAPPING.align.property] || null,
+          renderHTML: (attrs: Record<string, unknown>) =>
+            attrs.textAlign ? { [HTML_PROFILE_MAPPING.align.attribute]: `${HTML_PROFILE_MAPPING.align.property}:${String(attrs.textAlign)}` } : {},
         }
       }
       return [{ types, attributes }]
