@@ -17,6 +17,18 @@ describe('HTML editor extensions', () => {
     expect(names).not.toContain('bulletList')
   })
 
+  test('adds the inline atom node only when the profile admits atoms', () => {
+    const atomOptions = { draw: () => undefined, error: () => undefined, label: (name: string) => name }
+    const withAtoms = HtmlProfile.parse({ blocks: { p: true }, marks: [], atoms: { pattern: 'double-brace' } })
+    expect(htmlEditorExtensions(withAtoms, atomOptions).find(({ name }) => name === 'atom')?.config).toMatchObject({
+      inline: true,
+      atom: true,
+      selectable: true,
+      draggable: false,
+    })
+    expect(htmlEditorExtensions(HtmlProfile.parse({ blocks: { p: true }, marks: [] }), atomOptions).some(({ name }) => name === 'atom')).toBe(false)
+  })
+
   test('keeps an absent direction absent and writes an explicit direction', () => {
     const profile = HtmlProfile.parse({ blocks: { p: true }, marks: [], direction: true })
     const extension = htmlEditorExtensions(profile).find(({ name }) => name === 'htmlProfileAttributes')

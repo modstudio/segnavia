@@ -18,6 +18,7 @@ const names = [
   'DOMParser',
   'MutationObserver',
   'Event',
+  'ErrorEvent',
   'CustomEvent',
   'KeyboardEvent',
   'MouseEvent',

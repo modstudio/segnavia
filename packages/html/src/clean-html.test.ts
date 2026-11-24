@@ -101,6 +101,19 @@ describe('cleanHtml', () => {
     expect(cleanHtml('<p dir="rtl">שלום</p>', profile)).toEqual({ html: '<p dir="rtl">שלום</p>', dropped: [] })
   })
 
+  test('keeps double-brace tokens as text and canonicalizes only valid names in one text node', () => {
+    const atoms = { ...profile, atoms: { pattern: 'double-brace' as const } }
+    expect(cleanHtml('<p>{{first_name}} {{ order.total }} {{שם }} {{1abc}} {{a b}} {first}</p>', atoms)).toEqual({
+      html: '<p>{{first_name}} {{order.total}} {{שם}} {{1abc}} {{a b}} {first}</p>',
+      dropped: [],
+    })
+    expect(cleanHtml('<p>{{first<strong>_</strong>name}}</p>', atoms)).toEqual({
+      html: '<p>{{first<strong>_</strong>name}}</p>',
+      dropped: [],
+    })
+    expect(cleanHtml('<p>{{ first_name }}</p>', profile)).toEqual({ html: '<p>{{ first_name }}</p>', dropped: [] })
+  })
+
   test('treats only own profile element properties as admitted', () => {
     for (const name of ['constructor', 'toString']) {
       expect(cleanHtml(`<${name}>x</${name}>`, profile)).toEqual({

@@ -120,7 +120,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   },
   'html-editor': {
     runtime: 'browser',
-    imports: ['@segnavia/frame', '@segnavia/html', '@tiptap/core', '@tiptap/starter-kit'],
+    imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/html', '@tiptap/core', '@tiptap/starter-kit'],
     testImports: ['happy-dom'],
   },
   frame: {

@@ -1,5 +1,5 @@
 import { type ChildNode, Element, isComment, isTag, isText } from 'domhandler'
-import { HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
+import { DOUBLE_BRACE_ATOM_TOKEN, HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
 import { linkAllowed, type ResolvedLinkPolicy, urlParserText } from './link-policy.ts'
 import { parse, REFUSED_ELEMENTS, refusedAttribute, refusedElement, serialize } from './sanitize.ts'
 
@@ -103,6 +103,11 @@ interface CleanerState {
   links: ResolvedLinkPolicy | undefined
   alignments: ReadonlySet<string>
   drop: (content: DroppedContent) => void
+  atoms: boolean
+}
+
+function cleanAtomTokens(value: string): string {
+  return value.replace(DOUBLE_BRACE_ATOM_TOKEN, (_token, name: string) => `{{${name}}}`)
 }
 
 function cleanStyle(
@@ -247,6 +252,11 @@ function cleanNodes(nodes: ChildNode[], parentPath: string, state: CleanerState,
       state.drop({ kind: 'element', name: '#comment', path: parentPath })
       continue
     }
+    if (isText(node)) {
+      if (state.atoms) node.data = cleanAtomTokens(node.data)
+      cleaned.push(node)
+      continue
+    }
     if (!isTag(node)) {
       cleaned.push(node)
       continue
@@ -269,6 +279,6 @@ export function cleanHtml(html: string, profile: HtmlProfile): { html: string; d
   const drop = (content: DroppedContent) => {
     if (dropped.length < DROPPED_CONTENT_LIMIT) dropped.push(content)
   }
-  document.children = cleanNodes(document.children, '', { admittedElements, links, alignments, drop })
+  document.children = cleanNodes(document.children, '', { admittedElements, links, alignments, atoms: profile.atoms?.pattern === 'double-brace', drop })
   return { html: serialize(document), dropped }
 }

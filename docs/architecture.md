@@ -803,7 +803,8 @@ An `HtmlProfile` (`@segnavia/html`) names what a stored HTML fragment may
 contain: its blocks (`p`, heading levels in `h`, `ul`, `ol` with an optional
 `start`, `hr`), its marks (`bold`, `italic`, `underline`, `link`), the link
 schemes in `links.schemes`, the logical alignments in `align`, and whether
-`direction` is kept. `HTML_PROFILE_MAPPING` is the one table from each profile
+`direction` is kept, and whether `atoms` (merge fields) are recognized, with
+`pattern: 'double-brace'`. `HTML_PROFILE_MAPPING` is the one table from each profile
 entry to the tags and attributes that express it. A host stores the profile
 and passes the same value to the server and to the editor.
 
@@ -816,7 +817,12 @@ text (style, title, template, noscript, head and comments) is removed with its
 element. A link whose scheme is not admitted is unwrapped, and only admitted
 alignment and direction attributes survive. A list item whose only child is a
 paragraph with no admitted attribute is written as that paragraph's inline
-content; this is normalization, so nothing is reported. Every removal is a
+content; this is normalization, so nothing is reported. Under `atoms`, a
+merge field is stored as plain token text: `{{name}}`, where the name is a
+letter or `_` followed by letters, digits, `_`, `-` or `.`.
+`DOUBLE_BRACE_ATOM_NAME` and `DOUBLE_BRACE_ATOM_TOKEN` export that one grammar
+for the cleaner and the editor. Spaces just inside the braces are dropped;
+anything else in braces, or a token split by markup, stays text. Every removal is a
 `DroppedContent` entry (element, attribute, scheme or style) with a 1-based
 sibling path, capped at the first 256. Cleaning the output again changes
 nothing.
@@ -848,6 +854,17 @@ naming the profile field that admits it, and its `commands` entry is
 disabled. Alignment is written as logical `text-align`; direction `auto` is
 the default and writes no `dir`. `labels` override the English accessible
 name per key.
+
+Under `atoms`, each valid token becomes an inline atom: one uneditable,
+selectable unit that a mark wraps whole and that serializes back to its token
+text, keeping its marks. A host draws it with `drawAtom(name)`, returning a
+node or a string shown as text. Without one, the default drawing is a span
+with `part="atom"`, role `img`, `dir=auto` and the accessible name
+`labels.atom(name)`, the name isolated by the direction resolved from the
+surrounding `dir`, then `lang`, then the name. Changing `labels` or `drawAtom`
+redraws the atoms in place, keeping selection and undo history. A `drawAtom`
+that throws falls back to the default drawing, and the element fires a
+non-bubbling `error` event naming the atom.
 
 ### As-of: the day a document's data is for
 

@@ -100,6 +100,7 @@
       "name": "@segnavia/html-editor",
       "version": "0.58.0",
       "dependencies": {
+        "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
       },

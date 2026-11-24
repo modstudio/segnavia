@@ -8,6 +8,9 @@ export const HTML_PROFILE_LINK_SCHEMES = ['https', 'http', 'mailto', 'tel'] as c
 export const HTML_PROFILE_ALIGNMENTS = ['start', 'center', 'end'] as const
 export const HTML_PROFILE_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
 export const HTML_PROFILE_DIRECTIONS = ['auto', 'rtl', 'ltr'] as const
+const DOUBLE_BRACE_ATOM_NAME_SOURCE = String.raw`[\p{L}_][\p{L}\p{N}_.-]*`
+export const DOUBLE_BRACE_ATOM_NAME = new RegExp(`^${DOUBLE_BRACE_ATOM_NAME_SOURCE}$`, 'u')
+export const DOUBLE_BRACE_ATOM_TOKEN = new RegExp(String.raw`\{\{ *(${DOUBLE_BRACE_ATOM_NAME_SOURCE}) *\}\}`, 'gu')
 
 export type HtmlProfileMark = (typeof HTML_PROFILE_MARKS)[number]
 export type HtmlProfileLinkScheme = (typeof HTML_PROFILE_LINK_SCHEMES)[number]
