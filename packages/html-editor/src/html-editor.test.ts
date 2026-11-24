@@ -1,10 +1,11 @@
 import './prosemirror-environment.test-helper.ts'
-import './html-editor-environment.test-helper.ts'
-import { afterEach, describe, expect, spyOn, test } from 'bun:test'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { cleanHtml, type HtmlProfile } from '@segnavia/html'
+import { closeHtmlEditorTestEnvironment, installHtmlEditorTestEnvironment } from './html-editor-environment.test-helper.ts'
 import { htmlEditorTestSeam } from './html-editor-internals.ts'
 
-const { SegnaviaHtmlEditor } = await import('./html-editor.ts')
+let SegnaviaHtmlEditor: typeof import('./html-editor.ts').SegnaviaHtmlEditor
+let restoreEnvironment: () => void
 
 const profile = {
   blocks: { p: true, h: [2], ul: true, ol: { start: true } },
@@ -26,9 +27,22 @@ function expectFixedPoint(element: InstanceType<typeof SegnaviaHtmlEditor>): voi
   expect(htmlEditorTestSeam.editor(element).getHTML()).toBe(element.html)
 }
 
+beforeAll(async () => {
+  const restore = installHtmlEditorTestEnvironment()
+  ;({ SegnaviaHtmlEditor } = await import('./html-editor.ts'))
+  restore()
+})
+
+beforeEach(() => {
+  restoreEnvironment = installHtmlEditorTestEnvironment()
+})
+
 afterEach(() => {
   document.body.replaceChildren()
+  restoreEnvironment()
 })
+
+afterAll(() => closeHtmlEditorTestEnvironment())
 
 describe('segnavia-html-editor', () => {
   test('round-trips a mixed fragment through the profile cleaner', () => {

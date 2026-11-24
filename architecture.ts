@@ -119,6 +119,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   'html-editor': {
     runtime: 'browser',
     imports: ['@segnavia/frame', '@segnavia/html', '@tiptap/core', '@tiptap/starter-kit'],
+    bundles: ['happy-dom'],
   },
   frame: {
     runtime: 'browser',
