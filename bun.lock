@@ -40,7 +40,7 @@
     },
     "packages/capture": {
       "name": "@segnavia/capture",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -50,7 +50,7 @@
     },
     "packages/diagrams": {
       "name": "@segnavia/diagrams",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -61,14 +61,14 @@
     },
     "packages/format": {
       "name": "@segnavia/format",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "zod": "^4.1.0",
       },
     },
     "packages/frame": {
       "name": "@segnavia/frame",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/html": "workspace:*",
@@ -77,7 +77,7 @@
     },
     "packages/html": {
       "name": "@segnavia/html",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/layout": "workspace:*",
@@ -98,7 +98,7 @@
     },
     "packages/html-editor": {
       "name": "@segnavia/html-editor",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -116,7 +116,7 @@
     },
     "packages/idml": {
       "name": "@segnavia/idml",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/html": "workspace:*",
@@ -127,14 +127,14 @@
     },
     "packages/layout": {
       "name": "@segnavia/layout",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
       },
     },
     "packages/markdown-editor": {
       "name": "@segnavia/markdown-editor",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -181,7 +181,7 @@
     },
     "packages/react": {
       "name": "@segnavia/react",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/frame": "workspace:*",
       },
@@ -196,7 +196,7 @@
     },
     "packages/render": {
       "name": "@segnavia/render",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "bin": {
         "segnavia-render": "./dist/bin.js",
       },
@@ -223,7 +223,7 @@
     },
     "packages/voice": {
       "name": "@segnavia/voice",
-      "version": "0.58.0",
+      "version": "0.59.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
       },

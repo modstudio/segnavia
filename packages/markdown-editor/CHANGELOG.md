@@ -1,5 +1,17 @@
 # @segnavia/markdown-editor
 
+## 0.59.0
+
+### Patch Changes
+
+- Updated dependencies [9072044]
+- Updated dependencies [df08514]
+- Updated dependencies [2df9821]
+- Updated dependencies [4551106]
+  - @segnavia/html@0.59.0
+  - @segnavia/format@0.59.0
+  - @segnavia/frame@0.59.0
+
 ## 0.58.0
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @segnavia/diagrams
 
+## 0.59.0
+
+### Patch Changes
+
+- Updated dependencies [9072044]
+- Updated dependencies [2df9821]
+  - @segnavia/format@0.59.0
+  - @segnavia/frame@0.59.0
+
 ## 0.58.0
 
 ### Patch Changes
