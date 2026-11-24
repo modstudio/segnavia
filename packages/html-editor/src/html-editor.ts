@@ -15,7 +15,7 @@ export const HTML_EDITOR_TAG = 'segnavia-html-editor'
 export const HTML_EDITOR_PROPERTIES = {
   tag: HTML_EDITOR_TAG,
   properties: ['html', 'profile', 'labels', 'drawAtom', 'commands', 'dropped'] as const,
-  events: ['segnavia-html-change', 'segnavia-html-dropped', 'segnavia-editor-state'] as const,
+  events: ['error', 'segnavia-html-change', 'segnavia-html-dropped', 'segnavia-editor-state'] as const,
 } satisfies ElementPropertyTable
 
 const COMMAND_NAMES = new Set<string>(HTML_EDITOR_COMMANDS)
@@ -97,9 +97,11 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
   }
 
   set labels(value: Partial<HtmlEditorLabels>) {
-    this.words = htmlEditorLabels(value ?? {})
+    const next = htmlEditorLabels(value ?? {})
+    if (next.editor === this.words.editor && next.atom === this.words.atom) return
+    this.words = next
     this.mount.setAttribute('aria-label', this.words.editor)
-    if (this.profileValue.atoms) this.resetEditor()
+    this.redrawAtoms()
   }
 
   get drawAtom(): ((name: string) => Node | string) | undefined {
@@ -107,8 +109,9 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
   }
 
   set drawAtom(value: ((name: string) => Node | string) | undefined) {
+    if (value === this.drawAtomValue) return
     this.drawAtomValue = value
-    if (this.profileValue.atoms) this.resetEditor()
+    this.redrawAtoms()
   }
 
   get commands(): HtmlEditorCommands {
@@ -158,6 +161,7 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
       element: this.mount,
       extensions: htmlEditorExtensions(this.profileValue, {
         draw: (name) => this.drawAtomValue?.(name),
+        error: (name, reason) => this.reportAtomError(name, reason),
         label: (name) => this.words.atom(name),
       }),
       content: this.htmlValue,
@@ -168,6 +172,17 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
     atomizeHtmlEditor(this.editor)
     attachHtmlEditor(this, this.editor)
     this.updateCommands()
+  }
+
+  private redrawAtoms(): void {
+    if (!this.editor || !this.profileValue.atoms) return
+    this.editor.view.setProps({ nodeViews: this.editor.extensionManager.nodeViews })
+  }
+
+  private reportAtomError(name: string, reason: unknown): void {
+    const failure = reason instanceof Error ? reason.message : String(reason)
+    const error = new Error(`Could not draw HTML atom ${JSON.stringify(name)}: ${failure}`, { cause: reason })
+    this.dispatchEvent(new ErrorEvent('error', { message: error.message, error }))
   }
 
   private onUpdate(): void {

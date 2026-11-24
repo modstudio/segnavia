@@ -112,6 +112,8 @@ export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export { fragmentationCss } from './fragmentation.ts'
 export {
+  DOUBLE_BRACE_ATOM_NAME,
+  DOUBLE_BRACE_ATOM_TOKEN,
   HTML_PROFILE_DIRECTIONS,
   HTML_PROFILE_MAPPING,
   HtmlProfile,

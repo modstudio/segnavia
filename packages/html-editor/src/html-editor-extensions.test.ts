@@ -18,7 +18,7 @@ describe('HTML editor extensions', () => {
   })
 
   test('adds the inline atom node only when the profile admits atoms', () => {
-    const atomOptions = { draw: () => undefined, label: (name: string) => name }
+    const atomOptions = { draw: () => undefined, error: () => undefined, label: (name: string) => name }
     const withAtoms = HtmlProfile.parse({ blocks: { p: true }, marks: [], atoms: { pattern: 'double-brace' } })
     expect(htmlEditorExtensions(withAtoms, atomOptions).find(({ name }) => name === 'atom')?.config).toMatchObject({
       inline: true,

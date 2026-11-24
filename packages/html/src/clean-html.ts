@@ -1,5 +1,5 @@
 import { type ChildNode, Element, isComment, isTag, isText } from 'domhandler'
-import { HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
+import { DOUBLE_BRACE_ATOM_TOKEN, HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, profileElements, profileLinkPolicy } from './html-profile.ts'
 import { linkAllowed, type ResolvedLinkPolicy, urlParserText } from './link-policy.ts'
 import { parse, REFUSED_ELEMENTS, refusedAttribute, refusedElement, serialize } from './sanitize.ts'
 
@@ -10,7 +10,6 @@ export interface DroppedContent {
 }
 
 const DROPPED_CONTENT_LIMIT = 256
-const DOUBLE_BRACE_TOKEN = /\{\{ *([\p{L}_][\p{L}\p{N}_.-]*) *\}\}/gu
 
 // These are HTML's block-level and document-structure elements. This is not
 // BLOCK_KINDS, which names editable document subjects rather than HTML flow.
@@ -108,7 +107,7 @@ interface CleanerState {
 }
 
 function cleanAtomTokens(value: string): string {
-  return value.replace(DOUBLE_BRACE_TOKEN, (_token, name: string) => `{{${name}}}`)
+  return value.replace(DOUBLE_BRACE_ATOM_TOKEN, (_token, name: string) => `{{${name}}}`)
 }
 
 function cleanStyle(
