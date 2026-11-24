@@ -194,7 +194,7 @@ export const ELEMENT_PROPERTIES = {
       'moment',
       'serveFrame',
     ],
-    ['asof', 'fontfailure', 'error', 'change'],
+    ['asof', 'fontfailure', 'error', 'change', 'marksomitted'],
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,

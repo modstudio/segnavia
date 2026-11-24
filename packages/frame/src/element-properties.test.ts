@@ -107,7 +107,7 @@ test('the table covers every public frame element and safe event name', () => {
   expect(ELEMENT_PROPERTIES.page.properties).toContain('newId')
   expect(ELEMENT_PROPERTIES.page.events).toEqual(['asof', 'ready', 'preflight', 'fontfailure', 'error', 'composeprogress'])
   expect(ELEMENT_PROPERTIES.paper.properties).toEqual(expect.arrayContaining(['anchors', 'asOf', 'moment']))
-  expect(ELEMENT_PROPERTIES.paper.events).toEqual(['asof', 'fontfailure', 'error', 'change'])
+  expect(ELEMENT_PROPERTIES.paper.events).toEqual(['asof', 'fontfailure', 'error', 'change', 'marksomitted'])
   expect(ELEMENT_PROPERTIES.book.properties).toContain('profile')
   expect(ELEMENT_PROPERTIES.book.properties).toEqual(expect.arrayContaining(['anchors', 'asOf', 'moment']))
   expect(ELEMENT_PROPERTIES.book.events).toEqual(['asof', 'preflight', 'fontfailure', 'ready', 'error', 'composeprogress'])

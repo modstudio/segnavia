@@ -1,4 +1,4 @@
-import type { AsOfDay, ComposeProgress, PreflightReport } from '@segnavia/format'
+import type { AsOfDay, ComposeProgress, OmittedImpositionMark, PreflightReport } from '@segnavia/format'
 import type { DefineComponent } from 'vue'
 import type {
   BoardChangeDetail,
@@ -112,7 +112,7 @@ export interface FrameVueEventDetails {
 }
 
 export interface FrameVueElementEventDetails {
-  paper: { change: PlainEvent }
+  paper: { change: PlainEvent; marksomitted: { omittedMarks: OmittedImpositionMark[] } }
   document: {
     'segnavia-document-slots': null
     'segnavia-document-page': { index: number }

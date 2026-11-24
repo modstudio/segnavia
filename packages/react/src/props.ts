@@ -13,6 +13,7 @@ import type {
   FittedSize,
   FontFailureDetail,
   HostTransition,
+  OmittedImpositionMark,
   PreflightReport,
   PrintInput,
   SegnaviaBoard,
@@ -301,6 +302,7 @@ export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' 
   onAsof?: CustomEventProp<AsOfDay>
   onError?: ErrorEventProp
   onChange?: (event: Event) => void
+  onMarksomitted?: CustomEventProp<{ omittedMarks: OmittedImpositionMark[] }>
 }
 
 export interface BoardProps extends ElementProps<SegnaviaBoard> {

@@ -1,5 +1,4 @@
-// <segnavia-paper>: shows one paper of an imposition, scaled to the element's
-// width. It brings no appearance, only geometry, which a host can override.
+// <segnavia-paper> shows one paper of an imposition, scaled to its width, with only host-overridable geometry.
 
 import {
   type Document,
@@ -10,8 +9,10 @@ import {
   type OriginApproval,
   type Page,
   type PageWidths,
+  type PiecePress,
   resolveBrand,
   type SlotsOptions,
+  sharedImpositionPress,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument } from '@segnavia/html'
 import { type AsOfElementProperties, captureAsOfLoad, defineAsOfPropertyAccessors, dispatchAsof } from './as-of-element.ts'
@@ -32,7 +33,9 @@ import { preparePaperDays } from './paper-day.ts'
 import { resolvePaperDocuments, resolvePaperPageValues } from './paper-document-load.ts'
 import { fitPaper } from './paper-fit.ts'
 import { definePaperFrameServing, writePrintablePaper } from './paper-frame-serving.ts'
-import { clampPaper, paperBoxSize } from './paper-geometry.ts'
+import { clampPaper } from './paper-geometry.ts'
+import { paperOmittedMarks } from './paper-marks.ts'
+import { paintPaperBox, paintPaperPlaceholder } from './paper-placeholder.ts'
 import { printablePaper } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
@@ -64,6 +67,7 @@ export class SegnaviaPaper extends HTMLElement {
   private editionDocuments: Document[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
+  private press: PiecePress = {}
   private paperIndex = 0
   private shownSide: 'front' | 'back' = 'front'
   private resize = new ResizeObserver(() => fitPaper(this, this.imposed))
@@ -220,7 +224,8 @@ export class SegnaviaPaper extends HTMLElement {
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     const geometryRefusal = mixedImpositionGeometryRefusal(pages)
     if (geometryRefusal) throw new RangeError(geometryRefusal)
-    const imposed = impose(imposition, pages.length)
+    const press = sharedImpositionPress(pages)
+    const imposed = impose(imposition, pages.length, press)
     const previousPapers = this.papers
     const previousPaper = this.paperIndex
     const previousSide = this.shownSide
@@ -229,10 +234,13 @@ export class SegnaviaPaper extends HTMLElement {
     this.brandGeneration++
     this.imposition = imposition
     this.imposed = imposed
+    this.press = press
     this.paperIndex = clampPaper(this.paperIndex, imposed.papers)
     if (imposed.sides === 1) this.shownSide = 'front'
     this.reflectState()
     this.paint()
+    const omittedMarks = paperOmittedMarks(imposition, press)
+    if (omittedMarks.length > 0) this.dispatchEvent(new CustomEvent('marksomitted', { detail: { omittedMarks } }))
     if (previousPapers !== this.papers || previousPaper !== this.paperIndex || previousSide !== this.shownSide) this.dispatchEvent(new Event('change'))
   }
 
@@ -321,12 +329,12 @@ export class SegnaviaPaper extends HTMLElement {
     if (!this.motifOptions) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
-        this.paintPlaceholder(imposed)
+        this.paintPlaceholder(imposition, imposed)
         report(motifRefusal, false)
         return
       }
     }
-    this.paintPlaceholder(imposed)
+    this.paintPlaceholder(imposition, imposed)
     void preparePaperDays(pages, asOfLoad, {
       slots: this.slotOptions,
       motifs: this.motifOptions,
@@ -345,16 +353,8 @@ export class SegnaviaPaper extends HTMLElement {
       .catch(report)
   }
 
-  private paintPlaceholder(imposed: ReturnType<typeof impose>) {
-    const box = document.createElement('div')
-    box.className = 'segnavia-paper__paper'
-    box.dir = 'ltr'
-    const paper = paperBoxSize(imposed.paper)
-    box.style.width = `${paper.width}px`
-    box.style.height = `${paper.height}px`
-    this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
-    this.replaceChildren(box)
-    fitPaper(this, this.imposed)
+  private paintPlaceholder(imposition: Imposition, imposed: ReturnType<typeof impose>) {
+    paintPaperPlaceholder(this, imposition, imposed, this.press, this.shownSide)
   }
 
   private cancelSlotPreparation() {
@@ -363,14 +363,6 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   private paintResolved(imposition: Imposition, imposed: ReturnType<typeof impose>, pages = this.pages) {
-    const box = document.createElement('div')
-    box.className = 'segnavia-paper__paper'
-    // Positions on paper are physical and therefore left to right. This box
-    // writes no text; each page keeps its own direction inside its frame.
-    box.dir = 'ltr'
-    const paper = paperBoxSize(imposed.paper)
-    box.style.width = `${paper.width}px`
-    box.style.height = `${paper.height}px`
     const resolvedPages = pages.map((page) => ({ ...page, html: slotHtml(page.html, this.resolvedSlots) }))
     const options = {
       css: `${this.resolvedFontCss}${this.css}`,
@@ -379,14 +371,13 @@ export class SegnaviaPaper extends HTMLElement {
       origins: this.origins,
       pageWidths: this.widthOptions,
     }
-    if (this.serveFrame)
-      writePrintablePaper(box, resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide, this.serveFrame, (reason) =>
-        dispatchElementError(this, reason),
-      )
-    else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
-    this.style.setProperty('--segnavia-paper-aspect', `${imposed.paper.width} / ${imposed.paper.height}`)
-    this.replaceChildren(box)
-    fitPaper(this, this.imposed)
+    paintPaperBox(this, imposition, imposed, this.press, this.shownSide, (box) => {
+      if (this.serveFrame)
+        writePrintablePaper(box, resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide, this.serveFrame, (reason) =>
+          dispatchElementError(this, reason),
+        )
+      else box.innerHTML = printablePaper(resolvedPages, imposition, imposed, this.paperIndex, options, this.shownSide)
+    })
   }
 
   private onMessage = (event: MessageEvent) => {

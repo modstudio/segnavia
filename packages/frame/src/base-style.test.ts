@@ -85,6 +85,12 @@ describe('headless base styles', () => {
     expect(rule).not.toContain('clip:')
   })
 
+  test('paper marks use overlay geometry and a host-overridable plain color', () => {
+    expect(BASE_CSS).toContain(
+      '.segnavia-paper__marks){position:absolute;inset:0;inline-size:100%;block-size:100%;pointer-events:none;stroke:var(--segnavia-mark,#000);fill:none}',
+    )
+  })
+
   test('the board exposes geometry for every documented part without a surface scale', () => {
     for (const part of ['surface', 'item', 'cover', 'placeholder', 'placeholder-label', 'label', 'section', 'section-title'])
       expect(BASE_CSS).toContain(`[part~="${part}"]`)
