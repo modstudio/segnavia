@@ -1408,8 +1408,11 @@ JPEG refuses this option because it has no alpha channel.
 A host gives a kept page or slide picture an immutable key made from its
 content digest, `IMAGE_DRAWING_VERSION`, and the browser build it chose through
 `executablePath`. The content digest covers the document, slots, media and
-fonts. The drawing version covers the library's lowering, frame document and
-Chromium settings; the browser build remains a host fact. `COVER_DRAWING_VERSION`
+fonts. The drawing version covers the frame document, layout script, render
+image path and Chromium settings; the browser build remains a host fact.
+Document lowering in `format` and page markup in `html` sit outside the
+fingerprint apart from the sanitizer, so a change there that alters pictures
+raises both versions by hand. `COVER_DRAWING_VERSION`
 uses the same drawing-input boundary. `drawing-input-paths.ts` declares the
 drawing and non-drawing sides of that boundary. `drawing-inputs.json`
 fingerprints the drawing side, the pinned `playwright-core` version and the
