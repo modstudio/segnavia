@@ -7,7 +7,7 @@ export async function verifyPaperMarks(page: Page, pageInput: DocumentInput): Pr
     ({ input }) => {
       const paper = document.createElement('segnavia-paper') as HTMLElement & { load: (pages: unknown[], imposition: unknown) => void }
       paper.id = 'marked-paper'
-      paper.style.inlineSize = '400px'
+      paper.style.cssText = 'position:fixed;inset:0 auto auto 0;inline-size:1000px;z-index:2147483647'
       document.body.append(paper)
       paper.load([input], {
         paper: { width: 100, height: 100, unit: 'mm' },
@@ -21,8 +21,9 @@ export async function verifyPaperMarks(page: Page, pageInput: DocumentInput): Pr
     },
     { input: pageInput },
   )
-  await page.waitForSelector(`#${marked} svg.segnavia-paper__marks line`)
-  const sample = await page.locator(`#${marked}`).evaluate((paper) => {
+  await page.waitForFunction((id) => document.querySelectorAll(`#${id} svg.segnavia-paper__marks line`).length > 0, marked)
+  const markedPaper = page.locator(`#${marked}`)
+  const sample = await markedPaper.evaluate((paper) => {
     const svg = paper.querySelector('svg.segnavia-paper__marks') as SVGSVGElement
     const line = svg.querySelector('line') as SVGLineElement
     const rect = svg.getBoundingClientRect()
@@ -31,5 +32,7 @@ export async function verifyPaperMarks(page: Page, pageInput: DocumentInput): Pr
     const y = (Number(line.getAttribute('y1')) + Number(line.getAttribute('y2'))) / 2
     return { x: rect.x + (x / viewBox.width) * rect.width, y: rect.y + (y / viewBox.height) * rect.height }
   })
-  return screenshotPixel(await page.screenshot({ clip: { x: sample.x, y: sample.y, width: 1, height: 1 } }))
+  const pixel = screenshotPixel(await page.screenshot({ clip: { x: sample.x, y: sample.y, width: 1, height: 1 } }))
+  await markedPaper.evaluate((paper) => paper.remove())
+  return pixel
 }

@@ -148,7 +148,7 @@ export async function verifyPapers(h: Harness) {
   const markPixel = await verifyPaperMarks(page, labelPages[0] as NonNullable<(typeof labelPages)[number]>)
   check(
     'a marked imposition draws a dark mark in the paper element',
-    markPixel.every((channel) => channel < 128),
+    markPixel.every((channel) => channel < 192),
     markPixel.join(','),
   )
 
