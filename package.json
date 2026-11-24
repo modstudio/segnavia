@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit -p .",
     "demo": "bun --conditions=@segnavia/source scripts/build-demo.ts && bun --conditions=@segnavia/source scripts/verify-demo.ts && bun --conditions=@segnavia/source scripts/verify-render.ts && node --conditions=@segnavia/source --experimental-strip-types --no-warnings scripts/verify-render.ts && php fixtures/php-host/validate.php out",
     "golden:update": "bun --conditions=@segnavia/source scripts/verify/golden/record.ts",
+    "drawing:record": "bun --conditions=@segnavia/source scripts/record-drawing-inputs.ts",
     "fidelity": "bun --conditions=@segnavia/source scripts/fidelity/run.ts",
     "fidelity:compare": "bun --conditions=@segnavia/source scripts/fidelity/compare.ts",
     "changeset": "changeset",

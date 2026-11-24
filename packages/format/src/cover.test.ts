@@ -9,6 +9,7 @@ import {
   coverDigest,
   coverDigestMaterial,
   digestCoverMaterial,
+  IMAGE_DRAWING_VERSION,
   jsonSchemas,
   MM_PER_PT,
   type Motif,
@@ -53,6 +54,12 @@ const motif = (key: string, revision = '1'): Motif => ({
 })
 
 describe('Cover', () => {
+  test('publishes drawing versions for cover, page and slide pictures', async () => {
+    const drawingInputRecord = (await Bun.file(new URL('../../../drawing-inputs.json', import.meta.url)).json()) as { image: number; cover: number }
+    expect(COVER_DRAWING_VERSION).toBe(drawingInputRecord.cover)
+    expect(IMAGE_DRAWING_VERSION).toBe(drawingInputRecord.image)
+  })
+
   test('refuses a named page brand with the cover-specific remedy', () => {
     expect(() => Cover.parse({ page: pageDocument({ brand: 'house' }) })).toThrow(/cover page brand.*house.*remove the brand from the cover page/)
   })

@@ -1404,6 +1404,24 @@ behavior, while a plain page has only page 1. `pageImage`, `slideImage` and
 The browser canvas and the library's unpainted paper become transparent, while
 authored backgrounds, motifs, watermarks and proof conversion remain content.
 JPEG refuses this option because it has no alpha channel.
+
+A host gives a kept page or slide picture an immutable key made from its
+content digest, `IMAGE_DRAWING_VERSION`, and the browser build it chose through
+`executablePath`. The content digest covers the document, slots, media and
+fonts. The drawing version covers the frame document, layout script, render
+image path and Chromium settings; the browser build remains a host fact.
+Document lowering in `format` and page markup in `html` sit outside the
+fingerprint apart from the sanitizer, so a change there that alters pictures
+raises both versions by hand. `COVER_DRAWING_VERSION`
+uses the same drawing-input boundary. `drawing-input-paths.ts` declares the
+drawing and non-drawing sides of that boundary. `drawing-inputs.json`
+fingerprints the drawing side, the pinned `playwright-core` version and the
+offline Chromium arguments. The boundary test walks the transitive frame, render and layout
+graph from the page, slide and cover image roots; HTML and format remain
+limited to the declared sanitizer boundary. When the drawing-input check fails, raise both versions and run
+`bun run drawing:record` after deciding that the changed source can alter the
+drawn result.
+
 Every ordinary page frame, including browser print and render output, resolves
 its root direction from the page's declared `dir`, then its `lang`, then the
 first strong letter in its visible HTML text, with left to right as the
