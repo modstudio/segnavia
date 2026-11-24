@@ -187,6 +187,19 @@ function paragraphsAroundInlineRuns(children: ChildNode[], attributes: Record<st
   return flattened
 }
 
+function normalizeListItemParagraph(element: Element, path: string, state: CleanerState): boolean {
+  if (element.name.toLowerCase() !== 'li' || element.children.length !== 1) return false
+  const paragraph = element.children[0]
+  if (!paragraph || !isTag(paragraph) || paragraph.name.toLowerCase() !== 'p') return false
+  const paragraphPath = `${path}/p[1]`
+  const admitted = new Set(Object.hasOwn(state.admittedElements, 'p') ? state.admittedElements.p : [])
+  cleanRefusedAttributes(paragraph, paragraphPath, 'p', state)
+  cleanProfileAttributes(paragraph, paragraphPath, admitted, state)
+  if (Object.keys(paragraph.attribs).length > 0) return false
+  element.children = cleanNodes(paragraph.children, paragraphPath, state, true)
+  return true
+}
+
 function cleanElement(element: Element, path: string, state: CleanerState, insidePhrasingContainer: boolean): ChildNode[] {
   const sourceName = element.name.toLowerCase()
   if (refusedElement(element, REFUSED_ELEMENTS, false)) {
@@ -215,7 +228,9 @@ function cleanElement(element: Element, path: string, state: CleanerState, insid
   if (elementDropped) state.drop({ kind: 'element', name: sourceName, path })
   const unwrapLink = cleanRefusedAttributes(element, path, sourceName, state)
   cleanProfileAttributes(element, path, admittedAttributes, state)
-  element.children = cleanNodes(element.children, path, state, childInsidePhrasingContainer)
+  if (!normalizeListItemParagraph(element, path, state)) {
+    element.children = cleanNodes(element.children, path, state, childInsidePhrasingContainer)
+  }
 
   if (!elementDropped && !unwrapLink) return [element]
   if (!admittedName || unwrapLink) return element.children

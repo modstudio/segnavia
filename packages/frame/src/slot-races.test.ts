@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { afterAll, expect, test } from 'bun:test'
 import { Deck, Page, type SlotsOptions } from '@segnavia/format'
 import { prepareSlots } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
@@ -18,7 +18,9 @@ Object.assign(globalThis, {
 const { SegnaviaStage } = await import('./stage.ts')
 const { SegnaviaDocument } = await import('./document.ts')
 const { SegnaviaPage } = await import('./page.ts')
-const { thumbnailHarness, slotDeck } = await import('./thumbnail-slot.test-helper.ts')
+const { installThumbnailSlotTestGlobals, thumbnailHarness, slotDeck } = await import('./thumbnail-slot.test-helper.ts')
+const restoreThumbnailSlotTestGlobals = installThumbnailSlotTestGlobals()
+afterAll(restoreThumbnailSlotTestGlobals)
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((done) => {

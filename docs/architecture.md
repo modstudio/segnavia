@@ -10,7 +10,8 @@ format  ◄── html          (universal: browser and server)
   ├── layout              (universal: pure page planning, embeddable as frame script; html and frame import it)
   ├── frame ◄── diagrams  (browser; diagrams is optional and its payload is server-safe)
   │     ▲  ▲
-  │     │  └── markdown-editor (browser; optional editor engines are required peers)
+  │     │  ├── markdown-editor (browser; optional editor engines are required peers)
+  │     │  └── html-editor     (browser; also imports html; Tiptap is a required peer)
   │     └───── react      (browser adapter; React is a peer dependency here only; its markdown-editor subpath needs markdown-editor)
   │     ▲
   │     ├── render        (server: host-supplied playwright-core and Chromium, pdf-lib, qpdf-wasm)
@@ -25,6 +26,7 @@ Every published package includes its `CHANGELOG.md` alongside its built distribu
 | Package entry | What it provides |
 |---|---|
 | `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and every DOM event name it dispatches; and `upgradeProperties`, which applies properties set before an element's definition loaded. Generated property accessors take an explicit change callback when their owner needs notification. Adapters map those event names to their own prop conventions, React owns its typed `on…` maps, and the Vue opt-ins derive their typed props and events from the same descriptors. The page, paper, document, book and stage elements report a failure as a non-bubbling `error` `ErrorEvent` whose `error` is an `Error`; the stage also reports changes to its applicable refusal through `refusalchange`. |
+| `@segnavia/frame/base-style` | `ensureStyle`, which installs a named stylesheet once per document or shadow root, for browser packages that need it without importing frame's elements. |
 | `@segnavia/frame/vue` | A types-only Vue 3.5+ opt-in that derives global component props and typed events for every frame descriptor: a custom event carries its typed detail, a native event such as `ErrorEvent` keeps its own class, and an event name whose type differs by element takes that element's own entry. Its JavaScript is empty and no runtime entry imports it. |
 | `@segnavia/frame/vue-types` | Types-only helpers shared by both Vue opt-ins. It makes no Vue augmentation, and the packed-package check asserts that its JavaScript is empty. |
 | `@segnavia/markdown-editor/vue` | The editor's types-only Vue 3.5+ global component opt-in, derived from its property and event descriptor. Its JavaScript is empty and no runtime entry imports it. |
@@ -114,6 +116,8 @@ same-origin audio). The frame's own policy still limits execution to its bridge.
 `architecture.ts` declares each package's runtime and imports, and
 `bun run check` enforces it. Its `bundles` list records build-only imports that
 are inlined into published output and therefore belong only in devDependencies.
+Its `testImports` list records devDependencies that only `*.test.ts` and
+`*.test-helper.ts` modules may import.
 The gate also runs `checkVueDependencies`: no
 package manifest may name Vue in a dependency field, because consumers supply
 it for the types-only opt-ins. `format`, `html` and `idml` run anywhere. `idml`
@@ -787,11 +791,63 @@ earlier selected entity. `concise` omits boxes, and `provisional` and
 `estimated` name the boxes on the page that are still guesses.
 A board's unbounded surface is its canvas, while a slide's canvas is bounded.
 
-The ten packages are built as ESM JavaScript and declarations with tsdown;
-their tsdown platform comes from each package's runtime in `architecture.ts`.
+Every package is built as ESM JavaScript and declarations with tsdown;
+its tsdown platform comes from the package's runtime in `architecture.ts`.
 Installed hosts resolve package exports to `dist`. Repository commands pass
 the `@segnavia/source` export condition, also configured for TypeScript, so
 Bun and Node resolve workspace imports directly to `src` while developing.
+
+### HTML profiles and the HTML editor
+
+An `HtmlProfile` (`@segnavia/html`) names what a stored HTML fragment may
+contain: its blocks (`p`, heading levels in `h`, `ul`, `ol` with an optional
+`start`, `hr`), its marks (`bold`, `italic`, `underline`, `link`), the link
+schemes in `links.schemes`, the logical alignments in `align`, and whether
+`direction` is kept. `HTML_PROFILE_MAPPING` is the one table from each profile
+entry to the tags and attributes that express it. A host stores the profile
+and passes the same value to the server and to the editor.
+
+`cleanHtml(html, profile)` reduces any HTML to what the profile admits and is
+universal, so a host cleans stored or pasted HTML on the server. The
+sanitizer's refusals run first. An unadmitted inline element is unwrapped and
+keeps its text. An unadmitted block becomes a paragraph when the profile
+admits `p`, and a block inside a phrasing element is unwrapped. Non-document
+text (style, title, template, noscript, head and comments) is removed with its
+element. A link whose scheme is not admitted is unwrapped, and only admitted
+alignment and direction attributes survive. A list item whose only child is a
+paragraph with no admitted attribute is written as that paragraph's inline
+content; this is normalization, so nothing is reported. Every removal is a
+`DroppedContent` entry (element, attribute, scheme or style) with a 1-based
+sibling path, capped at the first 256. Cleaning the output again changes
+nothing.
+
+`@segnavia/html-editor` is the browser-only package that defines
+`<segnavia-html-editor>`, a headless visual editor bound to a profile. Like
+the markdown editor it is an optional package entry that no frame bundle
+imports; it uses frame's `@segnavia/frame/element-properties` and
+`@segnavia/frame/base-style` entries, and `@tiptap/core` and
+`@tiptap/starter-kit` are required peers. The element has an open shadow
+root, installs its zero-specificity geometry once per document or shadow
+root, and `unstyled` removes it.
+
+The profile is the editor's schema: only the Tiptap nodes and marks the
+profile admits are loaded, attribute parsing keeps only admitted alignments
+and directions, and links are limited to the profile's schemes, so the
+editor's state never holds content the profile refuses. Its properties are
+`html`, `profile`, `labels`, the read-only `commands` record and `dropped`.
+Setting `html` opens it through `cleanHtml`, stores the report in `dropped`
+and fires `segnavia-html-dropped` when content was lost. Reading `html`
+returns `cleanHtml` of the editor's serialization, so opening HTML and reading
+it back equals `cleanHtml` of the input. The `html` attribute is reflected,
+including after edits. Each real edit fires `segnavia-html-change` with the
+new HTML; a change in command state fires `segnavia-editor-state` with the
+`commands` record. `run(command, args)` runs `bold`, `italic`, `underline`,
+`link`, `heading`, `bullet-list`, `ordered-list`, `align`, `direction`,
+`undo` or `redo`. A command or value outside the profile throws a refusal
+naming the profile field that admits it, and its `commands` entry is
+disabled. Alignment is written as logical `text-align`; direction `auto` is
+the default and writes no `dir`. `labels` override the English accessible
+name per key.
 
 ### As-of: the day a document's data is for
 

@@ -147,6 +147,14 @@ describe('cleanHtml', () => {
     })
   })
 
+  test('normalizes Tiptap single-paragraph list items without reporting a drop', () => {
+    const listProfile = { blocks: { ul: true }, marks: ['bold'] } satisfies HtmlProfile
+    expect(cleanHtml('<ul><li><p>one <strong>two</strong></p></li></ul>', listProfile)).toEqual({
+      html: '<ul><li>one <strong>two</strong></li></ul>',
+      dropped: [],
+    })
+  })
+
   test('keeps empty admitted elements in converted inline runs', () => {
     expect(cleanHtml('<div><strong></strong></div>', profile)).toEqual({
       html: '<p><strong></strong></p>',

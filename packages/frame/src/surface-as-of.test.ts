@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { afterAll, expect, test } from 'bun:test'
 import { Deck, Page } from '@segnavia/format'
 import type { DeckState } from './controller-types.ts'
 
@@ -17,7 +17,9 @@ const { DeckController } = await import('./controller.ts')
 const { EMPTY_SLOTS } = await import('./slot-render.ts')
 const { SegnaviaStage } = await import('./stage.ts')
 const { SegnaviaPlayer } = await import('./player.ts')
-const { thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
+const { installThumbnailSlotTestGlobals, thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
+const restoreThumbnailSlotTestGlobals = installThumbnailSlotTestGlobals()
+afterAll(restoreThumbnailSlotTestGlobals)
 
 function asOfSetter(element: object, property: 'anchors' | 'asOf' | 'moment', value: unknown): void {
   for (let prototype = Object.getPrototypeOf(element); prototype; prototype = Object.getPrototypeOf(prototype)) {

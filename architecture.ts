@@ -44,6 +44,8 @@ export interface PackageRule {
   imports: string[]
   // Packages the build imports only to inline them into published output.
   bundles?: string[]
+  // Packages imported only by tests and test helpers.
+  testImports?: string[]
   // Entry points that must stay importable on a server although the package
   // as a whole is for the browser, with the files each may reach.
   serverSafe?: string[]
@@ -115,6 +117,11 @@ export const PACKAGES: Record<string, PackageRule> = {
       'codemirror-lang-mermaid',
       'marked',
     ],
+  },
+  'html-editor': {
+    runtime: 'browser',
+    imports: ['@segnavia/frame', '@segnavia/html', '@tiptap/core', '@tiptap/starter-kit'],
+    testImports: ['happy-dom'],
   },
   frame: {
     runtime: 'browser',
