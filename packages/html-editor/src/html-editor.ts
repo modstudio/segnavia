@@ -1,7 +1,9 @@
+import type { ElementPropertyTable } from '@segnavia/frame/element-properties'
 import { upgradeProperties } from '@segnavia/frame/element-properties'
 import { cleanHtml, type DroppedContent, HtmlProfile, type HtmlProfile as HtmlProfileValue } from '@segnavia/html'
 import { Editor } from '@tiptap/core'
 import { ensureEditorStyle } from './editor-style.ts'
+import { atomizeHtmlEditor } from './html-editor-atom.ts'
 import { commandRefusal, htmlEditorCommands, runHtmlEditorCommand } from './html-editor-commands.ts'
 import { htmlEditorExtensions } from './html-editor-extensions.ts'
 import { attachHtmlEditor, detachHtmlEditor, htmlEditorTestSeam } from './html-editor-internals.ts'
@@ -12,9 +14,9 @@ import { HtmlEditorStateEmitter } from './html-editor-state.ts'
 export const HTML_EDITOR_TAG = 'segnavia-html-editor'
 export const HTML_EDITOR_PROPERTIES = {
   tag: HTML_EDITOR_TAG,
-  properties: ['html', 'profile', 'labels', 'commands', 'dropped'] as const,
+  properties: ['html', 'profile', 'labels', 'drawAtom', 'commands', 'dropped'] as const,
   events: ['segnavia-html-change', 'segnavia-html-dropped', 'segnavia-editor-state'] as const,
-}
+} satisfies ElementPropertyTable
 
 const COMMAND_NAMES = new Set<string>(HTML_EDITOR_COMMANDS)
 const DEFAULT_PROFILE = HtmlProfile.parse({ blocks: { p: true }, marks: [] })
@@ -23,6 +25,7 @@ export interface SegnaviaHtmlEditor extends HTMLElement {
   html: string
   profile: HtmlProfileValue
   labels: HtmlEditorLabels
+  drawAtom: ((name: string) => Node | string) | undefined
   readonly commands: HtmlEditorCommands
   readonly dropped: DroppedContent[]
   run(command: HtmlEditorCommand, args?: Record<string, unknown>): boolean
@@ -36,6 +39,7 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
   private htmlValue = ''
   private profileValue = DEFAULT_PROFILE
   private words = ENGLISH_HTML_EDITOR_LABELS
+  private drawAtomValue: ((name: string) => Node | string) | undefined
   private droppedValue: DroppedContent[] = []
   private commandsValue = htmlEditorCommands(null, this.profileValue)
   private reflecting = false
@@ -95,6 +99,16 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
   set labels(value: Partial<HtmlEditorLabels>) {
     this.words = htmlEditorLabels(value ?? {})
     this.mount.setAttribute('aria-label', this.words.editor)
+    if (this.profileValue.atoms) this.resetEditor()
+  }
+
+  get drawAtom(): ((name: string) => Node | string) | undefined {
+    return this.drawAtomValue
+  }
+
+  set drawAtom(value: ((name: string) => Node | string) | undefined) {
+    this.drawAtomValue = value
+    if (this.profileValue.atoms) this.resetEditor()
   }
 
   get commands(): HtmlEditorCommands {
@@ -128,7 +142,10 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
     this.htmlValue = cleaned.html
     this.droppedValue = cleaned.dropped
     this.reflectHtml(cleaned.html)
-    if (this.editor && this.editor.getHTML() !== cleaned.html) htmlEditorTestSeam.setContent(this.editor, cleaned.html)
+    if (this.editor && this.html !== cleaned.html) {
+      htmlEditorTestSeam.setContent(this.editor, cleaned.html)
+      atomizeHtmlEditor(this.editor)
+    }
     if (cleaned.dropped.length > 0) this.emit('segnavia-html-dropped', { dropped: this.droppedValue })
     this.updateCommands()
   }
@@ -139,18 +156,23 @@ class HtmlEditorElement extends HTMLElement implements SegnaviaHtmlEditor {
     this.mount.replaceChildren()
     this.editor = new Editor({
       element: this.mount,
-      extensions: htmlEditorExtensions(this.profileValue),
+      extensions: htmlEditorExtensions(this.profileValue, {
+        draw: (name) => this.drawAtomValue?.(name),
+        label: (name) => this.words.atom(name),
+      }),
       content: this.htmlValue,
       onUpdate: () => this.onUpdate(),
       onSelectionUpdate: () => this.updateCommands(),
       onTransaction: () => this.updateCommands(),
     })
+    atomizeHtmlEditor(this.editor)
     attachHtmlEditor(this, this.editor)
     this.updateCommands()
   }
 
   private onUpdate(): void {
     if (!this.editor) return
+    if (atomizeHtmlEditor(this.editor)) return
     const cleaned = cleanHtml(this.editor.getHTML(), this.profileValue)
     if (cleaned.html === this.htmlValue) return
     this.htmlValue = cleaned.html

@@ -1,8 +1,11 @@
 import { HTML_PROFILE_DIRECTIONS, HTML_PROFILE_MAPPING, type HtmlProfile, type HtmlProfileBlock, type HtmlProfileMark } from '@segnavia/html'
 import { type AnyExtension, type Attribute, Extension, getExtensionField } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
+import { HTML_ATOM_NAME, type HtmlAtomOptions, htmlAtom } from './html-editor-atom.ts'
 
 const STRUCTURAL_EXTENSIONS = new Set(['doc', 'text', 'undoRedo'])
+
+const TIPTAP_NAME_BY_PROFILE = { atoms: HTML_ATOM_NAME } as const
 
 const TIPTAP_NAME_BY_TAG = {
   p: 'paragraph',
@@ -45,6 +48,7 @@ function profileEditorNames(profile: HtmlProfile): { admitted: Set<string>; bloc
   for (const mark of profile.marks as HtmlProfileMark[]) {
     for (const name of tiptapNames(HTML_PROFILE_MAPPING.marks[mark].tags)) admitted.add(name)
   }
+  if (profile.atoms) admitted.add(TIPTAP_NAME_BY_PROFILE.atoms)
   return { admitted, blocks: [...blocks] }
 }
 
@@ -81,7 +85,7 @@ function profileAttributes(profile: HtmlProfile): AnyExtension | undefined {
   })
 }
 
-export function htmlEditorExtensions(profile: HtmlProfile): AnyExtension[] {
+export function htmlEditorExtensions(profile: HtmlProfile, atomOptions?: HtmlAtomOptions): AnyExtension[] {
   const schemes = profile.links?.schemes ?? []
   const starter = StarterKit.configure({
     trailingNode: false,
@@ -104,6 +108,7 @@ export function htmlEditorExtensions(profile: HtmlProfile): AnyExtension[] {
   })?.() as AnyExtension[] | undefined
   const admitted = profileEditorNames(profile).admitted
   const extensions = (children ?? []).filter((extension) => admitted.has(extension.name))
+  if (profile.atoms && atomOptions) extensions.push(htmlAtom(atomOptions))
   const heading = extensions.findIndex((extension) => extension.name === 'heading')
   const headingExtension = extensions[heading]
   if (headingExtension) extensions[heading] = headingExtension.configure({ levels: profile.blocks.h })

@@ -10,6 +10,7 @@ export interface DroppedContent {
 }
 
 const DROPPED_CONTENT_LIMIT = 256
+const DOUBLE_BRACE_TOKEN = /\{\{ *([\p{L}_][\p{L}\p{N}_.-]*) *\}\}/gu
 
 // These are HTML's block-level and document-structure elements. This is not
 // BLOCK_KINDS, which names editable document subjects rather than HTML flow.
@@ -103,6 +104,11 @@ interface CleanerState {
   links: ResolvedLinkPolicy | undefined
   alignments: ReadonlySet<string>
   drop: (content: DroppedContent) => void
+  atoms: boolean
+}
+
+function cleanAtomTokens(value: string): string {
+  return value.replace(DOUBLE_BRACE_TOKEN, (_token, name: string) => `{{${name}}}`)
 }
 
 function cleanStyle(
@@ -247,6 +253,11 @@ function cleanNodes(nodes: ChildNode[], parentPath: string, state: CleanerState,
       state.drop({ kind: 'element', name: '#comment', path: parentPath })
       continue
     }
+    if (isText(node)) {
+      if (state.atoms) node.data = cleanAtomTokens(node.data)
+      cleaned.push(node)
+      continue
+    }
     if (!isTag(node)) {
       cleaned.push(node)
       continue
@@ -269,6 +280,6 @@ export function cleanHtml(html: string, profile: HtmlProfile): { html: string; d
   const drop = (content: DroppedContent) => {
     if (dropped.length < DROPPED_CONTENT_LIMIT) dropped.push(content)
   }
-  document.children = cleanNodes(document.children, '', { admittedElements, links, alignments, drop })
+  document.children = cleanNodes(document.children, '', { admittedElements, links, alignments, atoms: profile.atoms?.pattern === 'double-brace', drop })
   return { html: serialize(document), dropped }
 }

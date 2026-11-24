@@ -72,6 +72,73 @@ describe('segnavia-html-editor', () => {
     expect(cleanHtml(element.html, profile).html).toBe(element.html)
   })
 
+  test('turns valid double-brace tokens into whole atoms and serializes canonical token text', () => {
+    const atomProfile = { ...profile, atoms: { pattern: 'double-brace' as const } }
+    const { editor, element } = mount(atomProfile, '<p>{{first_name}} {{ first_name }} {{1abc}} {{a b}} {first}</p>')
+
+    expect(element.html).toBe('<p>{{first_name}} {{first_name}} {{1abc}} {{a b}} {first}</p>')
+    expect(editor.state.doc.child(0).child(0).type.name).toBe('atom')
+    expect(editor.state.doc.child(0).child(0).isLeaf).toBe(true)
+    expect(editor.state.doc.textBetween(0, editor.state.doc.content.size, '', '')).toBe('  {{1abc}} {{a b}} {first}')
+
+    const withoutAtoms = mount({ ...profile, atoms: undefined }, '<p>{{first_name}}</p>')
+    expect(withoutAtoms.editor.state.doc.child(0).child(0).isText).toBe(true)
+    withoutAtoms.element.remove()
+  })
+
+  test('applies a mark to an atom as a whole node', () => {
+    const atomProfile = { ...profile, atoms: { pattern: 'double-brace' as const } }
+    const { editor, element } = mount(atomProfile, '<p>before {{first_name}} after</p>')
+    editor.commands.setTextSelection({ from: 8, to: 9 })
+
+    expect(element.run('bold')).toBe(true)
+    expect(element.html).toBe('<p>before <strong>{{first_name}}</strong> after</p>')
+    const atom = editor.state.doc.child(0).child(1)
+    expect(atom.type.name).toBe('atom')
+    expect(atom.marks.map(({ type }) => type.name)).toEqual(['bold'])
+  })
+
+  test('turns a token inserted during editing into an atom', () => {
+    const atomProfile = { ...profile, atoms: { pattern: 'double-brace' as const } }
+    const { editor, element } = mount(atomProfile, '<p>x</p>')
+    editor.commands.setTextSelection(2)
+
+    expect(editor.commands.insertContent('{{new_field}}')).toBe(true)
+    expect(element.html).toBe('<p>x{{new_field}}</p>')
+    expect(editor.state.doc.child(0).child(1).type.name).toBe('atom')
+  })
+
+  test('draws an uneditable default atom with the host label', () => {
+    const atomProfile = { ...profile, atoms: { pattern: 'double-brace' as const } }
+    const element = new SegnaviaHtmlEditor()
+    element.profile = atomProfile
+    element.labels = { editor: 'Editor', atom: (name) => `Field ${name}` }
+    element.html = '<p>{{first_name}}</p>'
+    document.body.append(element)
+
+    const atom = element.shadowRoot?.querySelector<HTMLElement>('[data-html-atom]')
+    expect(atom?.getAttribute('part')).toBe('atom')
+    expect(atom?.textContent).toBe('first_name')
+    expect(atom?.contentEditable).toBe('false')
+    expect(atom?.getAttribute('aria-label')).toBe('Field \u2068first_name\u2069')
+  })
+
+  test('uses drawAtom nodes and treats drawAtom strings as literal text', () => {
+    const atomProfile = { ...profile, atoms: { pattern: 'double-brace' as const } }
+    const node = document.createElement('i')
+    node.dataset.hostAtom = ''
+    node.textContent = 'host drawing'
+    const { element } = mount(atomProfile, '<p>{{first_name}}</p>')
+
+    element.drawAtom = () => node
+    expect(element.shadowRoot?.querySelector('[data-host-atom]')?.textContent).toBe('host drawing')
+
+    element.drawAtom = (name) => `<b>${name}</b>`
+    const drawing = element.shadowRoot?.querySelector('.ProseMirror p > span')
+    expect(drawing?.textContent).toBe('<b>first_name</b>')
+    expect(drawing?.querySelector('b')).toBeNull()
+  })
+
   test('refuses underline outside the profile and disables its command', () => {
     const withoutUnderline = { ...profile, marks: profile.marks.filter((mark) => mark !== 'underline') }
     const { element } = mount(withoutUnderline, '<p>x</p>')
